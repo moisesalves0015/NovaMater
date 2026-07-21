@@ -1,0 +1,1503 @@
+/* src/pages/Packages/Packages.css */
+
+.packages-page-root {
+  min-height: 100vh;
+  background: var(--bg-main);
+}
+
+/* HERO */
+.pkg-hero-section {
+  padding: 160px 0 60px;
+  text-align: center;
+  background: radial-gradient(circle at 50% 0%, #fff6fa 0%, #faf8fb 100%);
+}
+
+.pkg-hero-content {
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.pkg-title-giant {
+  font-size: clamp(2.4rem, 4.5vw, 3.6rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.pkg-subtitle {
+  font-size: 1.1rem;
+  color: var(--txt-medium);
+  line-height: 1.65;
+}
+
+/* SELETOR DE MOEDA DE PAGAMENTO */
+.currency-toggle-box {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 24px;
+  background: #ffffff;
+  border-radius: var(--r-full);
+  box-shadow: var(--shadow-sm);
+  margin-top: 16px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--txt-medium);
+}
+
+.toggle-btn-group {
+  display: flex;
+  gap: 6px;
+  background: var(--bg-main);
+  padding: 4px;
+  border-radius: var(--r-full);
+}
+
+.toggle-btn {
+  padding: 8px 18px;
+  border-radius: var(--r-full);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--txt-muted);
+  background: none;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.toggle-btn.active {
+  background: #ffffff;
+  color: var(--accent-pink);
+  box-shadow: var(--shadow-sm);
+}
+
+/* CARDS DOS PACOTES */
+.packages-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+  margin: 40px 0 80px;
+  align-items: stretch;
+}
+
+.package-card-item {
+  padding: 36px 28px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.package-card-item.is-popular {
+  border: 2px solid var(--accent-pink);
+  box-shadow: var(--shadow-lg);
+}
+
+.popular-ribbon {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 20px;
+  border-radius: var(--r-full);
+  background: var(--grad-primary);
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  box-shadow: 0 4px 15px rgba(217, 75, 136, 0.4);
+}
+
+.pkg-header {
+  text-align: center;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border-light);
+  margin-bottom: 24px;
+}
+
+.pkg-icon-badge {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  margin: 0 auto 16px;
+}
+
+.pkg-name {
+  font-size: 1.4rem;
+  margin-bottom: 4px;
+}
+
+.pkg-sub {
+  font-size: 0.85rem;
+  color: var(--txt-muted);
+  margin-bottom: 16px;
+}
+
+.pkg-price-tag {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.price-amount {
+  font-family: var(--font-heading);
+  font-size: 2.5rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.price-term {
+  font-size: 0.75rem;
+  color: var(--txt-muted);
+  margin-top: 4px;
+}
+
+.pkg-features-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  margin-bottom: 28px;
+}
+
+.list-heading {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--txt-muted);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.feature-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.feature-line.included {
+  color: var(--txt-dark);
+
+}
+
+.feature-line.included .f-icon {
+  color: #27c93f;
+  font-weight: 900;
+}
+
+.feature-line.not-included {
+  color: var(--txt-muted);
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+.feature-line.not-included .f-icon {
+  color: var(--txt-muted);
+}
+
+.pkg-footer-cta {
+  margin-top: auto;
+}
+
+/* SHOWCASE INTERATIVO DOS DOCUMENTOS */
+.documents-showcase-section {
+  padding: 80px 0;
+}
+
+.doc-tabs-wrapper {
+  padding: 36px;
+  background: #ffffff;
+  margin-top: 40px;
+}
+
+.doc-tabs-list {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border-light);
+  padding-bottom: 16px;
+}
+
+.doc-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 24px;
+  border-radius: var(--r-full);
+  background: var(--bg-main);
+  border: 1.5px solid var(--border-light);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--txt-medium);
+  transition: all 0.2s ease;
+}
+
+.doc-tab-btn.active {
+  background: #ffffff;
+  border-color: var(--accent-pink);
+  color: var(--accent-pink);
+  box-shadow: var(--shadow-sm);
+}
+
+.doc-preview-card {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 40px;
+  align-items: center;
+}
+
+.dpc-info h3 {
+  font-size: 1.8rem;
+  margin: 14px 0 10px;
+}
+
+.dpc-info p {
+  color: var(--txt-medium);
+  font-size: 1.05rem;
+  line-height: 1.65;
+  margin-bottom: 24px;
+}
+
+.dpc-features {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-weight: 700;
+  color: var(--txt-dark);
+  font-size: 0.9rem;
+}
+
+.dpc-mockup-paper {
+  background: transparent;
+  padding: 0;
+  border: none;
+  box-shadow: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+/* ──── CERTIDÃO LUXO (PROFESSIONAL DESIGN) ──── */
+.preview-certidao {
+  background: #fffdf6;
+  border: 10px double #c5a059;
+  padding: 20px;
+  border-radius: 6px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08), inset 0 0 50px rgba(197, 160, 89, 0.05);
+  font-family: 'Playfair Display', 'Times New Roman', serif;
+  width: 100%;
+  max-width: 380px;
+  position: relative;
+  overflow: hidden;
+}
+
+.preview-certidao::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(circle, rgba(197, 160, 89, 0.02) 20%, transparent 80%);
+  pointer-events: none;
+}
+
+.cert-border {
+  border: 1px solid rgba(197, 160, 89, 0.35);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.cert-header {
+  text-align: center;
+  border-bottom: 2px solid #c5a059;
+  padding-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.cert-national-emblem {
+  opacity: 0.85;
+}
+
+.cert-header h5 {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #6d5329;
+  letter-spacing: 0.1em;
+  margin: 0;
+}
+
+.cert-header h6 {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #927545;
+  margin: 2px 0 0 0;
+  letter-spacing: 0.05em;
+}
+
+.cert-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cert-field-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+  border-bottom: 1px solid rgba(197, 160, 89, 0.15);
+  padding-bottom: 5px;
+}
+
+.cert-field-row.full-width {
+  width: 100%;
+}
+
+.field-title {
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: #927545;
+  letter-spacing: 0.05em;
+}
+
+.field-value {
+  font-size: 0.82rem;
+  color: #2c2519;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.cert-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.cert-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 8px;
+  margin-top: 6px;
+}
+
+.cert-sign-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.handwritten-signature {
+  font-family: 'Alex Brush', 'Dancing Script', cursive, serif;
+  font-size: 1.15rem;
+  color: #204060;
+  font-style: italic;
+  opacity: 0.85;
+}
+
+.signature-line {
+  width: 110px;
+  height: 1px;
+  background: #c5a059;
+  margin: 2px 0;
+}
+
+.sign-label {
+  font-size: 0.52rem;
+  color: #927545;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.cert-seal-block {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.gold-wax-seal {
+  width: 42px;
+  height: 42px;
+  background: radial-gradient(circle, #e6c27a 0%, #b88d3c 100%);
+  border-radius: 50%;
+  box-shadow: 0 3px 8px rgba(184, 141, 60, 0.4), inset 0 0 6px rgba(255,255,255,0.3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-family: sans-serif;
+  border: 1px solid #9c7123;
+  animation: float-seal 3s ease-in-out infinite alternate;
+}
+
+.seal-star {
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.seal-text {
+  font-size: 0.38rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+}
+
+@keyframes float-seal {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-4px); }
+}
+
+/* ──── CARTEIRINHA DA CRIANÇA (PROFESSIONAL DESIGN) ──── */
+.preview-carteirinha {
+  background: #ffffff;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 350px;
+  overflow: hidden;
+  box-shadow: 0 15px 35px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.02);
+  border: 1px solid #e2e8f0;
+  font-family: 'Inter', -apple-system, sans-serif;
+  position: relative;
+}
+
+.card-top-header {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  padding: 12px 16px;
+  color: #ffffff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-hospital-brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #f1f5f9;
+}
+
+.brand-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--accent-pink);
+  border-radius: 50%;
+}
+
+.card-system-id {
+  font-size: 0.62rem;
+  color: #94a3b8;
+  font-family: monospace;
+}
+
+.preview-carteirinha .card-main-content {
+  padding: 16px;
+  display: grid;
+  grid-template-columns: 85px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.card-avatar-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.avatar-frame {
+  width: 76px;
+  height: 90px;
+  background: #f8fafc;
+  border: 1.5px dashed #cbd5e1;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  transition: all 0.2s ease;
+}
+
+.avatar-badge {
+  font-size: 0.52rem;
+  font-weight: 800;
+  color: #ffffff;
+  background: var(--accent-pink);
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.03em;
+}
+
+.card-info-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+
+.card-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.card-info-row-2 {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 10px;
+}
+
+.card-label {
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.card-val {
+  font-size: 0.8rem;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.card-bottom-footer {
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  padding: 10px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-barcode-pattern {
+  display: flex;
+  gap: 1.5px;
+  height: 18px;
+}
+
+.card-barcode-pattern span {
+  width: 2px;
+  height: 100%;
+  background: #334155;
+  display: inline-block;
+}
+
+.card-barcode-pattern span:nth-child(even) {
+  width: 1px;
+}
+
+.card-barcode-pattern span:nth-child(3n) {
+  width: 3px;
+}
+
+.sec-label {
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: 0.05em;
+}
+
+/* ──── LIVRO DO BEBÊ (PROFESSIONAL DESIGN) ──── */
+.preview-livro {
+  background: #fdfcf7;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 440px;
+  height: 230px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.07);
+  display: flex;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #e2ddda;
+}
+
+.album-spine-overlay {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 14px;
+  transform: translateX(-50%);
+  background: linear-gradient(to right, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.02) 25%, rgba(255,255,255,0.3) 50%, rgba(0,0,0,0.02) 75%, rgba(0,0,0,0.08) 100%);
+  z-index: 10;
+  box-shadow: inset 0 0 2px rgba(0,0,0,0.05);
+}
+
+.album-pages-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+  height: 100%;
+}
+
+.album-page-left, .album-page-right {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+}
+
+.album-page-left {
+  border-right: 1px solid rgba(0,0,0,0.04);
+  text-align: left;
+}
+
+.album-chapter {
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: #b45309;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.album-page-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #1e1b4b;
+  margin: 4px 0 8px 0;
+  font-family: 'Playfair Display', serif;
+}
+
+.album-text {
+  font-size: 0.72rem;
+  color: #4b5563;
+  line-height: 1.5;
+  margin: 0;
+  font-style: italic;
+  font-family: Georgia, serif;
+}
+
+.album-footprints-svg {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.album-photo-holder {
+  background: #ffffff;
+  padding: 6px;
+  border-radius: 4px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.05);
+  border: 1px solid #e5e7eb;
+  transform: rotate(2deg);
+  width: 100%;
+  max-width: 140px;
+  margin: 0 auto;
+  aspect-ratio: 1.15;
+}
+
+.album-photo-glass {
+  background: #f8fafc;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-radius: 2px;
+}
+
+.photo-desc {
+  font-size: 0.5rem;
+  color: #64748b;
+  font-weight: 700;
+  text-align: center;
+}
+
+.photo-caption {
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-align: center;
+  margin-top: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ──── QUADRO DECORATIVO (PROFESSIONAL DESIGN) ──── */
+.preview-quadro {
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  justify-content: center;
+}
+
+.frame-border-lux {
+  background: #0f172a; /* Slate black metallic frame */
+  padding: 12px;
+  border-radius: 12px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  border: 1.5px solid #334155;
+  width: 100%;
+}
+
+.frame-inner-matting {
+  background: #ffffff; /* White mat board */
+  padding: 16px;
+  border-radius: 4px;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+  display: flex;
+}
+
+.quadro-main-artwork {
+  background: linear-gradient(135deg, #020617 0%, #1e1b4b 50%, #311042 100%);
+  border-radius: 4px;
+  width: 100%;
+  padding: 24px 16px;
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.6);
+}
+
+.art-background-stars {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image: radial-gradient(circle, #ffffff 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+.art-heading {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: #e2e8f0;
+  letter-spacing: 0.25em;
+  z-index: 1;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+
+.art-avatar-layout {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1;
+  margin: 10px 0;
+}
+
+.art-silhouette-holder {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+  animation: pulse-avatar 2s infinite alternate;
+}
+
+@keyframes pulse-avatar {
+  to { transform: scale(1.05); box-shadow: 0 8px 32px 0 rgba(217, 75, 136, 0.2); }
+}
+
+.art-metadata-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 1;
+}
+
+.art-baby-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #ffffff;
+  font-family: 'Playfair Display', serif;
+}
+
+.art-date-details {
+  font-size: 0.52rem;
+  color: #94a3b8;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 992px) {
+  .packages-cards-grid { grid-template-columns: 1fr; }
+  .doc-preview-card { grid-template-columns: 1fr; }
+  .currency-toggle-box { flex-direction: column; }
+}
+
+/* ========================================================= */
+/*       V2 SHOWCASE (HIPER-REALISMO CLÁSSICO / LUXO)        */
+/* ========================================================= */
+.showcase-v2 {
+  margin-top: -2rem; 
+}
+
+/* ──── V2 MOCKUP PAPER CONTAINER ──── */
+.v2-mockup-paper {
+  background: transparent !important;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none !important;
+}
+
+/* ──── V2 CERTIDÃO (REALISTIC PAPER) ──── */
+.preview-certidao-v2 {
+  position: relative;
+  width: 100%;
+  max-width: 520px; /* Increased width to prevent line breaks */
+  z-index: 1;
+  /* Papel com textura */
+  background: #fffcf5;
+  border: 1px solid #e0d8c8;
+  box-shadow: 
+    0 20px 40px rgba(0,0,0,0.1),
+    0 1px 3px rgba(0,0,0,0.05),
+    inset 0 0 100px rgba(212,175,55,0.03);
+  padding: 1.5rem;
+  position: relative;
+}
+
+/* Borda ornamentada clássica dupla */
+.cert-v2-glow {
+  position: absolute;
+  inset: 12px;
+  border: 2px solid #d4af37;
+  border-radius: 2px;
+  pointer-events: none;
+}
+.cert-v2-glow::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(212,175,55,0.5);
+}
+
+.cert-v2-content {
+  position: relative;
+  z-index: 2;
+  padding: 1.5rem;
+  color: #334155;
+}
+
+.cert-v2-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(212,175,55,0.3);
+  padding-bottom: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.cert-v2-emblem svg {
+  width: 40px;
+  height: 40px;
+  color: #b8860b;
+}
+
+.cert-v2-titles {
+  text-align: center;
+  flex: 1;
+}
+
+.cert-v2-titles h5 {
+  font-family: 'Playfair Display', serif;
+  font-size: 0.75rem;
+  color: #475569;
+  letter-spacing: 0.15em;
+  margin-bottom: 0.3rem;
+  text-transform: uppercase;
+}
+
+.cert-v2-titles h6 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.15rem; /* Adjusted for smaller width to avoid break */
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #1e293b;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.cert-v2-qr svg {
+  width: 36px;
+  height: 36px;
+  color: #64748b;
+}
+
+.v2-data-block {
+  margin-bottom: 1.2rem;
+  position: relative;
+}
+.v2-data-block::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: repeating-linear-gradient(90deg, #cbd5e1, #cbd5e1 4px, transparent 4px, transparent 8px);
+}
+.v2-data-block label {
+  display: block;
+  font-size: 0.65rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.2rem;
+  font-weight: 600;
+}
+.v2-data-block span {
+  display: block;
+  font-family: 'Playfair Display', serif;
+  font-size: 1.05rem; /* Smaller to prevent break */
+  font-weight: 600;
+  color: #0f172a;
+}
+.v2-data-block.highlight span {
+  font-size: 1.15rem; /* Smaller to prevent break */
+  color: #000;
+  font-weight: 700;
+}
+
+.v2-data-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.2rem;
+}
+.v2-data-grid .v2-data-block {
+  margin-bottom: 0;
+}
+
+.cert-v2-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: 2rem;
+  padding-top: 1rem;
+}
+
+.v2-signature-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 180px;
+}
+.v2-handwritten {
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: 1.6rem;
+  color: #1e293b;
+  margin-bottom: 0;
+  line-height: 1;
+}
+.v2-signature-line {
+  width: 100%;
+  height: 1px;
+  background: #94a3b8;
+  margin: 0.5rem 0;
+}
+.v2-role {
+  font-size: 0.6rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Selo de Cera Hiper-realista */
+.v2-seal {
+  width: 60px;
+  height: 60px;
+  background: radial-gradient(circle at 30% 30%, #e11d48, #9f1239);
+  border-radius: 50%;
+  position: relative;
+  box-shadow: 
+    0 4px 6px rgba(0,0,0,0.3),
+    inset 0 -5px 10px rgba(0,0,0,0.4),
+    inset 0 5px 10px rgba(255,255,255,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #7e0f2d;
+}
+.v2-seal::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.2);
+}
+.v2-seal::after {
+  content: '★';
+  color: #fda4af;
+  font-size: 1.5rem;
+  text-shadow: 0 -1px 1px rgba(0,0,0,0.5);
+}
+
+/* ──── V2 CARTEIRINHA (REALISTIC PVC CARD) ──── */
+.preview-carteirinha-v2 {
+  position: relative;
+  width: 320px; /* Increased to avoid line breaks */
+  height: 200px; 
+  perspective: 1000px;
+  z-index: 1;
+}
+.card-v2-glow {
+  display: none; /* No neon */
+}
+.card-v2-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 
+    0 15px 25px rgba(0,0,0,0.1),
+    0 5px 10px rgba(0,0,0,0.05),
+    inset 0 1px 0 rgba(255,255,255,1);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Furinho para cordão */
+.card-v2-hole {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 10px;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.2), 0 1px 0 rgba(255,255,255,1);
+  z-index: 10;
+}
+
+/* Fita holográfica */
+.card-v2-holo {
+  position: absolute;
+  right: 10px;
+  top: 0;
+  bottom: 0;
+  width: 15px;
+  background: linear-gradient(180deg, #fbcfe8, #bfdbfe, #fef08a, #fbcfe8);
+  opacity: 0.6;
+  mix-blend-mode: multiply;
+}
+
+.card-v2-top {
+  padding: 1.5rem 1rem 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px solid #e2e8f0;
+}
+.card-v2-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.brand-v2-icon {
+  width: 14px;
+  height: 14px;
+  background: linear-gradient(45deg, #ec4899, #f43f5e);
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(236,72,153,0.3);
+}
+.card-v2-brand span {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #1e293b;
+  letter-spacing: 0.05em;
+}
+
+.card-v2-middle {
+  flex: 1;
+  display: flex;
+  flex-direction: row; /* Horizontal layout */
+  padding: 1rem;
+  gap: 1rem;
+}
+.card-v2-avatar {
+  width: 70px;
+  height: 80px;
+  background: #e2e8f0;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+}
+.card-v2-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.card-v2-field {
+  text-align: left;
+  margin: 0;
+}
+.card-v2-field label {
+  display: block;
+  font-size: 0.5rem;
+  color: #64748b;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+.card-v2-field span {
+  display: block;
+  font-size: 0.8rem; /* Smaller to prevent break */
+  font-weight: 700;
+  color: #0f172a;
+}
+.card-v2-grid {
+  display: flex;
+  gap: 1rem; /* reduced gap */
+  margin-top: 0;
+  background: transparent;
+  padding: 0;
+}
+.card-v2-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+}
+.card-v2-barcode {
+  width: 120px;
+  height: 20px;
+  background: repeating-linear-gradient(90deg, #1e293b, #1e293b 2px, transparent 2px, transparent 4px, #1e293b 4px, #1e293b 8px, transparent 8px, transparent 10px);
+}
+.card-v2-bottom span {
+  font-size: 0.6rem;
+  font-weight: 800;
+  color: #475569;
+}
+
+/* ──── V2 LIVRO DO BEBÊ (PREMIUM COVER) ──── */
+.preview-livro-v2 {
+  position: relative;
+  width: 100%;
+  max-width: 520px; 
+  display: flex;
+  background: #fffcf5;
+  border-radius: 4px 12px 12px 4px;
+  box-shadow: 
+    0 25px 50px rgba(0,0,0,0.15),
+    inset -4px 0 15px rgba(0,0,0,0.03),
+    1px 0 0 #e2e8f0,
+    2px 0 0 #f1f5f9;
+  overflow: hidden;
+  border: 1px solid rgba(212, 175, 55, 0.2);
+}
+
+.album-v2-spine {
+  width: 50px;
+  background: linear-gradient(90deg, #1e293b, #334155, #1e293b);
+  box-shadow: inset -5px 0 10px rgba(0,0,0,0.4);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-right: 2px solid rgba(212,175,55,0.3);
+}
+
+.spine-v2-details {
+  width: 100%;
+  height: 60%;
+  border-top: 2px solid #d4af37;
+  border-bottom: 2px solid #d4af37;
+  opacity: 0.8;
+}
+
+.album-v2-cover {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  padding: 2.5rem 2rem;
+  background: radial-gradient(circle at center, #fff, #fef9ea);
+  align-items: center;
+  gap: 2rem;
+}
+
+.album-v2-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.album-v2-chapter {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.65rem;
+  color: #b8860b;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+}
+
+.album-v2-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 2rem;
+  font-weight: 800;
+  color: #1e293b;
+  margin: 0 0 1rem 0;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.album-v2-text {
+  font-size: 0.85rem;
+  color: #64748b;
+  line-height: 1.8;
+  font-family: 'Georgia', serif;
+  font-style: italic;
+  margin: 0 0 1.5rem 0;
+}
+
+.album-v2-footprints {
+  opacity: 0.8;
+}
+
+.album-v2-right {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 160px;
+}
+
+.album-v2-photo-frame {
+  width: 100%;
+  aspect-ratio: 4/5;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  padding: 8px;
+  box-shadow: 
+    0 10px 20px rgba(0,0,0,0.08),
+    inset 0 0 10px rgba(0,0,0,0.02);
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}
+
+.photo-v2-glass {
+  width: 100%;
+  height: 100%;
+  background: #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed #cbd5e1;
+}
+
+.photo-v2-caption {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.55rem;
+  color: #94a3b8;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  text-align: center;
+  font-weight: 700;
+}
+
+/* ──── V2 QUADRO DECORATIVO (REALISTIC FRAME) ──── */
+.preview-quadro-v2 {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+}
+.quadro-v2-glow { display: none; }
+.quadro-v2-acrylic {
+  position: relative;
+  /* Moldura de madeira texturizada */
+  background: #3e2723;
+  padding: 15px;
+  border-radius: 2px;
+  box-shadow: 
+    0 25px 50px rgba(0,0,0,0.25), 
+    inset 0 0 10px rgba(0,0,0,0.8);
+  /* Efeito de quina da moldura */
+  background-image: linear-gradient(45deg, transparent 48%, rgba(255,255,255,0.1) 49%, rgba(255,255,255,0.1) 51%, transparent 52%);
+}
+/* Passe-partout (Paspatur de papelão grosso) */
+.quadro-v2-art {
+  background: #f8fafc;
+  padding: 30px;
+  box-shadow: inset 0 4px 10px rgba(0,0,0,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border: 1px solid #e2e8f0;
+}
+/* Vidro refletivo */
+.quadro-v2-art::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, transparent 40%, transparent 100%);
+  pointer-events: none;
+}
+
+.quadro-v2-center {
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  width: 100%;
+  aspect-ratio: 3/4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+.q-v2-tag {
+  font-size: 0.55rem;
+  letter-spacing: 0.2em;
+  color: #64748b;
+  text-transform: uppercase;
+}
+.q-v2-icons {
+  color: #cbd5e1;
+}
+.q-v2-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.4rem; /* Reduced to avoid breaking */
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+}
+.q-v2-date {
+  font-size: 0.65rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+/* ========================================================= */
+/*                   RESPONSIVIDADE (MOBILE)                 */
+/* ========================================================= */
+
+@media (max-width: 992px) {
+  .doc-preview-card {
+    flex-direction: column;
+    height: auto;
+  }
+  .dpc-info {
+    width: 100%;
+    padding: 2rem;
+    border-right: none;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+  }
+  .dpc-mockup-paper {
+    width: 100%;
+    min-height: 400px;
+    padding: 2rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .doc-tabs-wrapper {
+    flex-direction: column;
+    border-radius: 12px;
+  }
+  .doc-tabs-list {
+    flex-direction: row;
+    width: 100%;
+    overflow-x: auto;
+    border-right: none;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    padding: 0.5rem;
+    /* Hide scrollbar for a cleaner look */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .doc-tabs-list::-webkit-scrollbar {
+    display: none;
+  }
+  .doc-tab-btn {
+    flex: 0 0 auto;
+    padding: 0.8rem 1rem;
+    border-left: none;
+    border-bottom: 2px solid transparent;
+  }
+  .doc-tab-btn.active {
+    border-left: none;
+    border-bottom: 2px solid #8b5cf6;
+    background: linear-gradient(to top, rgba(139, 92, 246, 0.05), transparent);
+  }
+  
+  /* Ajustes V2 para mobile */
+  .v2-data-grid {
+    grid-template-columns: 1fr;
+    gap: 0.8rem;
+  }
+  .cert-v2-titles h6 {
+    font-size: 1rem;
+  }
+  .cert-v2-titles h5 {
+    font-size: 0.6rem;
+  }
+  .preview-certidao-v2 {
+    padding: 1rem;
+  }
+  .album-v2-cover {
+    flex-direction: column;
+    padding: 1.5rem;
+    text-align: center;
+  }
+  .album-v2-right {
+    width: 100%;
+    max-width: 200px;
+  }
+  .album-pages-container {
+    flex-direction: column;
+    padding: 1.5rem;
+  }
+  .album-page-right {
+    align-items: center;
+    border-left: none;
+    border-top: 1px dashed rgba(212,175,55,0.3);
+    padding-left: 0;
+    padding-top: 1.5rem;
+  }
+  .preview-carteirinha-v2 {
+    transform: scale(0.9);
+  }
+}

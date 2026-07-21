@@ -1,0 +1,279 @@
+/* src/pages/Doctor/DoctorPanel.css */
+
+.doctor-panel {
+  min-height: 100vh;
+  padding: 100px 0 60px;
+  background: var(--bg-deep);
+}
+
+.dp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.dp-stats-row {
+  display: flex;
+  gap: 12px;
+}
+
+.dp-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 20px;
+  border-radius: var(--radius-md);
+  min-width: 100px;
+  text-align: center;
+  background: #ffffff;
+}
+
+.dp-stat-val {
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.dp-stat-key {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.dp-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 24px;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  padding: 4px;
+  width: fit-content;
+}
+
+.dp-tab {
+  padding: 10px 24px;
+  border-radius: var(--radius-full);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dp-tab.active {
+  background: var(--gradient-primary);
+  color: white;
+  box-shadow: 0 4px 15px rgba(216, 112, 147, 0.3);
+}
+
+.dp-tab:not(.active):hover {
+  color: var(--text-primary);
+  background: var(--bg-card-hover);
+}
+
+.patient-card {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-card);
+}
+
+.pc-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  cursor: pointer;
+}
+
+.pc-avatar {
+  font-size: 2rem;
+  width: 50px;
+  height: 50px;
+  background: #fdf0f5;
+  border: 1px solid #f4c2d7;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pc-info { flex: 1; }
+
+.pc-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pc-name {
+  font-family: var(--font-serif);
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+.pc-avatar-name {
+  font-size: 0.8rem;
+  color: var(--primary);
+  background: #fdf0f5;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.pc-sub {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.pc-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pc-progress-mini {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pc-prog-pct {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.pc-details-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.pc-details-grid div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pc-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.new-pregnancy-container {
+  background: #ffffff;
+  padding: 32px;
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.new-pregnancy-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.npf-steps {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.npf-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0.5;
+}
+
+.npf-step.active { opacity: 1; }
+
+.npf-step-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #f3eaf0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.npf-step.active .npf-step-num {
+  background: var(--gradient-primary);
+  color: white;
+}
+
+.npf-step-line {
+  height: 1.5px;
+  flex: 1;
+  background: var(--border);
+}
+
+.access-credentials-box {
+  background: #fff8fb;
+  border: 1.5px solid var(--border-accent);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-top: 12px;
+}
+
+.ac-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--primary-dark);
+  margin-bottom: 12px;
+}
+
+.plan-selector {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.plan-btn {
+  padding: 16px 14px;
+  background: #ffffff;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+}
+
+.plan-btn.selected {
+  border-color: var(--primary);
+  background: #fdf0f5;
+}
+
+.plan-preview {
+  padding: 18px;
+  background: #fff8fb;
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-md);
+}
+
+.confirm-card {
+  padding: 20px;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.cc-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 0.9rem;
+}

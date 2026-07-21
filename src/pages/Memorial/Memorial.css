@@ -1,0 +1,337 @@
+/* src/pages/Memorial/Memorial.css */
+
+.memorial-page-root {
+  min-height: 100vh;
+  background: var(--bg-main);
+}
+
+/* HERO */
+.mem-hero-section {
+  padding: 160px 0 60px;
+  text-align: center;
+  background: radial-gradient(circle at 50% 0%, #fff6fa 0%, #faf8fb 100%);
+}
+
+.mem-hero-content {
+  max-width: 760px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.mem-title-giant {
+  font-size: clamp(2.4rem, 4.5vw, 3.6rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.mem-subtitle {
+  font-size: 1.1rem;
+  color: var(--txt-medium);
+  line-height: 1.65;
+}
+
+/* STATS BANNER */
+.mem-stats-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 18px 36px;
+  background: #ffffff;
+  border-radius: var(--r-full);
+  box-shadow: var(--shadow-sm);
+  margin-top: 16px;
+  width: 100%;
+  max-width: 680px;
+}
+
+.m-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.m-val {
+  font-family: var(--font-heading);
+  font-size: 1.6rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.m-lbl {
+  font-size: 0.75rem;
+  color: var(--txt-muted);
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.m-divider {
+  width: 1px;
+  height: 36px;
+  background: var(--border-light);
+}
+
+/* FILTROS E BUSCA */
+.mem-filter-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: #ffffff;
+  margin: 36px 0 28px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.mem-search-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-main);
+  padding: 10px 18px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--border-light);
+  flex: 1;
+  max-width: 420px;
+}
+
+.mem-search-input {
+  background: none;
+  border: none;
+  font-size: 0.9rem;
+  color: var(--txt-dark);
+  width: 100%;
+}
+
+.mem-filter-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  padding: 8px 18px;
+  border-radius: var(--r-full);
+  background: var(--bg-main);
+  border: 1.5px solid var(--border-light);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--txt-medium);
+  transition: all 0.2s ease;
+}
+
+.filter-btn.active {
+  background: #ffffff;
+  border-color: var(--accent-pink);
+  color: var(--accent-pink);
+  box-shadow: var(--shadow-sm);
+}
+
+/* GRID DE BEBÊS */
+.birth-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.birth-memorial-card {
+  padding: 24px;
+  background: #ffffff;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.theme-girl .bmc-avatar { background: #fff0f5; border: 2px solid var(--accent-pink); }
+.theme-boy .bmc-avatar { background: #f0f6ff; border: 2px solid #3b82f6; }
+.theme-twins .bmc-avatar { background: #fffdf0; border: 2px solid #d4af37; }
+
+.bmc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.bmc-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+}
+
+.bmc-hospital-tag {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--txt-muted);
+}
+
+.bmc-baby-name {
+  font-size: 1.3rem;
+  margin-bottom: 4px;
+}
+
+.bmc-parents {
+  font-size: 0.85rem;
+  color: var(--txt-muted);
+  margin-bottom: 12px;
+}
+
+.bmc-details-list {
+  background: var(--bg-main);
+  padding: 12px;
+  border-radius: var(--r-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.82rem;
+}
+
+.bmc-detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.bmc-detail-item span { color: var(--txt-muted); }
+.bmc-detail-item strong { color: var(--txt-dark); }
+
+.bmc-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-light);
+  margin-top: auto;
+}
+
+.bmc-seal-badge {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #27c93f;
+}
+
+.bmc-like-btn {
+  background: var(--bg-main);
+  border: 1px solid var(--border-light);
+  padding: 4px 12px;
+  border-radius: var(--r-full);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--txt-dark);
+  transition: all 0.2s ease;
+}
+
+.bmc-like-btn:hover {
+  background: #fff0f5;
+  color: var(--accent-pink);
+}
+
+/* MODAL DE CERTIDÃO DO BEBÊ */
+.birth-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(30, 21, 32, 0.5);
+  backdrop-filter: blur(8px);
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.birth-modal-paper {
+  background: #fffefb;
+  border: 2px solid #e2d8c3;
+  padding: 36px;
+  max-width: 500px;
+  width: 100%;
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-lg);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.bm-close-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #faf6ee;
+  border: 1px solid #e2d8c3;
+  font-weight: 700;
+}
+
+.bm-cert-header {
+  text-align: center;
+  border-bottom: 2px solid #e2d8c3;
+  padding-bottom: 16px;
+}
+
+.bm-logo {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #8a734e;
+  letter-spacing: 0.1em;
+}
+
+.bm-cert-header h2 {
+  font-size: 1.3rem;
+  color: var(--accent-pink);
+  margin-top: 6px;
+}
+
+.bm-cert-header p {
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  color: #b5a07e;
+}
+
+.bm-child-title h3 {
+  font-size: 1.6rem;
+  text-align: center;
+  color: var(--txt-dark);
+}
+
+.bm-grid-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  background: #faf6ee;
+  padding: 16px;
+  border-radius: var(--r-sm);
+  font-size: 0.88rem;
+}
+
+.bm-cert-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px dashed #e2d8c3;
+  padding-top: 16px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #8a734e;
+}
+
+@media (max-width: 992px) {
+  .birth-cards-grid { grid-template-columns: 1fr 1fr; }
+  .mem-stats-banner { flex-direction: column; gap: 12px; border-radius: var(--r-md); }
+  .m-divider { width: 100%; height: 1px; }
+}
+
+@media (max-width: 600px) {
+  .birth-cards-grid { grid-template-columns: 1fr; }
+  .mem-filter-bar { flex-direction: column; }
+}
