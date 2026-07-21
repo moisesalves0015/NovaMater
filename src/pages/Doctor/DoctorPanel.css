@@ -252,6 +252,44 @@
   text-align: left;
 }
 
+/* ──── MODERN FORM STYLES ──── */
+.form-group-modern {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.form-label-modern {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+  letter-spacing: 0.5px;
+}
+.form-input-modern, .form-select-modern {
+  width: 100%;
+  padding: 0.9rem 1.2rem;
+  font-size: 0.95rem;
+  color: #1e293b;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+.form-input-modern:focus, .form-select-modern:focus {
+  background: #ffffff;
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+}
+.form-select-modern {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 1.2em;
+  padding-right: 2.5rem;
+}
+
 .plan-btn.selected {
   border-color: var(--primary);
   background: #fdf0f5;

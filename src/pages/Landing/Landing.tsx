@@ -2,8 +2,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import UltrasoundGenerator from '../../components/Tools/UltrasoundGenerator';
-import GenderRevealWidget from '../../components/Tools/GenderRevealWidget';
 import './Landing.css';
 
 export default function Landing() {
@@ -165,16 +163,6 @@ export default function Landing() {
             </div>
           </div>
         </div>
-      </section>
-
-      {/* ─── GERADOR DE ULTRASSOM AO VIVO ─── */}
-      <section className="container">
-        <UltrasoundGenerator />
-      </section>
-
-      {/* ─── WIDGET DE REVELAÇÃO DO SEXO DO BEBÊ ─── */}
-      <section className="container">
-        <GenderRevealWidget />
       </section>
 
       {/* ─── SERVIÇOS & BENEFÍCIOS EM DESTAQUE ─── */}

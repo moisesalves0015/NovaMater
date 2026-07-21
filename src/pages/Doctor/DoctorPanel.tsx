@@ -1,6 +1,6 @@
-// src/pages/Doctor/DoctorPanel.tsx
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import UltrasoundGenerator from '../../components/Tools/UltrasoundGenerator';
 import {
   collection, addDoc, getDocs, query, updateDoc, doc, serverTimestamp, orderBy
 } from 'firebase/firestore';
@@ -128,26 +128,26 @@ function NewPregnancyForm({ onSuccess }: { onSuccess: () => void }) {
         <motion.div className="npf-content" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
           <h3 className="npf-section-title">👩 Cadastro da Mãe do Bebê</h3>
           <div className="npf-grid-2">
-            <div className="form-group">
-              <label className="form-label">Nome completo da mãe *</label>
-              <input className="form-input" value={motherName} onChange={e => setMotherName(e.target.value)} placeholder="Nome da paciente" required />
+            <div className="form-group-modern">
+              <label className="form-label-modern">Nome completo da mãe *</label>
+              <input className="form-input-modern" value={motherName} onChange={e => setMotherName(e.target.value)} placeholder="Nome da paciente" required />
             </div>
-            <div className="form-group">
-              <label className="form-label">Nome do avatar no IMVU / VU</label>
-              <input className="form-input" value={motherAvatarName} onChange={e => setMotherAvatarName(e.target.value)} placeholder="Ex: @MamaeIMVU" />
+            <div className="form-group-modern">
+              <label className="form-label-modern">Nome do avatar no IMVU / VU</label>
+              <input className="form-input-modern" value={motherAvatarName} onChange={e => setMotherAvatarName(e.target.value)} placeholder="Ex: @MamaeIMVU" />
             </div>
           </div>
 
           <div className="access-credentials-box glass-box">
             <p className="ac-title">🔑 Credenciais de Login que o Médico Fornece à Mãe</p>
             <div className="npf-grid-2">
-              <div className="form-group">
-                <label className="form-label">E-mail de Acesso da Mãe *</label>
-                <input className="form-input" type="email" value={motherEmail} onChange={e => setMotherEmail(e.target.value)} placeholder="mae@exemplo.com" required />
+              <div className="form-group-modern">
+                <label className="form-label-modern">E-mail de Acesso da Mãe *</label>
+                <input className="form-input-modern" type="email" value={motherEmail} onChange={e => setMotherEmail(e.target.value)} placeholder="mae@exemplo.com" required />
               </div>
-              <div className="form-group">
-                <label className="form-label">Senha Inicial da Mãe</label>
-                <input className="form-input" value={motherPassword} onChange={e => setMotherPassword(e.target.value)} placeholder="123456" />
+              <div className="form-group-modern">
+                <label className="form-label-modern">Senha Inicial da Mãe</label>
+                <input className="form-input-modern" value={motherPassword} onChange={e => setMotherPassword(e.target.value)} placeholder="123456" />
               </div>
             </div>
             <small style={{ color: 'var(--txt-muted)' }}>A mãe usará este e-mail e senha para logar na rota /login.</small>
@@ -155,25 +155,25 @@ function NewPregnancyForm({ onSuccess }: { onSuccess: () => void }) {
 
           <h3 className="npf-section-title" style={{ marginTop: 20 }}>👨 Dados do Pai (Opcional)</h3>
           <div className="npf-grid-2">
-            <div className="form-group">
-              <label className="form-label">Nome completo do pai</label>
-              <input className="form-input" value={fatherName} onChange={e => setFatherName(e.target.value)} placeholder="Nome do pai" />
+            <div className="form-group-modern">
+              <label className="form-label-modern">Nome completo do pai</label>
+              <input className="form-input-modern" value={fatherName} onChange={e => setFatherName(e.target.value)} placeholder="Nome do pai" />
             </div>
-            <div className="form-group">
-              <label className="form-label">Nome do avatar no IMVU</label>
-              <input className="form-input" value={fatherAvatarName} onChange={e => setFatherAvatarName(e.target.value)} placeholder="Ex: @PapaiIMVU" />
+            <div className="form-group-modern">
+              <label className="form-label-modern">Nome do avatar no IMVU</label>
+              <input className="form-input-modern" value={fatherAvatarName} onChange={e => setFatherAvatarName(e.target.value)} placeholder="Ex: @PapaiIMVU" />
             </div>
           </div>
 
           <h3 className="npf-section-title" style={{ marginTop: 20 }}>👶 Dados do Bebê</h3>
           <div className="npf-grid-2">
-            <div className="form-group">
-              <label className="form-label">Nome do bebê</label>
-              <input className="form-input" value={babyName} onChange={e => setBabyName(e.target.value)} placeholder="Nome da criança" />
+            <div className="form-group-modern">
+              <label className="form-label-modern">Nome do bebê</label>
+              <input className="form-input-modern" value={babyName} onChange={e => setBabyName(e.target.value)} placeholder="Nome da criança" />
             </div>
-            <div className="form-group">
-              <label className="form-label">Sexo do Bebê</label>
-              <select className="form-select" value={babySex} onChange={e => setBabySex(e.target.value)}>
+            <div className="form-group-modern">
+              <label className="form-label-modern">Sexo do Bebê</label>
+              <select className="form-select-modern" value={babySex} onChange={e => setBabySex(e.target.value)}>
                 <option value="não-revelado">Não revelado ainda</option>
                 <option value="menina">Menina 👧</option>
                 <option value="menino">Menino 👦</option>
@@ -387,7 +387,7 @@ function PatientCard({ pregnancy, onUpdate }: { pregnancy: Pregnancy; onUpdate: 
 
 export default function DoctorPanel() {
   const { userData } = useAuth();
-  const [tab, setTab] = useState<'patients' | 'new'>('patients');
+  const [tab, setTab] = useState<'patients' | 'new' | 'ultrasound'>('patients');
   const [pregnancies, setPregnancies] = useState<Pregnancy[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -446,6 +446,12 @@ export default function DoctorPanel() {
           >
             ➕ Cadastrar Nova Paciente (Mãe)
           </button>
+          <button
+            className={`dp-tab ${tab === 'ultrasound' ? 'active' : ''}`}
+            onClick={() => setTab('ultrasound')}
+          >
+            🖥️ Gerador de Ultrassom
+          </button>
         </div>
 
         {/* Content */}
@@ -453,7 +459,7 @@ export default function DoctorPanel() {
           <div className="patients-list">
             {loading ? (
               <div className="dp-loading">
-                <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.5, repeat: Infinity }}>🌸</motion.div>
+                <motion.div style={{ display: 'inline-block', transformOrigin: 'center' }} animate={{ rotate: 360 }} transition={{ duration: 1.5, repeat: Infinity }}>🌸</motion.div>
                 <p>Buscando prontuários...</p>
               </div>
             ) : pregnancies.length === 0 ? (
@@ -485,6 +491,12 @@ export default function DoctorPanel() {
         {tab === 'new' && (
           <div className="new-pregnancy-container glass-box">
             <NewPregnancyForm onSuccess={() => { setTab('patients'); loadPregnancies(); }} />
+          </div>
+        )}
+
+        {tab === 'ultrasound' && (
+          <div style={{ marginTop: '2rem' }}>
+            <UltrasoundGenerator />
           </div>
         )}
       </div>

@@ -172,7 +172,7 @@ export default function Memorial() {
       <section className="container" style={{ paddingBottom: 90 }}>
         {loading ? (
           <div className="mem-loading">
-            <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.5, repeat: Infinity }}>🌸</motion.div>
+            <motion.div style={{ display: 'inline-block', transformOrigin: 'center' }} animate={{ rotate: 360 }} transition={{ duration: 1.5, repeat: Infinity }}>🌸</motion.div>
             <p>Carregando nascimentos celebrados...</p>
           </div>
         ) : filteredBirths.length === 0 ? (
@@ -196,50 +196,52 @@ export default function Memorial() {
               return (
                 <motion.div
                   key={birth.id}
-                  className={`birth-memorial-card glass-box ${themeClass}`}
+                  className={`memorial-carteirinha-wrapper ${themeClass}`}
                   initial={{ opacity: 0, y: 25 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.06 }}
                   whileHover={{ y: -6 }}
                   onClick={() => setSelectedBirthModal(birth)}
                 >
-                  <div className="bmc-header">
-                    <div className="bmc-avatar">
-                      {isTwins ? '👶👶' : isGirl ? '👧' : '👦'}
-                    </div>
-                    <span className="bmc-hospital-tag">
-                      🏥 {birth.hospitalName}
-                    </span>
-                  </div>
-
-                  <div className="bmc-body">
-                    <h3 className="bmc-baby-name">{birth.babyName}</h3>
-                    <p className="bmc-parents">
-                      Mamãe {birth.motherName} {birth.fatherName ? `& Papai ${birth.fatherName}` : ''}
-                    </p>
-
-                    <div className="bmc-details-list">
-                      <div className="bmc-detail-item">
-                        <span>📅 Nascimento:</span>
-                        <strong>{formattedDate}</strong>
+                  <div className="preview-carteirinha-v2" style={{ transform: 'none', margin: 0 }}>
+                    <div className="card-v2-inner">
+                      <div className="card-v2-hole"></div>
+                      <div className="card-v2-holo"></div>
+                      <div className="card-v2-top">
+                        <div className="card-v2-brand">
+                          <div className="brand-v2-icon"></div>
+                          <span>NOVAMATER</span>
+                        </div>
                       </div>
-                      <div className="bmc-detail-item">
-                        <span>⚖️ Peso no Parto:</span>
-                        <strong>{birth.weight}</strong>
+                      
+                      <div className="card-v2-middle">
+                        <div className="card-v2-avatar">
+                          <span style={{ fontSize: '2.5rem' }}>{isTwins ? '👶👶' : isGirl ? '👧' : '👦'}</span>
+                        </div>
+                        <div className="card-v2-details">
+                          <div className="card-v2-field main">
+                            <span>{birth.babyName}</span>
+                          </div>
+                          <div className="card-v2-grid">
+                            <div className="card-v2-field"><label>NASC</label><span>{formattedDate.split(' ')[0]} {formattedDate.split(' ')[2]} {formattedDate.split(' ')[4]}</span></div>
+                            <div className="card-v2-field"><label>SANGUE</label><span>O+</span></div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="card-v2-bottom">
+                        <div className="card-v2-barcode"></div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                          <span>#{birth.id.slice(0,6).toUpperCase()}</span>
+                          <button 
+                            className="mem-like-v2" 
+                            onClick={(e) => handleLike(birth.id, e)}
+                          >
+                            💖 {currentLikes}
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-
-                  <div className="bmc-footer">
-                    <div className="bmc-seal-badge">
-                      ✓ Certidão Emitida
-                    </div>
-                    <button
-                      className="bmc-like-btn"
-                      onClick={(e) => handleLike(birth.id, e)}
-                    >
-                      💖 {currentLikes}
-                    </button>
                   </div>
                 </motion.div>
               );
