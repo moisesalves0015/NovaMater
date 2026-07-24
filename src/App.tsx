@@ -11,6 +11,7 @@ const Login = lazy(() => import('./pages/Auth/Login'));
 const AdminLogin = lazy(() => import('./pages/Auth/AdminLogin'));
 const Dashboard = lazy(() => import('./pages/Dashboard/Dashboard'));
 const DoctorPanel = lazy(() => import('./pages/Doctor/DoctorPanel'));
+const MedicalRecord = lazy(() => import('./pages/Doctor/MedicalRecord'));
 const Memorial = lazy(() => import('./pages/Memorial/Memorial'));
 const Packages = lazy(() => import('./pages/Packages/Packages'));
 
@@ -39,14 +40,14 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
   if (loading) return <LoadingScreen />;
   if (!currentUser) return <Navigate to="/login" replace />;
 
-  // Se for médico tentando acessar a rota protegida do médico, libera o acesso
-  if (allowedRoles?.includes('doctor') && (userData?.role === 'doctor' || currentUser.email === 'doutor@novamater.com')) {
+  // Se for médico ou admin tentando acessar a rota protegida, libera o acesso
+  if (allowedRoles?.some(role => ['doctor', 'admin'].includes(role)) && (userData?.role === 'doctor' || userData?.role === 'admin' || currentUser.email === 'doutor@novamater.com')) {
     return <>{children}</>;
   }
 
-  // Se a rota for restrita a gestantes e o usuário for médico, leva para o painel médico
-  if (userData?.role === 'doctor' && !allowedRoles?.includes('doctor')) {
-    return <Navigate to="/medico" replace />;
+  // Se a rota for restrita a gestantes e o usuário for médico/admin, leva para o painel administrativo
+  if ((userData?.role === 'doctor' || userData?.role === 'admin') && !allowedRoles?.some(role => ['doctor', 'admin'].includes(role))) {
+    return <Navigate to="/admin" replace />;
   }
 
   return <>{children}</>;
@@ -63,7 +64,7 @@ function AppRoutes() {
           {/* Rota Inicial e Páginas Públicas */}
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/admin" element={<AdminLogin />} />
+          <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/memorial" element={<Memorial />} />
           <Route path="/pacotes" element={<Packages />} />
 
@@ -74,16 +75,22 @@ function AppRoutes() {
             </ProtectedRoute>
           } />
 
-          {/* Rota Exclusiva do Doutor / Administrador */}
-          <Route path="/medico" element={
-            <ProtectedRoute allowedRoles={['doctor']}>
+          {/* Rota Exclusiva do Administrador do Hospital */}
+          <Route path="/admin" element={
+            <ProtectedRoute allowedRoles={['doctor', 'admin']}>
               <DoctorPanel />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/prontuario/:id" element={
+            <ProtectedRoute allowedRoles={['doctor', 'admin']}>
+              <MedicalRecord />
             </ProtectedRoute>
           } />
 
           {/* Fallback de redirecionamento esperto */}
           <Route path="*" element={
-            <Navigate to={userData?.role === 'doctor' ? '/medico' : '/dashboard'} replace />
+            <Navigate to={(userData?.role === 'doctor' || userData?.role === 'admin') ? '/admin' : '/dashboard'} replace />
           } />
         </Routes>
       </Suspense>

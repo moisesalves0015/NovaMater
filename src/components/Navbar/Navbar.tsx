@@ -3,7 +3,33 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotifications } from '../../hooks/usePregnancy';
 import './Navbar.css';
+
+function NotificationBell({ userId }: { userId: string }) {
+  const { unreadCount } = useNotifications(userId);
+  if (unreadCount === 0) return null;
+  return (
+    <div style={{ position: 'relative', cursor: 'pointer' }}>
+      <span style={{ fontSize: '1.2rem' }}>🔔</span>
+      <span style={{
+        position: 'absolute', top: -6, right: -6,
+        background: 'var(--accent-pink)',
+        color: '#fff',
+        borderRadius: '50%',
+        width: 18, height: 18,
+        fontSize: '0.65rem',
+        fontWeight: 900,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        border: '2px solid #fff',
+      }}>
+        {unreadCount > 9 ? '9+' : unreadCount}
+      </span>
+    </div>
+  );
+}
+
+
 
 export default function Navbar() {
   const { userData, logout } = useAuth();
@@ -58,33 +84,39 @@ export default function Navbar() {
           {/* RIGHT ACTION BUTTONS */}
           <div className="nav-actions-desktop">
             {userData ? (
-              <div className="user-profile-wrapper" onClick={() => setProfileDropdown(!profileDropdown)}>
-                <div className="user-avatar">
-                  {userData.role === 'doctor' ? '👨‍⚕️' : '🤰'}
-                </div>
-                <div className="user-details">
-                  <span className="user-name">{userData.name ? userData.name.split(' ')[0] : 'Usuário'}</span>
-                  <span className="user-badge">{userData.role === 'doctor' ? 'Médico' : 'Família'}</span>
-                </div>
-                <span className="user-arrow">▾</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                {/* Notification Bell — only for mothers */}
+                {(userData.role === 'mother' || userData.role === 'father') && (
+                  <NotificationBell userId={userData.uid} />
+                )}
+                <div className="user-profile-wrapper" onClick={() => setProfileDropdown(!profileDropdown)}>
+                  <div className="user-avatar">
+                    {userData.role === 'doctor' ? '👨‍⚕️' : '🤰'}
+                  </div>
+                  <div className="user-details">
+                    <span className="user-name">{userData.name ? userData.name.split(' ')[0] : 'Usuário'}</span>
+                    <span className="user-badge">{userData.role === 'doctor' ? 'Médico' : 'Família'}</span>
+                  </div>
+                  <span className="user-arrow">▾</span>
 
-                <AnimatePresence>
-                  {profileDropdown && (
-                    <motion.div
-                      className="profile-popover glass-box"
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    >
-                      <Link to={userData.role === 'doctor' ? '/medico' : '/dashboard'} className="popover-item">
-                        📊 {userData.role === 'doctor' ? 'Painel Hospitalar' : 'Minha Gestação'}
-                      </Link>
-                      <button onClick={handleLogout} className="popover-item danger">
-                        🚪 Sair da Conta
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                  <AnimatePresence>
+                    {profileDropdown && (
+                      <motion.div
+                        className="profile-popover glass-box"
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      >
+                        <Link to={(userData.role === 'doctor' || userData.role === 'admin') ? '/admin' : '/dashboard'} className="popover-item">
+                          📊 {userData.role === 'doctor' ? 'Painel Hospitalar' : 'Minha Gestação'}
+                        </Link>
+                        <button onClick={handleLogout} className="popover-item danger">
+                          🚪 Sair da Conta
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
             ) : (
               <div className="auth-btn-group">
@@ -138,7 +170,7 @@ export default function Navbar() {
                 <Link to="/pacotes" className="drawer-item">📜 Pacotes & Certidões</Link>
                 <Link to="/memorial" className="drawer-item">👶 Mural de Nascimentos</Link>
                 {userData ? (
-                  <Link to={userData.role === 'doctor' ? '/medico' : '/dashboard'} className="drawer-item highlight">
+                  <Link to={(userData.role === 'doctor' || userData.role === 'admin') ? '/admin' : '/dashboard'} className="drawer-item highlight">
                     📊 Meu Painel
                   </Link>
                 ) : (

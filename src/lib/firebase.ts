@@ -4,14 +4,15 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
-// Configuração do Firebase — substitua com as suas credenciais do Firebase Console
-const firebaseConfig = {
-  apiKey: "AIzaSyPLACEHOLDER_SUBSTITUA_AQUI",
-  authDomain: "novamater.firebaseapp.com",
-  projectId: "novamater",
-  storageBucket: "novamater.appspot.com",
-  messagingSenderId: "000000000000",
-  appId: "1:000000000000:web:PLACEHOLDER"
+// Configuração do Firebase usando variáveis de ambiente
+export const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 const app = initializeApp(firebaseConfig);

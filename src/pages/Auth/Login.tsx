@@ -6,7 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import './Auth.css';
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -15,13 +15,30 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email || !password) {
+      setError('Por favor, preencha o e-mail e a senha.');
+      return;
+    }
     setError('');
     setLoading(true);
     try {
       await login(email, password);
       navigate('/dashboard');
     } catch {
-      setError('E-mail ou senha incorretos. Verifique os dados fornecidos pelo seu médico.');
+      setError('Erro ao acessar o prontuário. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      await loginWithGoogle();
+      navigate('/dashboard');
+    } catch {
+      setError('Erro ao acessar com o Google. Tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -61,7 +78,6 @@ export default function Login() {
               placeholder="seu-email@exemplo.com"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              required
             />
           </div>
 
@@ -74,7 +90,6 @@ export default function Login() {
               placeholder="••••••••"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              required
             />
           </div>
 
@@ -88,6 +103,23 @@ export default function Login() {
             {loading ? '⏳ Acessando...' : '✨ Acessar Prontuário'}
           </button>
         </form>
+
+        <div style={{ display: 'flex', alignItems: 'center', margin: '20px 0' }}>
+          <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--border-color, #eee)' }} />
+          <span style={{ padding: '0 10px', color: 'var(--txt-muted)', fontSize: '0.9rem' }}>ou</span>
+          <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--border-color, #eee)' }} />
+        </div>
+
+        <button
+          type="button"
+          onClick={handleGoogleLogin}
+          className="btn-modern btn-modern-light"
+          disabled={loading}
+          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+        >
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style={{ width: 18, height: 18 }} />
+          Acessar com o Google
+        </button>
 
         <div className="auth-info-note" style={{ textAlign: 'center', marginTop: 16 }}>
           🔒 <strong>Nota:</strong> O seu e-mail e senha de acesso são fornecidos pelo médico responsável durante a consulta.

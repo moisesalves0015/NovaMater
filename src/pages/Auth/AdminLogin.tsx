@@ -6,7 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import './Auth.css';
 
 export default function AdminLogin() {
-  const { loginAsDoctor } = useAuth();
+  const { loginAsDoctor, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('doutor@novamater.com');
   const [password, setPassword] = useState('123456');
@@ -19,10 +19,23 @@ export default function AdminLogin() {
     setLoading(true);
     try {
       await loginAsDoctor(email, password);
-      // Redireciona EXCLUSIVAMENTE para a rota do Painel do Doutor / Administrador
-      navigate('/medico');
+      // Redireciona EXCLUSIVAMENTE para a rota do Painel Administrativo
+      navigate('/admin');
     } catch {
       setError('Erro ao autenticar administrador.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      await loginWithGoogle('admin');
+      navigate('/admin');
+    } catch {
+      setError('Erro ao acessar com o Google. Tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -81,9 +94,26 @@ export default function AdminLogin() {
             disabled={loading}
             style={{ width: '100%', marginTop: 8 }}
           >
-            {loading ? '⏳ Acessando...' : '🔑 Entrar no Painel Médico (/medico)'}
+            {loading ? '⏳ Acessando...' : '🔑 Entrar no Painel Administrativo'}
           </button>
         </form>
+
+        <div style={{ display: 'flex', alignItems: 'center', margin: '20px 0' }}>
+          <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--border-color, #eee)' }} />
+          <span style={{ padding: '0 10px', color: 'var(--txt-muted)', fontSize: '0.9rem' }}>ou</span>
+          <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--border-color, #eee)' }} />
+        </div>
+
+        <button
+          type="button"
+          onClick={handleGoogleLogin}
+          className="btn-modern btn-modern-light"
+          disabled={loading}
+          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+        >
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style={{ width: 18, height: 18 }} />
+          Acesso Admin com Google
+        </button>
 
         <div className="auth-info-note" style={{ textAlign: 'center', marginTop: 12 }}>
           ⚙️ <strong>Credenciais do Administrador:</strong><br />

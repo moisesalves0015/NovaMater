@@ -679,7 +679,7 @@ export default function Packages() {
             <div className="footer-links-col">
               <h4>Acesso Direto</h4>
               <Link to="/login">Área dos Pais</Link>
-              <Link to="/medico">Painel Médico / Hospital</Link>
+              <Link to="/admin">Painel Médico / Hospital</Link>
             </div>
           </div>
 

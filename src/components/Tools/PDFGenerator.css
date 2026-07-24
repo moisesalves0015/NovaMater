@@ -1,0 +1,173 @@
+/* src/components/Tools/PDFGenerator.css */
+.pdf-generator-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.pdf-generator-modal {
+  background: var(--bg-main);
+  border-radius: var(--r-lg);
+  width: 100%;
+  max-width: 900px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--border-light);
+}
+
+.pdf-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border-light);
+  background: var(--bg-card);
+}
+
+.pdf-modal-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--txt-dark);
+}
+
+.pdf-modal-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.pdf-preview-container {
+  padding: 30px;
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+  background: #e5e7eb; /* Background escuro para contrastar o papel A4 branco */
+}
+
+/* =======================================
+   A4 Document Styles (For html2canvas)
+   ======================================= */
+.pdf-document {
+  background: #ffffff;
+  color: #000000; /* Força preto no PDF para contraste na impressão */
+  width: 210mm; /* A4 width */
+  min-height: 297mm; /* A4 height */
+  padding: 20mm;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  font-family: 'Times New Roman', Times, serif; /* Fonte clássica de documento */
+  position: relative;
+  box-sizing: border-box;
+}
+
+.pdf-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 5mm;
+}
+
+.pdf-logo h2 {
+  margin: 0;
+  font-size: 24pt;
+  font-weight: bold;
+  color: #1a1a1a;
+  text-transform: uppercase;
+}
+
+.pdf-logo p {
+  margin: 2px 0 0;
+  font-size: 10pt;
+  color: #4a4a4a;
+}
+
+.pdf-header-info h1 {
+  margin: 0;
+  font-size: 18pt;
+  font-weight: bold;
+  color: #000;
+  text-transform: uppercase;
+  text-align: right;
+}
+
+.pdf-divider {
+  height: 2px;
+  background: #000;
+  margin: 10mm 0;
+}
+
+.pdf-body {
+  min-height: 120mm;
+}
+
+.pdf-date {
+  font-size: 11pt;
+  text-align: right;
+  margin-bottom: 15mm;
+}
+
+.pdf-content {
+  font-size: 12pt;
+  line-height: 1.6;
+  text-align: justify;
+}
+
+.pdf-content span {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.pdf-signature-area {
+  margin-top: 30mm;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pdf-signature-line {
+  width: 80mm;
+  height: 1px;
+  background: #000;
+  margin-bottom: 5mm;
+}
+
+.pdf-signature-name {
+  margin: 0;
+  font-size: 12pt;
+  font-weight: bold;
+}
+
+.pdf-signature-role {
+  margin: 2px 0 0;
+  font-size: 10pt;
+  color: #4a4a4a;
+}
+
+.pdf-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+}
+
+.pdf-footer-text {
+  font-size: 9pt;
+  color: #666;
+}
+
+.pdf-footer-text p {
+  margin: 2px 0;
+}
+
+.pdf-qrcode {
+  padding: 5px;
+  border: 1px solid #ccc;
+}

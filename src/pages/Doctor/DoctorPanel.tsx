@@ -1,17 +1,28 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import UltrasoundGenerator from '../../components/Tools/UltrasoundGenerator';
 import {
-  collection, addDoc, getDocs, query, updateDoc, doc, serverTimestamp, orderBy
+  collection, addDoc, getDocs, query, updateDoc, doc, serverTimestamp, where
 } from 'firebase/firestore';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { db, auth } from '../../lib/firebase';
+import { createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
+import { initializeApp, getApp, getApps } from 'firebase/app';
+import { db, firebaseConfig } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
-import type { Pregnancy, GestationPlan, GestationPlanType } from '../../types';
+
+function createSecondaryAuth() {
+  const secondaryAppName = 'SecondaryApp';
+  let secondaryApp;
+  if (!getApps().length || !getApps().find(app => app.name === secondaryAppName)) {
+    secondaryApp = initializeApp(firebaseConfig, secondaryAppName);
+  } else {
+    secondaryApp = getApp(secondaryAppName);
+  }
+  return getAuth(secondaryApp);
+}
+import type { Pregnancy, GestationPlan, GestationPlanType, User } from '../../types';
 import {
   calculateExpectedBirthDate,
-  generateConsultationSchedule,
-  generateExamSchedule,
   PRESET_PLANS,
 } from '../../lib/gestationUtils';
 import { format } from 'date-fns';
@@ -50,13 +61,15 @@ function NewPregnancyForm({ onSuccess }: { onSuccess: () => void }) {
     try {
       let createdMotherUid = '';
 
-      // Tenta registrar as credenciais da mãe no Firebase Auth
+      // Tenta registrar as credenciais da mãe no Firebase Auth usando App secundário
       if (motherEmail) {
         try {
-          const cred = await createUserWithEmailAndPassword(auth, motherEmail, motherPassword);
+          const secondaryAuth = createSecondaryAuth();
+          const cred = await createUserWithEmailAndPassword(secondaryAuth, motherEmail, motherPassword);
           createdMotherUid = cred.user.uid;
-        } catch {
-          console.log('Email já cadastrado ou ambiente offline.');
+          await secondaryAuth.signOut();
+        } catch (err: any) {
+          console.warn('Erro ao criar user auth:', err.code);
         }
       }
 
@@ -65,7 +78,7 @@ function NewPregnancyForm({ onSuccess }: { onSuccess: () => void }) {
       const expected = calculateExpectedBirthDate(start, plan);
 
       // Create pregnancy record
-      const pregRef = await addDoc(collection(db, 'pregnancies'), {
+      await addDoc(collection(db, 'pregnancies'), {
         motherId: createdMotherUid || `gestante_${Date.now()}`,
         motherName,
         motherEmail,
@@ -85,17 +98,8 @@ function NewPregnancyForm({ onSuccess }: { onSuccess: () => void }) {
         createdAt: serverTimestamp(),
       });
 
-      // Generate consultations
-      const consultations = generateConsultationSchedule(pregRef.id, start, plan);
-      for (const c of consultations) {
-        await addDoc(collection(db, 'consultations'), { ...c, scheduledDate: c.scheduledDate });
-      }
-
-      // Generate exams
-      const exams = generateExamSchedule(pregRef.id, start, plan);
-      for (const e of exams) {
-        await addDoc(collection(db, 'exams'), { ...e, scheduledDate: e.scheduledDate });
-      }
+      // Removed auto-generation of consultations and exams based on RPG feedback.
+      // The system now suggests actions in the MedicalRecord instead of pre-populating them.
 
       onSuccess();
     } catch (err) {
@@ -305,6 +309,7 @@ function NewPregnancyForm({ onSuccess }: { onSuccess: () => void }) {
 
 function PatientCard({ pregnancy, onUpdate }: { pregnancy: Pregnancy; onUpdate: () => void }) {
   const [expanded, setExpanded] = useState(false);
+  const navigate = useNavigate();
 
   const startDate = pregnancy.startDate instanceof Date ? pregnancy.startDate : (pregnancy.startDate as any).toDate?.() ?? new Date(pregnancy.startDate);
   const expectedDate = pregnancy.expectedBirthDate instanceof Date ? pregnancy.expectedBirthDate : (pregnancy.expectedBirthDate as any).toDate?.() ?? new Date(pregnancy.expectedBirthDate);
@@ -321,62 +326,108 @@ function PatientCard({ pregnancy, onUpdate }: { pregnancy: Pregnancy; onUpdate: 
 
   return (
     <motion.div
-      className={`patient-card glass-box ${expanded ? 'expanded' : ''}`}
+      className="preview-carteirinha"
+      style={{ maxWidth: '100%', marginBottom: 20 }}
       layout
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
     >
-      <div className="pc-header" onClick={() => setExpanded(!expanded)}>
-        <div className="pc-avatar">
-          {pregnancy.baby?.sex === 'menina' ? '👧' : pregnancy.baby?.sex === 'menino' ? '👦' : '👶'}
+      <div className="card-top-header">
+        <div className="card-hospital-brand">
+          <span className="brand-dot"></span>
+          <span>NOVAMATER CARE</span>
         </div>
-        <div className="pc-info">
-          <div className="pc-name-row">
-            <h4 className="pc-name">{pregnancy.motherName}</h4>
-            {pregnancy.motherAvatarName && <span className="pc-avatar-name">@{pregnancy.motherAvatarName}</span>}
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <span className="sec-label" style={{ color: '#f1f5f9', opacity: 0.9 }}>PRONTUÁRIO OBSTÉTRICO</span>
+        </div>
+      </div>
+      
+      <div className="card-main-content">
+        <div className="card-avatar-box">
+          <div className="avatar-frame">
+            {pregnancy.baby?.sex === 'menina' ? <span style={{fontSize: '2.5rem'}}>👧</span> : pregnancy.baby?.sex === 'menino' ? <span style={{fontSize: '2.5rem'}}>👦</span> : <span style={{fontSize: '2.5rem'}}>👶</span>}
           </div>
-          <p className="pc-sub">
-            {pregnancy.baby?.name || 'Bebê'} · {pregnancy.gestationPlan.label} ({pregnancy.gestationPlan.totalDays} dias)
-          </p>
-        </div>
-        <div className="pc-right">
-          <span className={`badge badge-${pregnancy.currentStatus === 'ativa' ? 'neutral' : 'gold'}`}>
-            {pregnancy.currentStatus === 'ativa' ? `Mês ${month}` : 'Parto Realizado'}
+          <span className="avatar-badge">
+            {pregnancy.currentStatus === 'ativa' ? 'ATIVA' : pregnancy.currentStatus === 'pendente' ? 'PENDENTE' : 'PARTO'}
           </span>
-          <div className="pc-progress-mini">
-            <div className="progress-bar" style={{ width: 80 }}>
-              <div className="progress-fill" style={{ width: `${progress}%` }} />
+        </div>
+
+        <div className="card-info-grid">
+          <div className="card-info-item">
+            <span className="card-label">PACIENTE / MÃE</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="card-val">{pregnancy.motherName}</span>
+              {pregnancy.motherAvatarName && <span className="pc-avatar-name" style={{ fontSize: '0.65rem' }}>@{pregnancy.motherAvatarName}</span>}
             </div>
-            <span className="pc-prog-pct">{progress}%</span>
           </div>
-          <span className="pc-chevron">{expanded ? '▲' : '▼'}</span>
+          <div className="card-info-row-2">
+            <div className="card-info-item">
+              <span className="card-label">INÍCIO</span>
+              <span className="card-val">{format(startDate, 'dd/MM/yyyy')}</span>
+            </div>
+            <div className="card-info-item">
+              <span className="card-label">PARTO PREVISTO</span>
+              <span className="card-val">{format(expectedDate, 'dd/MM/yyyy')}</span>
+            </div>
+          </div>
+          <div className="card-info-row-2">
+            <div className="card-info-item">
+              <span className="card-label">ACOMPANHAMENTO</span>
+              <span className="card-val">{month}º Mês ({progress}%)</span>
+            </div>
+            <div className="card-info-item">
+              <span className="card-label">BEBÊ</span>
+              <span className="card-val">{pregnancy.baby?.name || 'Não definido'}</span>
+            </div>
+          </div>
+          
+          <div style={{ marginTop: 8 }}>
+            <button 
+              className="btn-modern btn-modern-primary btn-sm" 
+              onClick={() => navigate(`/prontuario/${pregnancy.id}`)}
+              style={{ width: '100%', fontSize: '0.85rem', padding: '8px' }}
+            >
+              🩺 Acessar Prontuário Médico
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="card-bottom-footer" style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => setExpanded(!expanded)}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div className="card-barcode-pattern">
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <span className="card-system-id" style={{ color: '#64748b', fontSize: '0.65rem' }}>ID: {pregnancy.id?.slice(0, 8).toUpperCase() || 'NEW'}</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#64748b', fontSize: '0.75rem', fontWeight: 700 }}>
+          <span>EXPANDIR</span>
+          <span>{expanded ? '▲' : '▼'}</span>
         </div>
       </div>
 
       <AnimatePresence>
         {expanded && (
           <motion.div
-            className="pc-details"
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
+            style={{ padding: '0 16px 16px', background: '#f8fafc', borderTop: '1px dashed #e2e8f0' }}
           >
-            <div className="divider" />
-            <div className="pc-details-grid">
-              <div><span className="pp-label">Início</span><strong>{format(startDate, 'dd/MM/yyyy')}</strong></div>
-              <div><span className="pp-label">E-mail da Mãe</span><strong>{(pregnancy as any).motherEmail || 'Não cadastrado'}</strong></div>
-              <div><span className="pp-label">Senha Inicial</span><strong>{(pregnancy as any).accessPassword || '123456'}</strong></div>
-              <div><span className="pp-label">Parto previsto</span><strong>{format(expectedDate, 'dd/MM/yyyy')}</strong></div>
-            </div>
-            {pregnancy.notes && (
-              <div className="pc-notes"><span>📝 Prontuário Médico:</span> {pregnancy.notes}</div>
-            )}
-            <div className="pc-actions">
+            <div className="pc-actions" style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 16 }}>
+              {pregnancy.currentStatus === 'pendente' && (
+                <button className="btn-modern btn-modern-primary btn-sm" onClick={async () => {
+                  await updateDoc(doc(db, 'pregnancies', pregnancy.id!), { currentStatus: 'ativa' });
+                  onUpdate();
+                }} style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}>
+                  ✅ Aceitar Prontuário (Tornar Ativo)
+                </button>
+              )}
               {pregnancy.currentStatus === 'ativa' && (
-                <button className="btn-modern btn-modern-primary btn-sm" onClick={registerBirth}>
+                <button className="btn-modern btn-modern-primary btn-sm" onClick={registerBirth} style={{ background: 'linear-gradient(135deg, #f59e0b, #ea580c)' }}>
                   🍼 Registrar Parto & Emitir Certidão
                 </button>
               )}
-              <button className="btn-modern btn-modern-secondary btn-sm">📑 Emitir Carteirinha da Criança</button>
+              <button className="btn-modern btn-modern-secondary btn-sm" style={{ border: '1px solid #e2e8f0' }}>📑 Emitir Carteirinha da Criança</button>
             </div>
           </motion.div>
         )}
@@ -385,18 +436,196 @@ function PatientCard({ pregnancy, onUpdate }: { pregnancy: Pregnancy; onUpdate: 
   );
 }
 
+function UsersTab() {
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadUsers = async () => {
+    try {
+      const snap = await getDocs(collection(db, 'users'));
+      const allUsers = snap.docs.map(d => ({ uid: d.id, ...d.data() } as User));
+      allUsers.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      setUsers(allUsers);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadUsers(); }, []);
+
+  const changeRole = async (uid: string, newRole: string, name: string, email: string) => {
+    if (!window.confirm(`Tem certeza que deseja mudar o papel deste usuário para ${newRole}?`)) return;
+    try {
+      await updateDoc(doc(db, 'users', uid), { role: newRole });
+      
+      // Se mudou para mother, garante que ela tem prontuário pendente
+      if (newRole === 'mother') {
+        const q = query(collection(db, 'pregnancies'), where('motherId', '==', uid));
+        const snap = await getDocs(q);
+        if (snap.empty) {
+          const startDate = new Date();
+          const expectedBirthDate = new Date();
+          expectedBirthDate.setDate(startDate.getDate() + 280);
+          await addDoc(collection(db, 'pregnancies'), {
+            motherId: uid,
+            motherName: name,
+            motherEmail: email,
+            startDate,
+            expectedBirthDate,
+            currentStatus: 'pendente',
+            gestationPlan: {
+              type: 'padrao',
+              totalDays: 280,
+              label: 'Gestação Humana Padrão (40 semanas)',
+              description: 'Acompanhamento normal de 9 meses reais.'
+            },
+            riskLevel: 'baixo',
+            hospitalName: 'Nova Mater Hospital',
+            doctorName: 'Dr. Médico Chefe',
+            doctorId: 'unknown',
+            createdAt: new Date(),
+          });
+        }
+      }
+      loadUsers();
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao atualizar papel.');
+    }
+  };
+
+  const syncPregnancies = async () => {
+    if (!window.confirm('Isto irá procurar todas as gestantes sem prontuário e criar um prontuário PENDENTE para elas. Continuar?')) return;
+    setLoading(true);
+    let count = 0;
+    try {
+      for (const u of users) {
+        if (u.role === 'mother') {
+          const q = query(collection(db, 'pregnancies'), where('motherId', '==', u.uid));
+          const snap = await getDocs(q);
+          if (snap.empty) {
+            const startDate = new Date();
+            const expectedBirthDate = new Date();
+            expectedBirthDate.setDate(startDate.getDate() + 280);
+            await addDoc(collection(db, 'pregnancies'), {
+              motherId: u.uid,
+              motherName: u.name,
+              motherEmail: u.email,
+              startDate,
+              expectedBirthDate,
+              currentStatus: 'pendente',
+              gestationPlan: {
+                type: 'padrao',
+                totalDays: 280,
+                label: 'Gestação Humana Padrão (40 semanas)',
+                description: 'Acompanhamento normal de 9 meses reais.'
+              },
+              riskLevel: 'baixo',
+              hospitalName: 'Nova Mater Hospital',
+              doctorName: 'Dr. Médico Chefe',
+              doctorId: 'unknown',
+              createdAt: new Date(),
+            });
+            count++;
+          }
+        }
+      }
+      alert(`Sincronização concluída! ${count} prontuários faltantes foram criados.`);
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao sincronizar.');
+    } finally {
+      loadUsers();
+    }
+  };
+
+  return (
+    <div className="admin-table-container glass-box" style={{ padding: 24, marginTop: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h3 className="patients-section-title" style={{ margin: 0 }}>Controle de Usuários e Acessos</h3>
+        <button 
+          className="btn-modern btn-modern-primary btn-sm" 
+          onClick={syncPregnancies}
+          style={{ background: 'linear-gradient(135deg, #3b82f6, #2563eb)' }}
+        >
+          🔄 Sincronizar Prontuários Faltantes
+        </button>
+      </div>
+      <p style={{ color: '#64748b', marginBottom: 24 }}>
+        Gerencie todos os usuários cadastrados na plataforma. Para que uma gestante tenha acesso ao seu painel, ela deve estar com o papel "mother".
+      </p>
+      
+      {loading ? (
+        <div className="dp-loading">
+          <motion.div style={{ display: 'inline-block', transformOrigin: 'center' }} animate={{ rotate: 360 }} transition={{ duration: 1.5, repeat: Infinity }}>🌸</motion.div>
+          <p>Buscando usuários...</p>
+        </div>
+      ) : (
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th>Nome (Jogo/Google)</th>
+              <th>E-mail</th>
+              <th>Papel Atual</th>
+              <th>Ações / Alterar Papel</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map(u => (
+              <tr key={u.uid}>
+                <td><strong>{u.name}</strong></td>
+                <td>{u.email}</td>
+                <td>
+                  <span className={`badge badge-${u.role === 'admin' || u.role === 'doctor' ? 'gold' : u.role === 'mother' ? 'neutral' : 'light'}`}>
+                    {u.role === 'mother' ? 'Gestante' : u.role === 'father' ? 'Pai' : u.role === 'doctor' ? 'Doutor' : u.role === 'admin' ? 'Admin' : 'Visitante'}
+                  </span>
+                </td>
+                <td>
+                  <select 
+                    className="admin-select"
+                    value={u.role}
+                    onChange={(e) => changeRole(u.uid, e.target.value, u.name, u.email)}
+                  >
+                    <option value="guest">Visitante (guest)</option>
+                    <option value="mother">Mãe / Gestante (mother)</option>
+                    <option value="father">Pai (father)</option>
+                    <option value="doctor">Doutor (doctor)</option>
+                    <option value="admin">Administrador (admin)</option>
+                  </select>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
 export default function DoctorPanel() {
   const { userData } = useAuth();
-  const [tab, setTab] = useState<'patients' | 'new' | 'ultrasound'>('patients');
+  const [tab, setTab] = useState<'patients' | 'new' | 'ultrasound' | 'users'>('patients');
   const [pregnancies, setPregnancies] = useState<Pregnancy[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadPregnancies = async () => {
     setLoading(true);
     try {
-      const q = query(collection(db, 'pregnancies'), orderBy('createdAt', 'desc'));
+      // Remover orderBy para evitar que documentos sem createdAt sejam ignorados
+      const q = query(collection(db, 'pregnancies'));
       const snap = await getDocs(q);
-      setPregnancies(snap.docs.map(d => ({ id: d.id, ...d.data() } as Pregnancy)));
+      const allPregnancies = snap.docs.map(d => ({ id: d.id, ...d.data() } as Pregnancy));
+      
+      // Ordenação manual para não quebrar com dados legados
+      allPregnancies.sort((a, b) => {
+        const dateA = a.createdAt?.toDate?.()?.getTime() || 0;
+        const dateB = b.createdAt?.toDate?.()?.getTime() || 0;
+        return dateB - dateA;
+      });
+
+      setPregnancies(allPregnancies);
     } catch (err) {
       console.error(err);
     } finally {
@@ -406,8 +635,9 @@ export default function DoctorPanel() {
 
   useEffect(() => { loadPregnancies(); }, []);
 
+  const pending = pregnancies.filter(p => p.currentStatus === 'pendente');
   const active = pregnancies.filter(p => p.currentStatus === 'ativa');
-  const concluded = pregnancies.filter(p => p.currentStatus !== 'ativa');
+  const concluded = pregnancies.filter(p => p.currentStatus !== 'ativa' && p.currentStatus !== 'pendente');
 
   return (
     <div className="doctor-panel page-enter">
@@ -452,9 +682,19 @@ export default function DoctorPanel() {
           >
             🖥️ Gerador de Ultrassom
           </button>
+          <button
+            className={`dp-tab ${tab === 'users' ? 'active' : ''}`}
+            onClick={() => setTab('users')}
+          >
+            👥 Controle de Usuários
+          </button>
         </div>
 
         {/* Content */}
+        {tab === 'users' && (
+          <UsersTab />
+        )}
+        
         {tab === 'patients' && (
           <div className="patients-list">
             {loading ? (
@@ -471,16 +711,28 @@ export default function DoctorPanel() {
               </div>
             ) : (
               <>
+                {pending.length > 0 && (
+                  <>
+                    <h3 className="patients-section-title">Prontuários Pendentes ({pending.length})</h3>
+                    <div className="dp-cards-grid">
+                      {pending.map(p => <PatientCard key={p.id} pregnancy={p} onUpdate={loadPregnancies} />)}
+                    </div>
+                  </>
+                )}
                 {active.length > 0 && (
                   <>
-                    <h3 className="patients-section-title">Gestações Ativas ({active.length})</h3>
-                    {active.map(p => <PatientCard key={p.id} pregnancy={p} onUpdate={loadPregnancies} />)}
+                    <h3 className="patients-section-title" style={{ marginTop: pending.length > 0 ? 32 : 0 }}>Gestações Ativas ({active.length})</h3>
+                    <div className="dp-cards-grid">
+                      {active.map(p => <PatientCard key={p.id} pregnancy={p} onUpdate={loadPregnancies} />)}
+                    </div>
                   </>
                 )}
                 {concluded.length > 0 && (
                   <>
                     <h3 className="patients-section-title" style={{ marginTop: 32 }}>Partos Realizados ({concluded.length})</h3>
-                    {concluded.map(p => <PatientCard key={p.id} pregnancy={p} onUpdate={loadPregnancies} />)}
+                    <div className="dp-cards-grid">
+                      {concluded.map(p => <PatientCard key={p.id} pregnancy={p} onUpdate={loadPregnancies} />)}
+                    </div>
                   </>
                 )}
               </>
