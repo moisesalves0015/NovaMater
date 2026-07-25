@@ -1,0 +1,227 @@
+/* src/components/Documents/DocViewerModal.css */
+
+/* ===================== OVERLAY ===================== */
+.dvm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  z-index: 9999;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+/* ===================== MODAL ===================== */
+.dvm-modal {
+  background: #18181b;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 860px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+/* ===================== TOOLBAR ===================== */
+.dvm-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  background: #1c1c1f;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-wrap: wrap;
+}
+
+.dvm-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.dvm-doc-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.dvm-doc-info { min-width: 0; }
+
+.dvm-doc-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #f4f4f5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dvm-doc-sub {
+  font-size: 0.72rem;
+  color: #71717a;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dvm-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ===================== BUTTONS ===================== */
+.dvm-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.dvm-btn-ghost {
+  background: rgba(255, 255, 255, 0.06);
+  color: #a1a1aa;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.dvm-btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #f4f4f5;
+}
+
+.dvm-btn-primary {
+  background: #be185d;
+  color: #fff;
+}
+.dvm-btn-primary:hover { background: #9d174d; }
+.dvm-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dvm-btn-outline {
+  background: transparent;
+  color: #a1a1aa;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.dvm-btn-outline:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #f4f4f5;
+}
+
+/* ===================== A4 PREVIEW AREA ===================== */
+.dvm-preview-area {
+  background: #27272a;
+  padding: 24px;
+  overflow-y: auto;
+  max-height: calc(90vh - 80px);
+  display: flex;
+  justify-content: center;
+}
+
+.dvm-iframe-wrapper {
+  width: 100%;
+  max-width: 794px; /* A4 @ 96dpi */
+  background: #fff;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  border-radius: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.dvm-iframe {
+  width: 100%;
+  border: none;
+  display: block;
+  min-height: 1123px; /* A4 height @ 96dpi */
+}
+
+/* ===================== STATUS BAR ===================== */
+.dvm-statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 20px;
+  background: #1c1c1f;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.dvm-statusbar-left {
+  font-size: 0.72rem;
+  color: #52525b;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dvm-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  display: inline-block;
+}
+
+.dvm-verification-code {
+  font-size: 0.72rem;
+  font-family: 'Courier New', monospace;
+  color: #71717a;
+  letter-spacing: 0.04em;
+}
+
+/* ===================== GENERATING OVERLAY ===================== */
+.dvm-generating {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  gap: 12px;
+}
+
+.dvm-generating-spinner {
+  font-size: 2rem;
+  animation: spin 1.2s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.dvm-generating p {
+  font-size: 0.9rem;
+  color: #71717a;
+  font-weight: 600;
+}
+
+/* ===================== RESPONSIVE ===================== */
+@media (max-width: 640px) {
+  .dvm-overlay { padding: 0; align-items: flex-end; }
+  .dvm-modal { border-radius: 16px 16px 0 0; max-width: 100%; }
+  .dvm-preview-area { padding: 12px; max-height: calc(85vh - 100px); }
+  .dvm-toolbar { padding: 10px 14px; }
+  .dvm-btn { padding: 6px 10px; font-size: 0.73rem; }
+  .dvm-doc-title { font-size: 0.85rem; }
+}

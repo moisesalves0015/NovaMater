@@ -8,8 +8,8 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
-import PDFGenerator from '../../components/Tools/PDFGenerator';
-import type { PDFData } from '../../components/Tools/PDFGenerator';
+import DocViewerModal from '../../components/Documents/DocViewerModal';
+import type { PDFData } from '../../components/Documents/DocViewerModal';
 import type {
   Pregnancy, Consultation, Exam, Ultrasound,
   Medication, MedDocument, DocumentType, AuditLog
@@ -1330,24 +1330,37 @@ function TabDocumentos({ pregnancy, documents }: { pregnancy: Pregnancy; documen
                     <div className="doc-meta">Emitido por {d.issuedBy} · {safeFormat(d.issuedAt, "dd/MM/yyyy 'às' HH:mm")}</div>
                     {d.verificationCode && <div style={{ fontSize: '0.72rem', fontFamily: 'monospace', color: 'var(--txt-muted)', marginTop: 2 }}>#{d.verificationCode}</div>}
                   </div>
-                  <div className="doc-actions">
-                    <span className="badge badge-green">v{d.version}</span>
-                    <button 
-                      className="btn btn-sm btn-primary" 
-                      onClick={() => setPdfData({
-                        type: d.type,
-                        title: d.title,
-                        content: d.content,
-                        patientName: pregnancy.motherName,
-                        doctorName: d.issuedBy,
-                        hospitalName: pregnancy.hospitalName,
-                        date: toDate(d.issuedAt),
-                        verificationCode: d.verificationCode,
-                      })}
-                    >
-                      PDF
-                    </button>
-                  </div>
+                    <div className="doc-actions">
+                      <span className="badge badge-green">v{d.version}</span>
+                      <button
+                        className="btn btn-sm btn-primary"
+                        onClick={() => setPdfData({
+                          type: d.type,
+                          title: d.title,
+                          content: d.content,
+                          patientName: pregnancy.motherName,
+                          doctorName: d.issuedBy,
+                          hospitalName: pregnancy.hospitalName,
+                          date: toDate(d.issuedAt),
+                          verificationCode: d.verificationCode,
+                          pregnancyData: {
+                            bloodType:         pregnancy.bloodType,
+                            riskLevel:         pregnancy.riskLevel,
+                            dpp:               pregnancy.expectedBirthDate
+                              ? safeFormat(pregnancy.expectedBirthDate, 'dd/MM/yyyy')
+                              : undefined,
+                            dum:               pregnancy.dum
+                              ? safeFormat(pregnancy.dum, 'dd/MM/yyyy')
+                              : undefined,
+                            baby:              pregnancy.baby,
+                            doctorSpecialty:   'Obstetra',
+                          },
+                        })}
+                      >
+                        📄 Visualizar
+                      </button>
+                    </div>
+
                 </div>
               ))}
             </div>
@@ -1356,7 +1369,7 @@ function TabDocumentos({ pregnancy, documents }: { pregnancy: Pregnancy; documen
       )}
 
       {pdfData && (
-        <PDFGenerator data={pdfData} onClose={() => setPdfData(null)} />
+        <DocViewerModal data={pdfData} onClose={() => setPdfData(null)} />
       )}
     </div>
   );

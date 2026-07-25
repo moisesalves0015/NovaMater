@@ -6,8 +6,8 @@ import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePregnancy, useNotifications, toDate } from '../../hooks/usePregnancy';
 import type { Consultation, Exam, ExamType, Ultrasound, Medication, MedDocument } from '../../types';
-import PDFGenerator from '../../components/Tools/PDFGenerator';
-import type { PDFData } from '../../components/Tools/PDFGenerator';
+import DocViewerModal from '../../components/Documents/DocViewerModal';
+import type { PDFData } from '../../components/Documents/DocViewerModal';
 import {
   gestationProgress,
   currentGestationMonth,
@@ -740,7 +740,7 @@ export default function Dashboard() {
       </div>
 
       {pdfData && (
-        <PDFGenerator data={pdfData} onClose={() => setPdfData(null)} />
+        <DocViewerModal data={pdfData} onClose={() => setPdfData(null)} />
       )}
     </div>
   );
