@@ -76,6 +76,9 @@ export default function Navbar() {
             <Link to="/pacotes" className={`nav-item ${location.pathname === '/pacotes' ? 'active' : ''}`}>
               Pacotes & Certidões
             </Link>
+            <Link to="/agendamentos" className={`nav-item ${location.pathname === '/agendamentos' ? 'active' : ''}`}>
+              Agendamentos
+            </Link>
             <Link to="/memorial" className={`nav-item ${location.pathname === '/memorial' ? 'active' : ''}`}>
               Mural de Nascimentos
             </Link>
@@ -168,6 +171,7 @@ export default function Navbar() {
               <div className="drawer-links">
                 <Link to="/" className="drawer-item">🌸 Início</Link>
                 <Link to="/pacotes" className="drawer-item">📜 Pacotes & Certidões</Link>
+                <Link to="/agendamentos" className="drawer-item">📅 Agendamentos</Link>
                 <Link to="/memorial" className="drawer-item">👶 Mural de Nascimentos</Link>
                 {userData ? (
                   <Link to={(userData.role === 'doctor' || userData.role === 'admin') ? '/admin' : '/dashboard'} className="drawer-item highlight">

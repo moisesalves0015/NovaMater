@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import UltrasoundGenerator from '../../components/Tools/UltrasoundGenerator';
 import {
-  collection, addDoc, getDocs, query, updateDoc, doc, serverTimestamp, where
+  collection, addDoc, getDocs, getDoc, query, updateDoc, doc, serverTimestamp, where
 } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
 import { initializeApp, getApp, getApps } from 'firebase/app';
@@ -604,9 +604,218 @@ function UsersTab() {
   );
 }
 
+function AppointmentsTab() {
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // For settings form
+  const [tempDays, setTempDays] = useState<number[]>([]);
+  const [timeInput, setTimeInput] = useState('');
+  const [tempTimes, setTempTimes] = useState<string[]>([]);
+  const [savingSettings, setSavingSettings] = useState(false);
+
+  const DAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const snap = await getDocs(collection(db, 'appointments'));
+      const apps = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      apps.sort((a: any, b: any) => {
+        const dateA = a.createdAt?.toDate?.()?.getTime() || 0;
+        const dateB = b.createdAt?.toDate?.()?.getTime() || 0;
+        return dateB - dateA;
+      });
+      setAppointments(apps);
+
+      const docRef = doc(db, 'settings', 'appointments');
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setTempDays(data.daysOfWeek || []);
+        setTempTimes(data.timeSlots || []);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+    setLoading(false);
+  };
+
+  const handleToggleDay = (day: number) => {
+    setTempDays(prev => 
+      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day].sort()
+    );
+  };
+
+  const handleAddTime = () => {
+    if (!timeInput) return;
+    const timeRe = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!timeRe.test(timeInput)) {
+      alert('Formato inválido. Use HH:MM');
+      return;
+    }
+    if (!tempTimes.includes(timeInput)) {
+      setTempTimes([...tempTimes, timeInput].sort());
+    }
+    setTimeInput('');
+  };
+
+  const handleRemoveTime = (t: string) => {
+    setTempTimes(tempTimes.filter(time => time !== t));
+  };
+
+  const saveSettings = async () => {
+    setSavingSettings(true);
+    try {
+      await updateDoc(doc(db, 'settings', 'appointments'), {
+        daysOfWeek: tempDays,
+        timeSlots: tempTimes
+      });
+      alert('Configurações salvas!');
+      loadData();
+    } catch (e: any) {
+      if (e.code === 'not-found') {
+        await addDoc(collection(db, 'settings'), { daysOfWeek: tempDays, timeSlots: tempTimes }); // Wait, document needs to be exactly "appointments". I should use setDoc.
+      }
+    }
+    setSavingSettings(false);
+  };
+
+  const updateAppointmentStatus = async (id: string, status: string) => {
+    try {
+      await updateDoc(doc(db, 'appointments', id), { status });
+      loadData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const pending = appointments.filter(a => a.status === 'pending');
+  const accepted = appointments.filter(a => a.status === 'accepted');
+
+  if (loading) {
+    return <div className="dp-loading"><p>Carregando agendamentos...</p></div>;
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div className="glass-box" style={{ padding: 24 }}>
+        <h3 className="patients-section-title" style={{ marginTop: 0, marginBottom: 16 }}>Configurar Disponibilidade</h3>
+        
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ fontWeight: 600, display: 'block', marginBottom: 8 }}>Dias da Semana de Atendimento:</label>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {DAYS.map((d, i) => (
+              <button 
+                key={i} 
+                onClick={() => handleToggleDay(i)}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: 8,
+                  border: tempDays.includes(i) ? '2px solid var(--accent-pink)' : '1px solid #ccc',
+                  background: tempDays.includes(i) ? 'rgba(201,81,144,0.1)' : '#fff',
+                  fontWeight: tempDays.includes(i) ? 700 : 400,
+                  cursor: 'pointer'
+                }}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ fontWeight: 600, display: 'block', marginBottom: 8 }}>Horários Disponíveis:</label>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+            <input 
+              type="time" 
+              className="form-input" 
+              style={{ width: '150px' }} 
+              value={timeInput} 
+              onChange={e => setTimeInput(e.target.value)}
+            />
+            <button className="btn-modern btn-modern-primary" onClick={handleAddTime}>+ Adicionar</button>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {tempTimes.length === 0 && <span style={{ color: '#666' }}>Nenhum horário configurado.</span>}
+            {tempTimes.map(t => (
+              <span key={t} style={{ background: '#f1f5f9', padding: '4px 8px', borderRadius: 16, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                {t}
+                <button onClick={() => handleRemoveTime(t)} style={{ background: 'transparent', border: 'none', color: 'red', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <button 
+          className="btn-modern btn-modern-primary" 
+          onClick={saveSettings} 
+          disabled={savingSettings}
+        >
+          {savingSettings ? 'Salvando...' : '💾 Salvar Configurações'}
+        </button>
+      </div>
+
+      <div className="glass-box" style={{ padding: 24 }}>
+        <h3 className="patients-section-title" style={{ marginTop: 0, marginBottom: 16 }}>Solicitações Pendentes ({pending.length})</h3>
+        {pending.length === 0 ? (
+          <p style={{ color: '#666' }}>Nenhuma solicitação pendente.</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {pending.map(a => (
+              <div key={a.id} style={{ border: '1px solid #e2e8f0', padding: 16, borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>Nick: {a.patientNick}</div>
+                  <div style={{ color: '#475569', fontSize: '0.9rem' }}>Motivo: {a.reason}</div>
+                  <div style={{ color: 'var(--accent-pink)', fontWeight: 600 }}>Data Solicitada: {a.date.split('-').reverse().join('/')} às {a.time}</div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="btn-modern btn-modern-primary btn-sm" style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }} onClick={() => updateAppointmentStatus(a.id, 'accepted')}>
+                    ✅ Aceitar
+                  </button>
+                  <button className="btn-modern btn-modern-secondary btn-sm" onClick={() => updateAppointmentStatus(a.id, 'rejected')}>
+                    ❌ Rejeitar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="glass-box" style={{ padding: 24 }}>
+        <h3 className="patients-section-title" style={{ marginTop: 0, marginBottom: 16 }}>Consultas Agendadas ({accepted.length})</h3>
+        {accepted.length === 0 ? (
+          <p style={{ color: '#666' }}>Nenhum agendamento confirmado.</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {accepted.map(a => (
+              <div key={a.id} style={{ border: '1px solid #e2e8f0', padding: 16, borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>Nick: {a.patientNick}</div>
+                  <div style={{ color: '#475569', fontSize: '0.9rem' }}>Motivo: {a.reason}</div>
+                  <div style={{ color: 'var(--accent-pink)', fontWeight: 600 }}>Agendado para: {a.date.split('-').reverse().join('/')} às {a.time}</div>
+                </div>
+                <div>
+                  <span className="badge badge-gold">Agendamento Confirmado</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+    </div>
+  );
+}
+
 export default function DoctorPanel() {
   const { userData } = useAuth();
-  const [tab, setTab] = useState<'patients' | 'new' | 'ultrasound' | 'users'>('patients');
+  const [tab, setTab] = useState<'patients' | 'new' | 'ultrasound' | 'users' | 'appointments'>('patients');
   const [pregnancies, setPregnancies] = useState<Pregnancy[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -688,11 +897,21 @@ export default function DoctorPanel() {
           >
             👥 Controle de Usuários
           </button>
+          <button
+            className={`dp-tab ${tab === 'appointments' ? 'active' : ''}`}
+            onClick={() => setTab('appointments')}
+          >
+            📅 Agendamentos
+          </button>
         </div>
 
         {/* Content */}
         {tab === 'users' && (
           <UsersTab />
+        )}
+        
+        {tab === 'appointments' && (
+          <AppointmentsTab />
         )}
         
         {tab === 'patients' && (

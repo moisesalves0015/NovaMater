@@ -93,5 +93,17 @@ service cloud.firestore {
       allow read: if isDoctor();
       allow create: if isAuth();
     }
+
+    // Configurações do sistema (como horários de agendamento)
+    match /settings/{id} {
+      allow read: if true; // Qualquer um pode ler configurações (horários disponíveis)
+      allow write: if isDoctor();
+    }
+
+    // Solicitações de agendamentos
+    match /appointments/{id} {
+      allow create: if true; // Qualquer pessoa pode pedir agendamento
+      allow read, update, delete: if isDoctor();
+    }
   }
 }

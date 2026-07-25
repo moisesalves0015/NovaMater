@@ -312,3 +312,17 @@ export interface FamilyMember {
   avatarName?: string;
 }
 
+export interface AppointmentSettings {
+  daysOfWeek: number[]; // 0=Dom, 1=Seg...
+  timeSlots: string[];  // ['14:00', '15:00']
+}
+
+export interface Appointment {
+  id: string;
+  patientNick: string;
+  reason: string;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:mm
+  status: 'pending' | 'accepted' | 'rejected';
+  createdAt: any;
+}

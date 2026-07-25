@@ -14,6 +14,7 @@ const DoctorPanel = lazy(() => import('./pages/Doctor/DoctorPanel'));
 const MedicalRecord = lazy(() => import('./pages/Doctor/MedicalRecord'));
 const Memorial = lazy(() => import('./pages/Memorial/Memorial'));
 const Packages = lazy(() => import('./pages/Packages/Packages'));
+const Appointments = lazy(() => import('./pages/Appointments/Appointments'));
 
 function LoadingScreen() {
   return (
@@ -67,6 +68,7 @@ function AppRoutes() {
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/memorial" element={<Memorial />} />
           <Route path="/pacotes" element={<Packages />} />
+          <Route path="/agendamentos" element={<Appointments />} />
 
           {/* Rota Exclusiva da Mãe / Gestante */}
           <Route path="/dashboard" element={
