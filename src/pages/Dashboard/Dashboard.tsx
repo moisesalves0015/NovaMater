@@ -5,13 +5,14 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePregnancy, useNotifications, toDate } from '../../hooks/usePregnancy';
-import type { Consultation, Exam, Ultrasound, Medication, MedDocument } from '../../types';
+import type { Consultation, Exam, ExamType, Ultrasound, Medication, MedDocument } from '../../types';
 import PDFGenerator from '../../components/Tools/PDFGenerator';
 import type { PDFData } from '../../components/Tools/PDFGenerator';
 import {
   gestationProgress,
   currentGestationMonth,
   daysUntilBirth,
+  EXAM_LABELS
 } from '../../lib/gestationUtils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -20,9 +21,7 @@ import './Dashboard.css';
 // ==================== HELPERS ====================
 function getGestationalWeeks(startDate: Date, plan: { totalDays: number }): number {
   const elapsed = (new Date().getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
-  const totalWeeks = 40;
-  const ratio = elapsed / plan.totalDays;
-  return Math.min(Math.round(ratio * totalWeeks), 40);
+  return Math.min(Math.round((elapsed / plan.totalDays) * 40), 40);
 }
 
 function getTrimester(week: number): string {
@@ -32,15 +31,15 @@ function getTrimester(week: number): string {
 }
 
 function getBabySize(week: number): { size: string; weight: string; icon: string } {
-  if (week <= 4) return { size: '0.2mm', weight: '< 1g', icon: '🌱' };
-  if (week <= 8) return { size: '1.6cm', weight: '1g', icon: '🫘' };
-  if (week <= 12) return { size: '5.4cm', weight: '14g', icon: '🍓' };
+  if (week <= 4)  return { size: '0.2mm', weight: '< 1g',  icon: '🌱' };
+  if (week <= 8)  return { size: '1.6cm', weight: '1g',    icon: '🫘' };
+  if (week <= 12) return { size: '5.4cm', weight: '14g',   icon: '🍓' };
   if (week <= 16) return { size: '11.6cm', weight: '100g', icon: '🍋' };
   if (week <= 20) return { size: '16.5cm', weight: '300g', icon: '🥭' };
-  if (week <= 24) return { size: '21cm', weight: '600g', icon: '🌽' };
-  if (week <= 28) return { size: '25cm', weight: '1kg', icon: '🍆' };
-  if (week <= 32) return { size: '30cm', weight: '1.7kg', icon: '🥥' };
-  if (week <= 36) return { size: '35cm', weight: '2.6kg', icon: '🍉' };
+  if (week <= 24) return { size: '21cm',  weight: '600g',  icon: '🌽' };
+  if (week <= 28) return { size: '25cm',  weight: '1kg',   icon: '🍆' };
+  if (week <= 32) return { size: '30cm',  weight: '1.7kg', icon: '🥥' };
+  if (week <= 36) return { size: '35cm',  weight: '2.6kg', icon: '🍉' };
   return { size: '38cm', weight: '3.2kg', icon: '👶' };
 }
 
@@ -48,12 +47,31 @@ function timeAgo(date: any): string {
   if (!date) return '';
   const d = toDate(date);
   const diff = (new Date().getTime() - d.getTime()) / 1000;
-  if (diff < 60) return 'agora mesmo';
-  if (diff < 3600) return `${Math.floor(diff / 60)} min atrás`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h atrás`;
+  if (diff < 60)     return 'agora mesmo';
+  if (diff < 3600)   return `${Math.floor(diff / 60)} min atrás`;
+  if (diff < 86400)  return `${Math.floor(diff / 3600)}h atrás`;
   if (diff < 604800) return `${Math.floor(diff / 86400)}d atrás`;
-  return format(d, "dd/MM/yyyy", { locale: ptBR });
+  return format(d, 'dd/MM/yyyy', { locale: ptBR });
 }
+
+const DOC_TYPE_LABELS: Record<string, string> = {
+  'receita':       'Receita Médica',
+  'atestado':      'Atestado',
+  'relatorio':     'Relatório',
+  'laudo':         'Laudo',
+  'pedido-exame':  'Pedido de Exame',
+  'declaracao':    'Declaração',
+  'outros':        'Documento',
+};
+const DOC_TYPE_ICONS: Record<string, string> = {
+  'receita':       '💊',
+  'atestado':      '📋',
+  'relatorio':     '📊',
+  'laudo':         '🔬',
+  'pedido-exame':  '🧪',
+  'declaracao':    '📝',
+  'outros':        '📄',
+};
 
 // ==================== NO PREGNANCY ====================
 function NoPregnancy() {
@@ -72,29 +90,30 @@ function NoPregnancy() {
           Isso é feito pela equipe médica durante sua primeira consulta.
         </p>
         <div className="np-contact">
-          🩺 Entre em contato com a equipe do <strong>Nova Mater Hospital</strong> no IMVU para iniciar seu acompanhamento pré-natal personalizado.
+          🩺 Entre em contato com a equipe do <strong>Nova Mater Hospital</strong> no IMVU para iniciar
+          seu acompanhamento pré-natal personalizado.
         </div>
       </motion.div>
     </div>
   );
 }
 
-// ==================== DPP COUNTDOWN HERO ====================
+// ==================== HERO =====================
 function HeroSection({ pregnancy }: { pregnancy: any }) {
-  const startDate = toDate(pregnancy.startDate);
+  const startDate    = toDate(pregnancy.startDate);
   const expectedDate = toDate(pregnancy.expectedBirthDate);
-  const progress = gestationProgress(startDate, pregnancy.gestationPlan);
-  const month = currentGestationMonth(startDate, pregnancy.gestationPlan);
-  const daysLeft = daysUntilBirth(expectedDate);
-  const weeks = getGestationalWeeks(startDate, pregnancy.gestationPlan);
-  const trimester = getTrimester(weeks);
-  const sex = pregnancy.baby?.sex || 'não-revelado';
-  const isGirl = sex === 'menina' || sex === 'gêmeos-meninas';
-  const isBoy = sex === 'menino' || sex === 'gêmeos-meninos';
+  const progress     = gestationProgress(startDate, pregnancy.gestationPlan);
+  const month        = currentGestationMonth(startDate, pregnancy.gestationPlan);
+  const daysLeft     = daysUntilBirth(expectedDate);
+  const weeks        = getGestationalWeeks(startDate, pregnancy.gestationPlan);
+  const trimester    = getTrimester(weeks);
+  const sex          = pregnancy.baby?.sex || 'não-revelado';
+  const isGirl       = sex === 'menina' || sex === 'gêmeos-meninas';
+  const isBoy        = sex === 'menino' || sex === 'gêmeos-meninos';
 
   return (
     <div className="dash-hero">
-      <div className="container">
+      <div className="nm-container">
         <div className="dash-hero-content">
           <div className="dash-hero-top">
             <div className="dash-welcome">
@@ -103,16 +122,21 @@ function HeroSection({ pregnancy }: { pregnancy: any }) {
               </h1>
               <p>Acompanhamento pré-natal · {pregnancy.hospitalName}</p>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+            <div className="dash-hero-badges">
               <span className="dash-risk-badge">
                 {pregnancy.currentStatus === 'ativa' ? '● Gestação Ativa' : '✓ Gestação Concluída'}
               </span>
               {pregnancy.riskLevel && (
-                <span className="dash-risk-badge" style={{
-                  background: pregnancy.riskLevel === 'alto' || pregnancy.riskLevel === 'muito-alto'
-                    ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.2)'
-                }}>
-                  {pregnancy.riskLevel === 'baixo' ? '🟢' : pregnancy.riskLevel === 'habitual' ? '🟡' : '🔴'} Risco {pregnancy.riskLevel}
+                <span
+                  className="dash-risk-badge"
+                  style={
+                    pregnancy.riskLevel === 'alto' || pregnancy.riskLevel === 'muito-alto'
+                      ? { background: 'rgba(239,68,68,0.3)' }
+                      : {}
+                  }
+                >
+                  {pregnancy.riskLevel === 'baixo' ? '🟢' : pregnancy.riskLevel === 'habitual' ? '🟡' : '🔴'}{' '}
+                  Risco {pregnancy.riskLevel}
                 </span>
               )}
             </div>
@@ -124,7 +148,6 @@ function HeroSection({ pregnancy }: { pregnancy: any }) {
               <div className="dpp-date">
                 {format(expectedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
               </div>
-
               <div className="dpp-progress-area">
                 <div className="dpp-progress-labels">
                   <span>{month}° Mês · {trimester} · Semana {weeks}</span>
@@ -142,7 +165,7 @@ function HeroSection({ pregnancy }: { pregnancy: any }) {
                   {[1,2,3,4,5,6,7,8,9].map(m => (
                     <div
                       key={m}
-                      className={`dpp-month-dot ${m < month ? 'done' : ''} ${m === month ? 'current' : ''}`}
+                      className={`dpp-month-dot${m < month ? ' done' : ''}${m === month ? ' current' : ''}`}
                     >
                       {m}
                     </div>
@@ -176,211 +199,85 @@ function HeroSection({ pregnancy }: { pregnancy: any }) {
   );
 }
 
-// ==================== STATS ROW ====================
+// ==================== STATS ROW — COMPACT ====================
 function StatsRow({ pregnancy, consultations, exams }: any) {
-  const startDate = toDate(pregnancy.startDate);
-  const weeks = getGestationalWeeks(startDate, pregnancy.gestationPlan);
-  const babySize = getBabySize(weeks);
-  const completedConsults = consultations.filter((c: Consultation) => c.status === 'realizada').length;
+  const startDate  = toDate(pregnancy.startDate);
+  const weeks      = getGestationalWeeks(startDate, pregnancy.gestationPlan);
+  const babySize   = getBabySize(weeks);
+  const doneConsults = consultations.filter((c: Consultation) => c.status === 'realizada').length;
   const pendingExams = exams.filter((e: Exam) => e.status !== 'realizado').length;
 
   const stats = [
-    { icon: '📅', label: 'Semana Gestacional', value: `${weeks}ª sem.`, bg: 'rgba(201,81,144,0.08)', color: 'var(--accent-pink)' },
-    { icon: babySize.icon, label: 'Tamanho do Bebê', value: babySize.size, bg: 'rgba(59,130,246,0.08)', color: 'var(--accent-blue)' },
-    { icon: '🩺', label: 'Consultas Realizadas', value: `${completedConsults}/${consultations.length}`, bg: 'rgba(52,211,153,0.08)', color: '#059669' },
-    { icon: '🧪', label: 'Exames Pendentes', value: `${pendingExams}`, bg: 'rgba(212,175,55,0.08)', color: 'var(--accent-gold)' },
+    { icon: '📅', label: 'Semana Gestacional',  value: `${weeks}ª sem.` },
+    { icon: babySize.icon, label: 'Tamanho do Bebê', value: babySize.size },
+    { icon: '🩺', label: 'Consultas Realizadas', value: `${doneConsults}/${consultations.length}` },
+    { icon: '🧪', label: 'Exames Pendentes',     value: `${pendingExams}` },
   ];
 
   return (
-    <div className="dash-stats-row">
+    <div className="nm-stats">
       {stats.map((s, i) => (
         <motion.div
           key={i}
-          className="dash-stat-card"
-          initial={{ opacity: 0, y: 20 }}
+          className="nm-stat"
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: i * 0.08 }}
+          transition={{ delay: i * 0.07 }}
         >
-          <div className="stat-icon" style={{ background: s.bg }}>
-            {s.icon}
+          <div className="nm-stat-icon">{s.icon}</div>
+          <div className="nm-stat-body">
+            <div className="nm-stat-value">{s.value}</div>
+            <div className="nm-stat-label">{s.label}</div>
           </div>
-          <div className="stat-val" style={{ color: s.color }}>{s.value}</div>
-          <div className="stat-label">{s.label}</div>
         </motion.div>
       ))}
     </div>
   );
 }
 
-// ==================== RECEITAS TAB ====================
-function MedicalArchiveSection({ medications, documents, onViewPdf }: { medications: Medication[]; documents: MedDocument[]; onViewPdf: (d: MedDocument) => void }) {
-  if (medications.length === 0 && documents.length === 0) return null;
-
-  return (
-    <div className="landing-section" style={{ marginTop: 40 }}>
-      <div className="landing-section-header" style={{ marginBottom: 24 }}>
-        <div>
-          <h3 className="landing-section-title">📁 Meu Arquivo Médico</h3>
-          <p className="landing-section-desc">Receitas e Documentos Oficiais</p>
-        </div>
-      </div>
-      <div className="horizontal-scroll-wrapper">
-        <div className="horizontal-scroll-container">
-          {documents.map(d => (
-            <div key={d.id} className="scroll-card">
-              <div className="scroll-card-header">
-                <span className="scroll-card-icon">📄</span>
-                <span className="scroll-card-badge badge-blue">Documento</span>
-              </div>
-              <div className="scroll-card-title">{d.title}</div>
-              <div className="scroll-card-date">
-                Emitido em {format(toDate(d.issuedAt), 'dd/MM/yyyy')}
-              </div>
-              <div className="scroll-card-footer">
-                <button className="scroll-card-action" onClick={() => onViewPdf(d)}>Visualizar PDF</button>
-              </div>
-            </div>
-          ))}
-          
-          {medications.map(m => (
-            <div key={m.id} className="scroll-card" style={{ opacity: m.active ? 1 : 0.6 }}>
-              <div className="scroll-card-header">
-                <span className="scroll-card-icon">💊</span>
-                <span className={`scroll-card-badge ${m.active ? 'badge-green' : 'badge-gray'}`}>
-                  {m.active ? 'Em Uso' : 'Suspenso'}
-                </span>
-              </div>
-              <div className="scroll-card-title">{m.name}</div>
-              <div className="scroll-card-date">
-                {m.dose} · {m.frequency}
-              </div>
-              <div className="scroll-card-footer" style={{ justifyContent: 'flex-start' }}>
-                <span style={{ fontSize: '0.8rem', color: 'var(--txt-muted)' }}>{m.instructions || 'Sem instruções adicionais'}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ==================== NOTIFICATIONS CARD ====================
+// ==================== NOTIFICATIONS ====================
 function NotificationsCard({ notifications, onMarkRead }: { notifications: any[]; onMarkRead: (id: string) => void }) {
   if (notifications.length === 0) return null;
+  const unread   = notifications.filter(n => !n.read).length;
   const displayed = notifications.slice(0, 5);
 
   return (
-    <div className="section-block">
-      <div className="section-block-header">
-        <h3 className="section-block-title">🔔 Notificações</h3>
-        {notifications.filter(n => !n.read).length > 0 && (
-          <span className="badge badge-pink">{notifications.filter(n => !n.read).length} novas</span>
-        )}
+    <div className="nm-card" style={{ marginBottom: 16 }}>
+      <div className="nm-card-header">
+        <h3 className="nm-card-title">🔔 Notificações</h3>
+        {unread > 0 && <span className="notif-badge">{unread} nova{unread > 1 ? 's' : ''}</span>}
       </div>
-      <div className="section-block-body">
-        <div className="notif-list">
-          {displayed.map((n, i) => (
-            <motion.div
-              key={n.id || i}
-              className={`notif-item ${!n.read ? 'unread' : ''}`}
-              onClick={() => !n.read && onMarkRead(n.id)}
-              initial={{ opacity: 0, x: 10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.06 }}
-            >
-              {!n.read && <div className="notif-dot" />}
-              <div className="notif-icon">{n.icon || '📋'}</div>
-              <div className="notif-body">
-                <h5>{n.title}</h5>
-                <p>{n.body}</p>
-              </div>
-              <div className="notif-time">{timeAgo(n.createdAt)}</div>
-            </motion.div>
-          ))}
-        </div>
+      <div className="notif-list" style={{ padding: '4px 0' }}>
+        {displayed.map((n, i) => (
+          <motion.div
+            key={n.id || i}
+            className={`notif-item${!n.read ? ' unread' : ''}`}
+            onClick={() => !n.read && onMarkRead(n.id)}
+            initial={{ opacity: 0, x: 8 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: i * 0.06 }}
+          >
+            {!n.read && <div className="notif-dot" />}
+            <div className="notif-icon">{n.icon || '📋'}</div>
+            <div className="notif-body">
+              <h5>{n.title}</h5>
+              <p>{n.body}</p>
+            </div>
+            <div className="notif-time">{timeAgo(n.createdAt)}</div>
+          </motion.div>
+        ))}
       </div>
     </div>
   );
 }
 
-// ==================== BABY SIDEBAR CARD ====================
-function BabyCard({ pregnancy, weeks }: { pregnancy: any; weeks: number }) {
-  const babySize = getBabySize(weeks);
-  const sex = pregnancy.baby?.sex || 'não-revelado';
-  const isGirl = sex === 'menina' || sex === 'gêmeos-meninas';
-  const isBoy = sex === 'menino' || sex === 'gêmeos-meninos';
-  const trimester = getTrimester(weeks);
-
-  return (
-    <div className="section-block">
-      <div className="section-block-body">
-        <div className="baby-info-card">
-          <span className="baby-avatar-big">
-            {isGirl ? '👧' : isBoy ? '👦' : '👶'}
-          </span>
-          <div className="baby-name">{pregnancy.baby?.name || 'Bebê em Gestação'}</div>
-          <div className="baby-parents">
-            {pregnancy.motherName}{pregnancy.fatherName ? ` & ${pregnancy.fatherName}` : ''}
-          </div>
-
-          <span className={`badge ${isGirl ? 'badge-girl' : isBoy ? 'badge-boy' : 'badge-neutral'}`}>
-            {isGirl ? '♀ Menina' : isBoy ? '♂ Menino' : '✨ Sexo Não Revelado'}
-          </span>
-
-          <div className="baby-details-grid">
-            <div className="baby-detail">
-              <span className="baby-detail-label">Semana</span>
-              <span className="baby-detail-val">{weeks}ª semana</span>
-            </div>
-            <div className="baby-detail">
-              <span className="baby-detail-label">Trimestre</span>
-              <span className="baby-detail-val">{trimester}</span>
-            </div>
-            <div className="baby-detail">
-              <span className="baby-detail-label">Tamanho</span>
-              <span className="baby-detail-val">{babySize.size} {babySize.icon}</span>
-            </div>
-            <div className="baby-detail">
-              <span className="baby-detail-label">Peso Est.</span>
-              <span className="baby-detail-val">{babySize.weight}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ==================== DOCTOR SIDEBAR CARD ====================
-function DoctorCard({ pregnancy }: { pregnancy: any }) {
-  return (
-    <div className="section-block">
-      <div className="section-block-header">
-        <h3 className="section-block-title">👨‍⚕️ Equipe Médica</h3>
-      </div>
-      <div className="doctor-card">
-        <div className="doctor-avatar">👨‍⚕️</div>
-        <div className="doctor-info">
-          <h4>{pregnancy.doctorName}</h4>
-          <p>Médico Obstetra</p>
-          <p className="hospital-name">🏥 {pregnancy.hospitalName}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ==================== NEW TABBED PRENATAL BOOKLET ====================
-function PrenatalBooklet({ 
-  consultations, 
-  exams, 
-  ultrasounds, 
-  currentMonth
-}: { 
-  consultations: Consultation[]; 
-  exams: Exam[]; 
-  ultrasounds: Ultrasound[]; 
+// ==================== CADERNETA / PRENATAL BOOKLET ====================
+function PrenatalBooklet({
+  consultations, exams, ultrasounds, currentMonth
+}: {
+  consultations: Consultation[];
+  exams: Exam[];
+  ultrasounds: Ultrasound[];
   currentMonth: number;
 }) {
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
@@ -388,166 +285,321 @@ function PrenatalBooklet({
 
   const monthConsults = consultations.filter(c => c.gestationMonth === selectedMonth);
   const monthExams = [
-    ...exams.filter(e => e.gestationMonth === selectedMonth).map(e => ({ ...e, _type: 'exam' })),
-    ...ultrasounds.filter((u: any) => u.gestationMonth === selectedMonth).map(u => ({ ...u, _type: 'usg' }))
+    ...exams.filter(e => e.gestationMonth === selectedMonth).map(e => ({ ...e, _type: 'exam' as const })),
+    ...ultrasounds.filter((u: any) => u.gestationMonth === selectedMonth).map(u => ({ ...u, _type: 'usg' as const })),
   ].sort((a: any, b: any) => (a.date || a.requestDate || 0) - (b.date || b.requestDate || 0));
 
   const isBlocked = selectedMonth > currentMonth;
 
   return (
-    <div className="section-block glass-box" style={{ padding: 24, marginTop: 32 }}>
-      <div className="section-block-header" style={{ marginBottom: 20 }}>
-        <h3 className="section-block-title">📖 Caderneta da Gestante</h3>
-        <p className="section-block-desc">Selecione o mês para ver suas informações, consultas e exames</p>
+    <div className="nm-card">
+      <div className="nm-card-header">
+        <div>
+          <h3 className="nm-card-title">📖 Caderneta da Gestante</h3>
+          <div className="nm-card-subtitle">Selecione um mês para ver consultas e exames</div>
+        </div>
       </div>
-
-      {/* Month Tabs */}
-      <div className="horizontal-scroll-wrapper" style={{ marginBottom: 24 }}>
-        <div className="horizontal-scroll-container" style={{ paddingBottom: 8, gap: 10 }}>
+      <div className="nm-card-body">
+        {/* Month Tabs */}
+        <div className="booklet-tabs">
           {months.map(m => {
-            const isPast = m < currentMonth;
-            const isCurrent = m === currentMonth;
+            const isPast     = m < currentMonth;
+            const isCurrent  = m === currentMonth;
             const isSelected = m === selectedMonth;
+            const isFuture   = m > currentMonth;
+
+            let cls = 'booklet-tab';
+            if (isSelected) cls += ' is-selected';
+            else if (isCurrent) cls += ' is-current';
+            else if (isPast) cls += ' is-past';
+            else if (isFuture) cls += ' is-future';
 
             return (
-              <button
-                key={m}
-                onClick={() => setSelectedMonth(m)}
-                style={{
-                  flex: '0 0 60px',
-                  height: '60px',
-                  borderRadius: '50%',
-                  border: isSelected ? '3px solid var(--accent-blue)' : '1px solid var(--border-light)',
-                  background: isSelected 
-                    ? 'var(--accent-blue)' 
-                    : isCurrent 
-                      ? 'linear-gradient(135deg, rgba(59,130,246,0.1), rgba(239,131,187,0.1))'
-                      : isPast 
-                        ? 'var(--accent-pink)' 
-                        : 'rgba(0,0,0,0.02)',
-                  color: isSelected || isPast ? '#fff' : isCurrent ? 'var(--accent-blue)' : '#64748b',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 800,
-                  fontSize: '1rem',
-                  cursor: 'pointer',
-                  boxShadow: isSelected ? 'var(--shadow-md)' : 'none',
-                  transition: 'all 0.2s ease',
-                  opacity: (!isPast && !isCurrent && !isSelected) ? 0.6 : 1
-                }}
-              >
-                <span>{m}</span>
-                <span style={{ fontSize: '0.55rem', fontWeight: 600, textTransform: 'uppercase', marginTop: 2 }}>
-                  {isSelected ? 'Ver' : isCurrent ? 'Atual' : isPast ? 'Ok' : 'Bloq'}
+              <button key={m} className={cls} onClick={() => setSelectedMonth(m)}>
+                {m}
+                <span className="tab-label">
+                  {isSelected ? 'ver' : isCurrent ? 'atual' : isPast ? 'ok' : 'bloq'}
                 </span>
               </button>
             );
           })}
         </div>
-      </div>
 
-      {/* Content Container */}
-      <div style={{ position: 'relative' }}>
-        {isBlocked && (
-          <div style={{
-            position: 'absolute',
-            inset: 0,
-            zIndex: 10,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(255,255,255,0.7)',
-            backdropFilter: 'blur(6px)',
-            borderRadius: 'var(--r-md)',
-            textAlign: 'center',
-            padding: 24
-          }}>
-            <span style={{ fontSize: '3rem', marginBottom: 12 }}>🔒</span>
-            <h4 style={{ color: 'var(--txt-dark)', marginBottom: 8, fontWeight: 800 }}>Mês Gestacional Bloqueado</h4>
-            <p style={{ color: 'var(--txt-muted)', fontSize: '0.9rem', maxWidth: 300 }}>
-              Você ainda está no {currentMonth}º mês. Esta seção será liberada assim que você atingir o {selectedMonth}º mês de gestação.
-            </p>
+        {/* Content */}
+        <div className="booklet-content">
+          {isBlocked && (
+            <div className="booklet-blocked">
+              <div className="booklet-blocked-icon">🔒</div>
+              <h4>Mês Gestacional Bloqueado</h4>
+              <p>
+                Você ainda está no {currentMonth}º mês. Esta seção será liberada assim que você
+                atingir o {selectedMonth}º mês de gestação.
+              </p>
+            </div>
+          )}
+
+          <div className={isBlocked ? 'booklet-blurred' : ''}>
+            <div className="booklet-month-heading">
+              Prontuário do {selectedMonth}º Mês
+            </div>
+
+            {/* Consultas */}
+            <div className="booklet-sub-heading">🩺 Consultas Pré-Natal ({monthConsults.length})</div>
+            {monthConsults.length === 0 ? (
+              <div className="booklet-empty">Nenhuma consulta registrada para o {selectedMonth}º mês.</div>
+            ) : (
+              <div className="booklet-entries">
+                {monthConsults.map(c => {
+                  const badgeCls = c.status === 'realizada' ? 'nm-badge-green'
+                    : c.status === 'agendada' ? 'nm-badge-rose' : 'nm-badge-gray';
+                  const badgeTxt = c.status === 'realizada' ? 'Realizada'
+                    : c.status === 'agendada' ? 'Agendada' : c.status;
+                  return (
+                    <div key={c.id} className="booklet-entry">
+                      <div className="booklet-entry-icon">👩‍⚕️</div>
+                      <div className="booklet-entry-body">
+                        <div className="booklet-entry-title" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          {c.consultationNumber}ª Consulta Pré-Natal
+                          <span className={`nm-badge ${badgeCls}`}>{badgeTxt}</span>
+                        </div>
+                        <div className="booklet-entry-date">
+                          📅 {c.scheduledDate ? format(toDate(c.scheduledDate), 'dd/MM/yyyy') : 'Pendente'}
+                        </div>
+                        {c.doctorNotes && (
+                          <div className="booklet-entry-note">📝 {c.doctorNotes}</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Exames */}
+            <div className="booklet-sub-heading">🔬 Exames e Ultrassonografias ({monthExams.length})</div>
+            {monthExams.length === 0 ? (
+              <div className="booklet-empty">Nenhum exame ou ultrassom para o {selectedMonth}º mês.</div>
+            ) : (
+              <div className="booklet-entries">
+                {monthExams.map((item: any) => {
+                  const done   = item.status === 'realizado' || item.status === 'realizada';
+                  const sched  = item.status === 'agendado' && (item.date || item.scheduledDate);
+                  const badgeCls = done ? 'nm-badge-green' : sched ? 'nm-badge-rose' : 'nm-badge-gray';
+                  const badgeTxt = done ? 'Realizado' : sched ? 'Agendado' : 'Aguardando';
+                  const label  = item._type === 'usg'
+                    ? (item.type || 'Ultrassonografia')
+                    : (EXAM_LABELS[item.type as ExamType] || item.type || 'Exame');
+                  const dateVal = item.date || item.requestDate;
+                  return (
+                    <div key={item.id} className="booklet-entry">
+                      <div className="booklet-entry-icon">{item._type === 'usg' ? '🖼️' : '🧪'}</div>
+                      <div className="booklet-entry-body">
+                        <div className="booklet-entry-title" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          {label}
+                          <span className={`nm-badge ${badgeCls}`}>{badgeTxt}</span>
+                        </div>
+                        <div className="booklet-entry-date">
+                          📅 {dateVal ? format(toDate(dateVal), 'dd/MM/yyyy') : 'Pendente'}
+                        </div>
+                        {item._type === 'usg' && item.imageUrl && (
+                          <div className="booklet-entry-img">
+                            <img src={item.imageUrl} alt="Ultrassom" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==================== DOCUMENTAÇÕES SECTION ====================
+function DocumentacoesSection({
+  documents,
+  medications,
+  onViewPdf,
+}: {
+  documents: MedDocument[];
+  medications: Medication[];
+  onViewPdf: (d: MedDocument) => void;
+}) {
+  const [filter, setFilter] = useState<'todos' | 'documentos' | 'medicamentos'>('todos');
+  const [search, setSearch] = useState('');
+
+  const filteredDocs = documents.filter(d => {
+    const q = search.toLowerCase();
+    return d.title.toLowerCase().includes(q) || (d.type || '').toLowerCase().includes(q);
+  });
+  const filteredMeds = medications.filter(m => {
+    const q = search.toLowerCase();
+    return m.name.toLowerCase().includes(q);
+  });
+
+  const showDocs = filter === 'todos' || filter === 'documentos';
+  const showMeds = filter === 'todos' || filter === 'medicamentos';
+
+  const totalCount = (showDocs ? filteredDocs.length : 0) + (showMeds ? filteredMeds.length : 0);
+
+  if (documents.length === 0 && medications.length === 0) return null;
+
+  return (
+    <div className="nm-card">
+      <div className="nm-card-header">
+        <div>
+          <h3 className="nm-card-title">📁 Arquivo Médico</h3>
+          <div className="nm-card-subtitle">Documentos e Medicamentos</div>
+        </div>
+      </div>
+      <div className="nm-card-body">
+        {/* Toolbar */}
+        <div className="docs-toolbar">
+          <div className="docs-search">
+            <span className="docs-search-icon">🔍</span>
+            <input
+              type="text"
+              placeholder="Buscar documento ou medicamento..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="docs-filter">
+            {(['todos', 'documentos', 'medicamentos'] as const).map(f => (
+              <button
+                key={f}
+                className={`docs-chip${filter === f ? ' active' : ''}`}
+                onClick={() => setFilter(f)}
+              >
+                {f === 'todos' ? `Todos (${documents.length + medications.length})`
+                  : f === 'documentos' ? `Docs (${documents.length})`
+                  : `Meds (${medications.length})`}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {totalCount === 0 ? (
+          <div className="nm-empty">
+            <div className="nm-empty-icon">🔍</div>
+            <h4>Nenhum resultado</h4>
+            <p>Tente outro termo de busca.</p>
+          </div>
+        ) : (
+          <div className="docs-list">
+            {/* Documents */}
+            {showDocs && filteredDocs.map(d => (
+              <motion.div
+                key={d.id}
+                className="doc-item"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <div className="doc-icon">
+                  {DOC_TYPE_ICONS[d.type] || '📄'}
+                </div>
+                <div className="doc-body">
+                  <div className="doc-title">{d.title}</div>
+                  <div className="doc-meta">
+                    <span className={`nm-badge nm-badge-rose`}>
+                      {DOC_TYPE_LABELS[d.type] || 'Documento'}
+                    </span>
+                    <span className="doc-sep">·</span>
+                    <span>Emitido em {format(toDate(d.issuedAt), 'dd/MM/yyyy')}</span>
+                    <span className="doc-sep">·</span>
+                    <span>Dr(a). {d.issuedBy}</span>
+                  </div>
+                </div>
+                <div className="doc-actions">
+                  <button className="nm-btn nm-btn-primary" onClick={() => onViewPdf(d)}>
+                    📄 Ver PDF
+                  </button>
+                </div>
+              </motion.div>
+            ))}
+
+            {/* Medications */}
+            {showMeds && filteredMeds.map(m => (
+              <motion.div
+                key={m.id}
+                className="doc-item"
+                style={{ opacity: m.active ? 1 : 0.6 }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: m.active ? 1 : 0.6, y: 0 }}
+              >
+                <div className="doc-icon">💊</div>
+                <div className="doc-body">
+                  <div className="doc-title">{m.name}</div>
+                  <div className="doc-meta">
+                    <span className={`nm-badge ${m.active ? 'nm-badge-green' : 'nm-badge-gray'}`}>
+                      {m.active ? 'Em Uso' : 'Suspenso'}
+                    </span>
+                    <span className="doc-sep">·</span>
+                    <span>{m.dose}</span>
+                    <span className="doc-sep">·</span>
+                    <span>{m.frequency}</span>
+                  </div>
+                  {m.instructions && (
+                    <div style={{ fontSize: '0.73rem', color: 'var(--clr-txt-soft)', marginTop: 4 }}>
+                      {m.instructions}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            ))}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
 
-        <div style={{ opacity: isBlocked ? 0.3 : 1, filter: isBlocked ? 'blur(2px)' : 'none', pointerEvents: isBlocked ? 'none' : 'auto' }}>
-          <h4 style={{ color: 'var(--txt-dark)', marginBottom: 16, fontWeight: 800, borderBottom: '1px solid var(--border-light)', paddingBottom: 8 }}>
-            📋 Prontuário do {selectedMonth}º Mês
-          </h4>
+// ==================== SIDEBAR PANEL (Baby + Doctor merged) ====================
+function SidebarPanel({ pregnancy, weeks }: { pregnancy: any; weeks: number }) {
+  const babySize  = getBabySize(weeks);
+  const sex       = pregnancy.baby?.sex || 'não-revelado';
+  const isGirl    = sex === 'menina'  || sex === 'gêmeos-meninas';
+  const isBoy     = sex === 'menino'  || sex === 'gêmeos-meninos';
+  const trimester = getTrimester(weeks);
 
-          {/* Consultas do Mês */}
-          <div style={{ marginBottom: 24 }}>
-            <h5 style={{ fontSize: '0.85rem', textTransform: 'uppercase', color: 'var(--txt-muted)', marginBottom: 12, fontWeight: 700 }}>🩺 Consultas Pré-Natal ({monthConsults.length})</h5>
-            {monthConsults.length === 0 ? (
-              <div style={{ padding: 16, background: 'rgba(0,0,0,0.01)', borderRadius: 'var(--r-md)', border: '1px dashed var(--border-light)', fontSize: '0.85rem', color: 'var(--txt-muted)' }}>
-                Nenhuma consulta registrada para o {selectedMonth}º mês.
-              </div>
-            ) : (
-              <div className="horizontal-scroll-wrapper">
-                <div className="horizontal-scroll-container">
-                  {monthConsults.map(c => (
-                    <div key={c.id} className="scroll-card">
-                      <div className="scroll-card-header">
-                        <span className="scroll-card-icon">👩‍⚕️</span>
-                        <span className={`scroll-card-badge ${c.status === 'realizada' ? 'badge-green' : c.status === 'agendada' ? 'badge-blue' : 'badge-gray'}`}>
-                          {c.status === 'realizada' ? 'Realizada' : c.status === 'agendada' ? 'Agendada' : c.status}
-                        </span>
-                      </div>
-                      <div className="scroll-card-title">{c.consultationNumber}ª Consulta Pré-Natal</div>
-                      <div className="scroll-card-date">
-                        📅 {c.scheduledDate ? format(toDate(c.scheduledDate), "dd/MM/yyyy") : 'Pendente'}
-                      </div>
-                      {c.doctorNotes && (
-                        <div style={{ fontSize: '0.8rem', color: 'var(--txt-muted)', marginTop: 8, background: 'rgba(0,0,0,0.02)', padding: 8, borderRadius: 6 }}>
-                          📝 {c.doctorNotes}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+  return (
+    <div className="nm-sidebar-card">
+      {/* Baby section */}
+      <div className="sidebar-baby">
+        <span className="sidebar-baby-emoji">{isGirl ? '👧' : isBoy ? '👦' : '👶'}</span>
+        <div className="sidebar-baby-name">{pregnancy.baby?.name || 'Bebê em Gestação'}</div>
+        <div className="sidebar-baby-parents">
+          {pregnancy.motherName}{pregnancy.fatherName ? ` & ${pregnancy.fatherName}` : ''}
+        </div>
+        <span className={`sidebar-sex-badge ${isGirl ? 'girl' : isBoy ? 'boy' : 'unknown'}`}>
+          {isGirl ? '♀ Menina' : isBoy ? '♂ Menino' : '✨ Sexo Não Revelado'}
+        </span>
+        <div className="sidebar-stats">
+          {[
+            { label: 'Semana',     val: `${weeks}ª sem.`     },
+            { label: 'Trimestre',  val: trimester             },
+            { label: 'Tamanho',    val: `${babySize.size} ${babySize.icon}` },
+            { label: 'Peso Est.',  val: babySize.weight       },
+          ].map(s => (
+            <div key={s.label} className="sidebar-stat">
+              <span className="sidebar-stat-label">{s.label}</span>
+              <span className="sidebar-stat-val">{s.val}</span>
+            </div>
+          ))}
+        </div>
+      </div>
 
-          {/* Exames do Mês */}
-          <div>
-            <h5 style={{ fontSize: '0.85rem', textTransform: 'uppercase', color: 'var(--txt-muted)', marginBottom: 12, fontWeight: 700 }}>🔬 Exames e Ultrassonografias ({monthExams.length})</h5>
-            {monthExams.length === 0 ? (
-              <div style={{ padding: 16, background: 'rgba(0,0,0,0.01)', borderRadius: 'var(--r-md)', border: '1px dashed var(--border-light)', fontSize: '0.85rem', color: 'var(--txt-muted)' }}>
-                Nenhum exame ou ultrassom solicitado para o {selectedMonth}º mês.
-              </div>
-            ) : (
-              <div className="horizontal-scroll-wrapper">
-                <div className="horizontal-scroll-container">
-                  {monthExams.map((item: any) => (
-                    <div key={item.id} className="scroll-card">
-                      <div className="scroll-card-header">
-                        <span className="scroll-card-icon">{item._type === 'usg' ? '🖼️' : '🧪'}</span>
-                        <span className={`scroll-card-badge ${item.status === 'realizado' || item.status === 'realizada' ? 'badge-green' : 'badge-blue'}`}>
-                          {item.status}
-                        </span>
-                      </div>
-                      <div className="scroll-card-title">
-                        {item._type === 'usg' ? (item.type || 'Ultrassonografia') : 'Exames Laboratoriais'}
-                      </div>
-                      <div className="scroll-card-date">
-                        📅 {(item.date || item.requestDate) ? format(toDate(item.date || item.requestDate), "dd/MM/yyyy") : 'Pendente'}
-                      </div>
-                      {item._type === 'usg' && item.imageUrl && (
-                        <div style={{ marginTop: 8, borderRadius: 6, overflow: 'hidden', border: '1px solid var(--border-light)' }}>
-                          <img src={item.imageUrl} alt="Ultrassom" style={{ width: '100%', height: 'auto', display: 'block', maxHeight: 120, objectFit: 'cover' }} />
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
+      {/* Doctor section */}
+      <div className="sidebar-doctor">
+        <div className="sidebar-doctor-avatar">👨‍⚕️</div>
+        <div>
+          <div className="sidebar-doctor-name">{pregnancy.doctorName}</div>
+          <div className="sidebar-doctor-role">Médico Obstetra</div>
+          <div className="sidebar-doctor-hospital">🏥 {pregnancy.hospitalName}</div>
         </div>
       </div>
     </div>
@@ -557,47 +609,45 @@ function PrenatalBooklet({
 // ==================== MAIN DASHBOARD ====================
 export default function Dashboard() {
   const { currentUser } = useAuth();
-  const { pregnancy, consultations, exams, ultrasounds, medications, documents, loading } = usePregnancy(currentUser?.email || null, currentUser?.uid || null);
+  const { pregnancy, consultations, exams, ultrasounds, medications, documents, loading } =
+    usePregnancy(currentUser?.email || null, currentUser?.uid || null);
   const { notifications } = useNotifications(currentUser?.uid || null);
   const [pdfData, setPdfData] = useState<PDFData | null>(null);
 
   const handleMarkRead = async (notifId: string) => {
-    try {
-      await updateDoc(doc(db, 'notifications', notifId), { read: true });
-    } catch (e) {
-      console.error(e);
-    }
+    try { await updateDoc(doc(db, 'notifications', notifId), { read: true }); } catch {}
   };
 
   const handleViewPdf = (docData: MedDocument) => {
     setPdfData({
-      type: docData.type,
-      title: docData.title,
-      content: docData.content,
-      patientName: pregnancy?.motherName || '',
-      doctorName: docData.issuedBy,
-      hospitalName: pregnancy?.hospitalName || '',
-      date: toDate(docData.issuedAt),
+      type:             docData.type,
+      title:            docData.title,
+      content:          docData.content,
+      patientName:      pregnancy?.motherName || '',
+      doctorName:       docData.issuedBy,
+      hospitalName:     pregnancy?.hospitalName || '',
+      date:             toDate(docData.issuedAt),
       verificationCode: docData.verificationCode,
     });
   };
 
+  /* Loading */
   if (loading) {
     return (
       <div className="dashboard-loading">
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
-        >
-          🌸
-        </motion.div>
+        >🌸</motion.div>
         <p>Carregando seu prontuário...</p>
       </div>
     );
   }
 
+  /* No pregnancy */
   if (!pregnancy) return <NoPregnancy />;
 
+  /* Pendente */
   if (pregnancy.currentStatus === 'pendente') {
     return (
       <div className="no-pregnancy-screen">
@@ -611,10 +661,11 @@ export default function Dashboard() {
           <h2>Aguardando Ativação</h2>
           <p>
             Olá, {pregnancy.motherName.split(' ')[0]}! Seu cadastro foi recebido com sucesso.
-            Seu prontuário está atualmente pendente de aceitação pela equipe médica.
+            Seu prontuário está pendente de aceitação pela equipe médica.
           </p>
           <div className="np-contact">
-            🩺 Assim que o Doutor aceitar seu prontuário no Painel Médico do Nova Mater, você terá acesso completo a este painel e ao acompanhamento gestacional!
+            🩺 Assim que o Doutor aceitar seu prontuário no Painel Médico, você terá acesso completo
+            ao acompanhamento gestacional!
           </div>
         </motion.div>
       </div>
@@ -622,8 +673,8 @@ export default function Dashboard() {
   }
 
   const startDate = toDate(pregnancy.startDate);
-  const weeks = getGestationalWeeks(startDate, pregnancy.gestationPlan);
-  const month = currentGestationMonth(startDate, pregnancy.gestationPlan);
+  const weeks     = getGestationalWeeks(startDate, pregnancy.gestationPlan);
+  const month     = currentGestationMonth(startDate, pregnancy.gestationPlan);
 
   return (
     <div className="dashboard">
@@ -632,16 +683,17 @@ export default function Dashboard() {
 
       {/* BODY */}
       <div className="dash-body">
-        <div className="container">
+        <div className="nm-container" style={{ paddingTop: 32 }}>
 
-          {/* PARTO BANNER IF CONCLUDED */}
+          {/* PARTO BANNER */}
           {pregnancy.currentStatus === 'parto' && (
-            <div className="glass-box" style={{ padding: 20, marginBottom: 20, display: 'flex', gap: 16, alignItems: 'center', background: 'linear-gradient(135deg, rgba(239, 131, 187, 0.08), rgba(59, 130, 246, 0.08))', border: '1px solid rgba(239, 131, 187, 0.2)' }}>
-              <span style={{ fontSize: '2.5rem' }}>🍼</span>
+            <div className="parto-banner">
+              <span className="parto-banner-icon">🍼</span>
               <div>
-                <h3 style={{ color: 'var(--accent-pink)', marginBottom: 4 }}>Parabéns à Família!</h3>
-                <p style={{ fontSize: '0.9rem', color: 'var(--txt-muted)' }}>
-                  O nascimento do bebê <strong>{pregnancy.baby?.name || 'seu bebê'}</strong> foi registrado oficialmente em nosso centro obstétrico!
+                <h3>Parabéns à Família!</h3>
+                <p>
+                  O nascimento do bebê <strong>{pregnancy.baby?.name || 'seu bebê'}</strong> foi registrado
+                  oficialmente em nosso centro obstétrico!
                   {pregnancy.baby?.birthWeight && ` Peso: ${pregnancy.baby.birthWeight} kg ·`}
                   {pregnancy.baby?.birthHeight && ` Estatura: ${pregnancy.baby.birthHeight} cm.`}
                 </p>
@@ -649,40 +701,38 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* STATS ROW */}
-          <StatsRow
-            pregnancy={pregnancy}
-            consultations={consultations}
-            exams={exams}
-          />
+          {/* STATS */}
+          <StatsRow pregnancy={pregnancy} consultations={consultations} exams={exams} />
 
-          <div className="dash-grid">
-            {/* MAIN COL */}
-            <div className="dash-main-col">
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4 }}
-              >
-                {notifications.length > 0 && (
-                  <NotificationsCard notifications={notifications} onMarkRead={handleMarkRead} />
-                )}
-                
-                <PrenatalBooklet 
-                  consultations={consultations} 
-                  ultrasounds={ultrasounds} 
-                  exams={exams} 
-                  currentMonth={month} 
-                />
+          {/* MAIN LAYOUT */}
+          <div className="nm-layout">
+            {/* MAIN COLUMN */}
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+            >
+              {notifications.length > 0 && (
+                <NotificationsCard notifications={notifications} onMarkRead={handleMarkRead} />
+              )}
 
-                <MedicalArchiveSection medications={medications} documents={documents} onViewPdf={handleViewPdf} />
-              </motion.div>
-            </div>
+              <PrenatalBooklet
+                consultations={consultations}
+                ultrasounds={ultrasounds}
+                exams={exams}
+                currentMonth={month}
+              />
+
+              <DocumentacoesSection
+                documents={documents}
+                medications={medications}
+                onViewPdf={handleViewPdf}
+              />
+            </motion.div>
 
             {/* SIDEBAR */}
-            <div className="dash-sidebar">
-              <BabyCard pregnancy={pregnancy} weeks={weeks} />
-              <DoctorCard pregnancy={pregnancy} />
+            <div className="nm-sidebar">
+              <SidebarPanel pregnancy={pregnancy} weeks={weeks} />
             </div>
           </div>
 
