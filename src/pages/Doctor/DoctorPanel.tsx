@@ -81,7 +81,7 @@ function NewPregnancyForm({ onSuccess }: { onSuccess: () => void }) {
       await addDoc(collection(db, 'pregnancies'), {
         motherId: createdMotherUid || `gestante_${Date.now()}`,
         motherName,
-        motherEmail,
+        motherEmail: motherEmail.toLowerCase(),
         accessPassword: motherPassword,
         motherAvatarName,
         fatherName,
@@ -471,7 +471,7 @@ function UsersTab() {
           await addDoc(collection(db, 'pregnancies'), {
             motherId: uid,
             motherName: name,
-            motherEmail: email,
+            motherEmail: email.toLowerCase(),
             startDate,
             expectedBirthDate,
             currentStatus: 'pendente',
@@ -512,7 +512,7 @@ function UsersTab() {
             await addDoc(collection(db, 'pregnancies'), {
               motherId: u.uid,
               motherName: u.name,
-              motherEmail: u.email,
+              motherEmail: u.email.toLowerCase(),
               startDate,
               expectedBirthDate,
               currentStatus: 'pendente',

@@ -11,7 +11,7 @@ export function toDate(val: any): Date {
   return new Date(val);
 }
 
-export function usePregnancy(userEmail: string | null) {
+export function usePregnancy(userEmail: string | null, userId: string | null) {
   const [pregnancy, setPregnancy] = useState<Pregnancy | null>(null);
   const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [exams, setExams] = useState<Exam[]>([]);
@@ -25,7 +25,7 @@ export function usePregnancy(userEmail: string | null) {
   const innerUnsubs = useRef<(() => void)[]>([]);
 
   useEffect(() => {
-    if (!userEmail) {
+    if (!userId) {
       setLoading(false);
       return;
     }
@@ -36,7 +36,7 @@ export function usePregnancy(userEmail: string | null) {
 
     const q = query(
       collection(db, 'pregnancies'),
-      where('motherEmail', '==', userEmail)
+      where('motherId', '==', userId)
     );
 
     const unsub = onSnapshot(

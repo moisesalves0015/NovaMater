@@ -28,7 +28,7 @@
 /* ===================== HERO HEADER ===================== */
 .dash-hero {
   background: var(--grad-primary);
-  padding: 48px 0 80px;
+  padding: 110px 0 80px; /* Increased top padding to clear fixed navbar */
   position: relative;
   overflow: hidden;
 }
@@ -789,4 +789,140 @@
   .dash-stats-row { grid-template-columns: 1fr 1fr; }
   .ct-header-row, .ct-row { grid-template-columns: 0.4fr 0.8fr 1fr 1fr; font-size: 0.75rem; }
   .baby-details-grid { grid-template-columns: 1fr; }
+}
+/* ===================== LANDING PAGE & HORIZONTAL SCROLL ===================== */
+.landing-section {
+  margin-top: 48px;
+}
+
+.landing-section-header {
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.landing-section-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--txt-main);
+  letter-spacing: -0.02em;
+}
+
+.landing-section-desc {
+  font-size: 0.85rem;
+  color: var(--txt-muted);
+  margin-top: 4px;
+}
+
+/* Scroll Container */
+.horizontal-scroll-wrapper {
+  margin: 0 -20px; /* Negative margin to let it bleed to edges on mobile */
+  padding: 0 20px; /* Padding to keep content aligned but scrollable */
+}
+
+.horizontal-scroll-container {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding-bottom: 24px; /* Space for scrollbar and shadow */
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
+}
+
+.horizontal-scroll-container::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+/* Generic Card in Scroll */
+.scroll-card {
+  scroll-snap-align: start;
+  flex: 0 0 280px; /* Fixed width for cards */
+  background: var(--bg-card);
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-light);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+@media (min-width: 768px) {
+  .horizontal-scroll-wrapper {
+    margin: 0;
+    padding: 0;
+  }
+  .scroll-card {
+    flex: 0 0 320px;
+  }
+  .scroll-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+  }
+}
+
+.scroll-card.month-card {
+  flex: 0 0 240px;
+}
+
+.scroll-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.scroll-card-icon {
+  font-size: 2rem;
+}
+
+.scroll-card-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--txt-dark);
+}
+
+.scroll-card-date {
+  font-size: 0.8rem;
+  color: var(--txt-muted);
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.scroll-card-footer {
+  margin-top: auto;
+  padding-top: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.scroll-card-badge {
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: var(--r-full);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.scroll-card-action {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--accent-blue);
+  background: rgba(59,130,246,0.1);
+  padding: 6px 12px;
+  border-radius: var(--r-full);
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.scroll-card-action:hover {
+  background: var(--accent-blue);
+  color: #fff;
 }

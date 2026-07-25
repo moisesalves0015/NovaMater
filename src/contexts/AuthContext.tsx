@@ -9,7 +9,7 @@ import {
   signInWithPopup,
 } from 'firebase/auth';
 import type { User as FirebaseUser } from 'firebase/auth';
-import { doc, getDoc, setDoc, addDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, addDoc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import type { User, UserRole } from '../types';
 
@@ -39,9 +39,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const ensurePregnancyExists = async (uid: string, role: string, name: string, email: string) => {
     if (role !== 'mother') return;
+    const lowerEmail = email.toLowerCase();
     try {
-      const q = query(collection(db, 'pregnancies'), where('motherId', '==', uid));
-      const snap = await getDocs(q);
+      let q = query(collection(db, 'pregnancies'), where('motherId', '==', uid));
+      let snap = await getDocs(q);
+      
+      if (snap.empty) {
+        // Busca por email para vincular prontuário criado pelo médico
+        const qEmail = query(collection(db, 'pregnancies'), where('motherEmail', '==', lowerEmail));
+        const snapEmail = await getDocs(qEmail);
+        if (!snapEmail.empty) {
+          const docRef = doc(db, 'pregnancies', snapEmail.docs[0].id);
+          await updateDoc(docRef, { motherId: uid });
+          return;
+        }
+      }
+
       if (snap.empty) {
         const startDate = new Date();
         const expectedBirthDate = new Date();
@@ -50,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await addDoc(collection(db, 'pregnancies'), {
           motherId: uid,
           motherName: name,
-          motherEmail: email,
+          motherEmail: email.toLowerCase(),
           startDate,
           expectedBirthDate,
           currentStatus: 'pendente',

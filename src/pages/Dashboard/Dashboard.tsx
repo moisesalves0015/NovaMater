@@ -5,7 +5,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePregnancy, useNotifications, toDate } from '../../hooks/usePregnancy';
-import type { Consultation, Exam, Medication, MedDocument } from '../../types';
+import type { Consultation, Exam, Ultrasound, Medication, MedDocument } from '../../types';
 import PDFGenerator from '../../components/Tools/PDFGenerator';
 import type { PDFData } from '../../components/Tools/PDFGenerator';
 import {
@@ -213,93 +213,52 @@ function StatsRow({ pregnancy, consultations, exams }: any) {
 }
 
 // ==================== RECEITAS TAB ====================
-function ReceitasTab({ medications, documents, onViewPdf }: { medications: Medication[]; documents: MedDocument[]; onViewPdf: (d: MedDocument) => void }) {
-  const activeMedications = medications.filter(m => m.active);
-  const inactiveMedications = medications.filter(m => !m.active);
+function MedicalArchiveSection({ medications, documents, onViewPdf }: { medications: Medication[]; documents: MedDocument[]; onViewPdf: (d: MedDocument) => void }) {
+  if (medications.length === 0 && documents.length === 0) return null;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* MEDICAMENTOS */}
-      <div className="section-block">
-        <div className="section-block-header">
-          <h3 className="section-block-title">💊 Medicamentos Prescritos</h3>
-        </div>
-        <div className="section-block-body">
-          {medications.length === 0 ? (
-            <div className="empty-state" style={{ padding: '30px 20px', textAlign: 'center' }}>
-              <span style={{ fontSize: '2rem' }}>💊</span>
-              <h4>Nenhum medicamento prescrito</h4>
-            </div>
-          ) : (
-            <div>
-              {activeMedications.length > 0 && (
-                <div style={{ marginBottom: 20 }}>
-                  <h5 style={{ fontSize: '0.78rem', textTransform: 'uppercase', color: 'var(--txt-muted)', marginBottom: 10 }}>Em Uso</h5>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {activeMedications.map(m => (
-                      <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, background: 'rgba(239, 131, 187, 0.04)', border: '1px solid rgba(239, 131, 187, 0.15)', borderRadius: 'var(--r-md)' }}>
-                        <span style={{ fontSize: '1.5rem' }}>💊</span>
-                        <div>
-                          <div style={{ fontWeight: 700, color: 'var(--txt-dark)' }}>{m.name}</div>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--txt-muted)' }}>{m.dose} · {m.frequency} {m.duration ? `· ${m.duration}` : ''}</div>
-                          {m.instructions && <div style={{ fontSize: '0.78rem', color: 'var(--txt-muted)', marginTop: 4 }}>💡 {m.instructions}</div>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {inactiveMedications.length > 0 && (
-                <div>
-                  <h5 style={{ fontSize: '0.78rem', textTransform: 'uppercase', color: 'var(--txt-muted)', marginBottom: 10 }}>Histórico / Suspensos</h5>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {inactiveMedications.map(m => (
-                      <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: 'var(--r-md)', opacity: 0.6 }}>
-                        <span style={{ fontSize: '1.5rem' }}>💊</span>
-                        <div>
-                          <div style={{ fontWeight: 600, color: 'var(--txt-dark)' }}>{m.name}</div>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--txt-muted)' }}>{m.dose} · Suspenso</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+    <div className="landing-section" style={{ marginTop: 40 }}>
+      <div className="landing-section-header" style={{ marginBottom: 24 }}>
+        <div>
+          <h3 className="landing-section-title">📁 Meu Arquivo Médico</h3>
+          <p className="landing-section-desc">Receitas e Documentos Oficiais</p>
         </div>
       </div>
-
-      {/* DOCUMENTOS */}
-      <div className="section-block">
-        <div className="section-block-header">
-          <h3 className="section-block-title">📁 Documentos e Receitas Oficiais</h3>
-        </div>
-        <div className="section-block-body">
-          {documents.length === 0 ? (
-            <div className="empty-state" style={{ padding: '30px 20px', textAlign: 'center' }}>
-              <span style={{ fontSize: '2rem' }}>📄</span>
-              <h4>Nenhum documento emitido</h4>
+      <div className="horizontal-scroll-wrapper">
+        <div className="horizontal-scroll-container">
+          {documents.map(d => (
+            <div key={d.id} className="scroll-card">
+              <div className="scroll-card-header">
+                <span className="scroll-card-icon">📄</span>
+                <span className="scroll-card-badge badge-blue">Documento</span>
+              </div>
+              <div className="scroll-card-title">{d.title}</div>
+              <div className="scroll-card-date">
+                Emitido em {format(toDate(d.issuedAt), 'dd/MM/yyyy')}
+              </div>
+              <div className="scroll-card-footer">
+                <button className="scroll-card-action" onClick={() => onViewPdf(d)}>Visualizar PDF</button>
+              </div>
             </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {documents.map(d => (
-                <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 12, background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: 'var(--r-md)' }}>
-                  <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                    <span style={{ fontSize: '1.5rem' }}>📄</span>
-                    <div>
-                      <div style={{ fontWeight: 700, color: 'var(--txt-dark)' }}>{d.title}</div>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--txt-muted)' }}>Emitido em {format(toDate(d.issuedAt), 'dd/MM/yyyy HH:mm')} por {d.issuedBy}</div>
-                      {d.verificationCode && <div style={{ fontSize: '0.7rem', fontFamily: 'monospace', color: 'var(--accent-gold)' }}>Cód: {d.verificationCode}</div>}
-                    </div>
-                  </div>
-                  <button className="btn-modern btn-modern-primary btn-sm" onClick={() => onViewPdf(d)}>
-                    📄 Visualizar PDF
-                  </button>
-                </div>
-              ))}
+          ))}
+          
+          {medications.map(m => (
+            <div key={m.id} className="scroll-card" style={{ opacity: m.active ? 1 : 0.6 }}>
+              <div className="scroll-card-header">
+                <span className="scroll-card-icon">💊</span>
+                <span className={`scroll-card-badge ${m.active ? 'badge-green' : 'badge-gray'}`}>
+                  {m.active ? 'Em Uso' : 'Suspenso'}
+                </span>
+              </div>
+              <div className="scroll-card-title">{m.name}</div>
+              <div className="scroll-card-date">
+                {m.dose} · {m.frequency}
+              </div>
+              <div className="scroll-card-footer" style={{ justifyContent: 'flex-start' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--txt-muted)' }}>{m.instructions || 'Sem instruções adicionais'}</span>
+              </div>
             </div>
-          )}
+          ))}
         </div>
       </div>
     </div>
@@ -412,116 +371,193 @@ function DoctorCard({ pregnancy }: { pregnancy: any }) {
   );
 }
 
-// ==================== CADERNETA DA GESTAÇÃO ====================
-function PrenatalBooklet({ consultations, ultrasounds, exams, currentMonth }: any) {
+// ==================== NEW TABBED PRENATAL BOOKLET ====================
+function PrenatalBooklet({ 
+  consultations, 
+  exams, 
+  ultrasounds, 
+  currentMonth
+}: { 
+  consultations: Consultation[]; 
+  exams: Exam[]; 
+  ultrasounds: Ultrasound[]; 
+  currentMonth: number;
+}) {
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const months = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
+  const monthConsults = consultations.filter(c => c.gestationMonth === selectedMonth);
+  const monthExams = [
+    ...exams.filter(e => e.gestationMonth === selectedMonth).map(e => ({ ...e, _type: 'exam' })),
+    ...ultrasounds.filter((u: any) => u.gestationMonth === selectedMonth).map(u => ({ ...u, _type: 'usg' }))
+  ].sort((a: any, b: any) => (a.date || a.requestDate || 0) - (b.date || b.requestDate || 0));
+
+  const isBlocked = selectedMonth > currentMonth;
+
   return (
-    <div className="caderneta-timeline" style={{ marginTop: 32 }}>
-      <div className="section-block-header" style={{ marginBottom: 24 }}>
-        <h3 className="section-block-title">📖 Caderneta da Gestação</h3>
-        <p className="section-block-desc" style={{ color: 'var(--txt-muted)', fontSize: '0.9rem' }}>Acompanhe sua jornada mês a mês</p>
+    <div className="section-block glass-box" style={{ padding: 24, marginTop: 32 }}>
+      <div className="section-block-header" style={{ marginBottom: 20 }}>
+        <h3 className="section-block-title">📖 Caderneta da Gestante</h3>
+        <p className="section-block-desc">Selecione o mês para ver suas informações, consultas e exames</p>
       </div>
 
-      <div className="timeline-container" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-        {months.map(m => {
-          const monthConsults = consultations.filter((c: any) => c.gestationMonth === m);
-          const monthUSGs = ultrasounds.filter((u: any) => u.gestationMonth === m);
-          const monthExams = exams.filter((e: any) => e.gestationMonth === m);
-          
-          const isPast = m < currentMonth;
-          const isCurrent = m === currentMonth;
+      {/* Month Tabs */}
+      <div className="horizontal-scroll-wrapper" style={{ marginBottom: 24 }}>
+        <div className="horizontal-scroll-container" style={{ paddingBottom: 8, gap: 10 }}>
+          {months.map(m => {
+            const isPast = m < currentMonth;
+            const isCurrent = m === currentMonth;
+            const isSelected = m === selectedMonth;
 
-          let consultStatus = 'A Agendar';
-          let consultBadge = 'badge-neutral';
-          if (monthConsults.length > 0) {
-            const c = monthConsults[monthConsults.length - 1];
-            if (c.status === 'realizada') { consultStatus = 'Realizada'; consultBadge = 'badge-green'; }
-            else if (c.status === 'agendada') { consultStatus = 'Agendada'; consultBadge = 'badge-blue'; }
-          } else if (isPast) {
-             consultStatus = 'Não Registrada'; consultBadge = 'badge-gray';
-          }
+            return (
+              <button
+                key={m}
+                onClick={() => setSelectedMonth(m)}
+                style={{
+                  flex: '0 0 60px',
+                  height: '60px',
+                  borderRadius: '50%',
+                  border: isSelected ? '3px solid var(--accent-blue)' : '1px solid var(--border-light)',
+                  background: isSelected 
+                    ? 'var(--accent-blue)' 
+                    : isCurrent 
+                      ? 'linear-gradient(135deg, rgba(59,130,246,0.1), rgba(239,131,187,0.1))'
+                      : isPast 
+                        ? 'var(--accent-pink)' 
+                        : 'rgba(0,0,0,0.02)',
+                  color: isSelected || isPast ? '#fff' : isCurrent ? 'var(--accent-blue)' : '#64748b',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 800,
+                  fontSize: '1rem',
+                  cursor: 'pointer',
+                  boxShadow: isSelected ? 'var(--shadow-md)' : 'none',
+                  transition: 'all 0.2s ease',
+                  opacity: (!isPast && !isCurrent && !isSelected) ? 0.6 : 1
+                }}
+              >
+                <span>{m}</span>
+                <span style={{ fontSize: '0.55rem', fontWeight: 600, textTransform: 'uppercase', marginTop: 2 }}>
+                  {isSelected ? 'Ver' : isCurrent ? 'Atual' : isPast ? 'Ok' : 'Bloq'}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-          let usgStatus = 'A Agendar';
-          let usgBadge = 'badge-neutral';
-          let usgType = 'Ultrassonografia Padrão';
-          if (m === 3) usgType = 'USG Morfológica 1º Trimestre';
-          if (m === 5) usgType = 'USG Morfológica 2º Trimestre';
-          
-          if (monthUSGs.length > 0) {
-            const u = monthUSGs[0];
-            usgType = u.type || usgType;
-            if (u.status === 'realizada') { usgStatus = 'Realizada'; usgBadge = 'badge-green'; }
-            else if (u.status === 'agendada') { usgStatus = 'Agendada'; usgBadge = 'badge-blue'; }
-          } else if (isPast) {
-             usgStatus = 'Não Registrada'; usgBadge = 'badge-gray';
-          }
+      {/* Content Container */}
+      <div style={{ position: 'relative' }}>
+        {isBlocked && (
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 10,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(255,255,255,0.7)',
+            backdropFilter: 'blur(6px)',
+            borderRadius: 'var(--r-md)',
+            textAlign: 'center',
+            padding: 24
+          }}>
+            <span style={{ fontSize: '3rem', marginBottom: 12 }}>🔒</span>
+            <h4 style={{ color: 'var(--txt-dark)', marginBottom: 8, fontWeight: 800 }}>Mês Gestacional Bloqueado</h4>
+            <p style={{ color: 'var(--txt-muted)', fontSize: '0.9rem', maxWidth: 300 }}>
+              Você ainda está no {currentMonth}º mês. Esta seção será liberada assim que você atingir o {selectedMonth}º mês de gestação.
+            </p>
+          </div>
+        )}
 
-          return (
-            <div key={m} className={`timeline-month-block ${isCurrent ? 'current' : ''} ${isPast ? 'past' : ''}`} style={{ display: 'flex', gap: 20 }}>
-               <div className="tmb-marker" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                 <div className="tmb-dot" style={{ 
-                   width: 36, height: 36, borderRadius: '50%', 
-                   background: isPast ? 'var(--accent-pink)' : isCurrent ? 'var(--accent-blue)' : '#e5e7eb',
-                   color: (isPast || isCurrent) ? '#fff' : '#9ca3af',
-                   display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, zIndex: 2
-                 }}>{m}</div>
-                 {m < 9 && <div className="tmb-line" style={{ width: 2, flex: 1, background: isPast ? 'var(--accent-pink)' : '#e5e7eb', minHeight: 40 }} />}
-               </div>
-               
-               <div className="tmb-content glass-box" style={{ padding: 24, marginBottom: 24, flex: 1, opacity: (!isPast && !isCurrent) ? 0.7 : 1 }}>
-                  <h4 style={{ marginBottom: 16, color: 'var(--txt-main)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {m}º Mês de Gestação
-                    {isCurrent && <span className="badge badge-blue">Mês Atual</span>}
-                  </h4>
-                  
-                  <div className="tmb-items-grid" style={{ display: 'grid', gap: 12 }}>
-                    <div className="tmb-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'rgba(0,0,0,0.02)', borderRadius: 12 }}>
-                      <div>
-                        <div style={{ fontWeight: 600, color: 'var(--txt-main)' }}>🩺 Consulta Pré-Natal</div>
-                        <div style={{ fontSize: '0.85rem', color: 'var(--txt-muted)' }}>{monthConsults.length > 0 && monthConsults[0].scheduledDate ? format(toDate(monthConsults[0].scheduledDate), 'dd/MM/yyyy') : 'Agendamento pendente'}</div>
+        <div style={{ opacity: isBlocked ? 0.3 : 1, filter: isBlocked ? 'blur(2px)' : 'none', pointerEvents: isBlocked ? 'none' : 'auto' }}>
+          <h4 style={{ color: 'var(--txt-dark)', marginBottom: 16, fontWeight: 800, borderBottom: '1px solid var(--border-light)', paddingBottom: 8 }}>
+            📋 Prontuário do {selectedMonth}º Mês
+          </h4>
+
+          {/* Consultas do Mês */}
+          <div style={{ marginBottom: 24 }}>
+            <h5 style={{ fontSize: '0.85rem', textTransform: 'uppercase', color: 'var(--txt-muted)', marginBottom: 12, fontWeight: 700 }}>🩺 Consultas Pré-Natal ({monthConsults.length})</h5>
+            {monthConsults.length === 0 ? (
+              <div style={{ padding: 16, background: 'rgba(0,0,0,0.01)', borderRadius: 'var(--r-md)', border: '1px dashed var(--border-light)', fontSize: '0.85rem', color: 'var(--txt-muted)' }}>
+                Nenhuma consulta registrada para o {selectedMonth}º mês.
+              </div>
+            ) : (
+              <div className="horizontal-scroll-wrapper">
+                <div className="horizontal-scroll-container">
+                  {monthConsults.map(c => (
+                    <div key={c.id} className="scroll-card">
+                      <div className="scroll-card-header">
+                        <span className="scroll-card-icon">👩‍⚕️</span>
+                        <span className={`scroll-card-badge ${c.status === 'realizada' ? 'badge-green' : c.status === 'agendada' ? 'badge-blue' : 'badge-gray'}`}>
+                          {c.status === 'realizada' ? 'Realizada' : c.status === 'agendada' ? 'Agendada' : c.status}
+                        </span>
                       </div>
-                      <span className={`badge ${consultBadge}`}>{consultStatus}</span>
-                    </div>
-
-                    <div className="tmb-item" style={{ padding: '16px', background: 'rgba(0,0,0,0.02)', borderRadius: 12 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: (monthUSGs.length > 0 && monthUSGs[0].imageUrl) ? 12 : 0 }}>
-                        <div>
-                          <div style={{ fontWeight: 600, color: 'var(--txt-main)' }}>🖼️ {usgType}</div>
-                          <div style={{ fontSize: '0.85rem', color: 'var(--txt-muted)' }}>{monthUSGs.length > 0 && monthUSGs[0].date ? format(toDate(monthUSGs[0].date), 'dd/MM/yyyy') : 'Agendamento pendente'}</div>
-                        </div>
-                        <span className={`badge ${usgBadge}`}>{usgStatus}</span>
+                      <div className="scroll-card-title">{c.consultationNumber}ª Consulta Pré-Natal</div>
+                      <div className="scroll-card-date">
+                        📅 {c.scheduledDate ? format(toDate(c.scheduledDate), "dd/MM/yyyy") : 'Pendente'}
                       </div>
-                      
-                      {monthUSGs.length > 0 && monthUSGs[0].imageUrl && (
-                        <div style={{ marginTop: 8, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-light)' }}>
-                          <img src={monthUSGs[0].imageUrl} alt="Ultrassom" style={{ width: '100%', height: 'auto', display: 'block', maxHeight: 200, objectFit: 'cover' }} />
+                      {c.doctorNotes && (
+                        <div style={{ fontSize: '0.8rem', color: 'var(--txt-muted)', marginTop: 8, background: 'rgba(0,0,0,0.02)', padding: 8, borderRadius: 6 }}>
+                          📝 {c.doctorNotes}
                         </div>
                       )}
                     </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
-                    {monthExams.length > 0 && (
-                      <div className="tmb-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'rgba(59,130,246,0.05)', borderRadius: 12 }}>
-                        <div>
-                          <div style={{ fontWeight: 600, color: 'var(--txt-main)' }}>🧪 {monthExams.length} Exames Solicitados</div>
-                        </div>
-                        <span className="badge badge-blue">Consultar equipe</span>
+          {/* Exames do Mês */}
+          <div>
+            <h5 style={{ fontSize: '0.85rem', textTransform: 'uppercase', color: 'var(--txt-muted)', marginBottom: 12, fontWeight: 700 }}>🔬 Exames e Ultrassonografias ({monthExams.length})</h5>
+            {monthExams.length === 0 ? (
+              <div style={{ padding: 16, background: 'rgba(0,0,0,0.01)', borderRadius: 'var(--r-md)', border: '1px dashed var(--border-light)', fontSize: '0.85rem', color: 'var(--txt-muted)' }}>
+                Nenhum exame ou ultrassom solicitado para o {selectedMonth}º mês.
+              </div>
+            ) : (
+              <div className="horizontal-scroll-wrapper">
+                <div className="horizontal-scroll-container">
+                  {monthExams.map((item: any) => (
+                    <div key={item.id} className="scroll-card">
+                      <div className="scroll-card-header">
+                        <span className="scroll-card-icon">{item._type === 'usg' ? '🖼️' : '🧪'}</span>
+                        <span className={`scroll-card-badge ${item.status === 'realizado' || item.status === 'realizada' ? 'badge-green' : 'badge-blue'}`}>
+                          {item.status}
+                        </span>
                       </div>
-                    )}
-                  </div>
-               </div>
-            </div>
-          )
-        })}
+                      <div className="scroll-card-title">
+                        {item._type === 'usg' ? (item.type || 'Ultrassonografia') : 'Exames Laboratoriais'}
+                      </div>
+                      <div className="scroll-card-date">
+                        📅 {(item.date || item.requestDate) ? format(toDate(item.date || item.requestDate), "dd/MM/yyyy") : 'Pendente'}
+                      </div>
+                      {item._type === 'usg' && item.imageUrl && (
+                        <div style={{ marginTop: 8, borderRadius: 6, overflow: 'hidden', border: '1px solid var(--border-light)' }}>
+                          <img src={item.imageUrl} alt="Ultrassom" style={{ width: '100%', height: 'auto', display: 'block', maxHeight: 120, objectFit: 'cover' }} />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+        </div>
       </div>
     </div>
-  )
+  );
 }
 
 // ==================== MAIN DASHBOARD ====================
 export default function Dashboard() {
   const { currentUser } = useAuth();
-  const { pregnancy, consultations, exams, ultrasounds, medications, documents, loading } = usePregnancy(currentUser?.email || null);
+  const { pregnancy, consultations, exams, ultrasounds, medications, documents, loading } = usePregnancy(currentUser?.email || null, currentUser?.uid || null);
   const { notifications } = useNotifications(currentUser?.uid || null);
   const [pdfData, setPdfData] = useState<PDFData | null>(null);
 
@@ -561,6 +597,29 @@ export default function Dashboard() {
   }
 
   if (!pregnancy) return <NoPregnancy />;
+
+  if (pregnancy.currentStatus === 'pendente') {
+    return (
+      <div className="no-pregnancy-screen">
+        <motion.div
+          className="np-card"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <span className="np-icon">⏳</span>
+          <h2>Aguardando Ativação</h2>
+          <p>
+            Olá, {pregnancy.motherName.split(' ')[0]}! Seu cadastro foi recebido com sucesso.
+            Seu prontuário está atualmente pendente de aceitação pela equipe médica.
+          </p>
+          <div className="np-contact">
+            🩺 Assim que o Doutor aceitar seu prontuário no Painel Médico do Nova Mater, você terá acesso completo a este painel e ao acompanhamento gestacional!
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   const startDate = toDate(pregnancy.startDate);
   const weeks = getGestationalWeeks(startDate, pregnancy.gestationPlan);
@@ -616,16 +675,7 @@ export default function Dashboard() {
                   currentMonth={month} 
                 />
 
-                {/* RECEITAS & DOCS (Abaixo da caderneta) */}
-                {(medications.length > 0 || documents.length > 0) && (
-                  <div style={{ marginTop: 40 }}>
-                    <div className="section-block-header" style={{ marginBottom: 24 }}>
-                      <h3 className="section-block-title">💊 Arquivo Médico</h3>
-                      <p className="section-block-desc" style={{ color: 'var(--txt-muted)', fontSize: '0.9rem' }}>Receitas e documentos oficiais</p>
-                    </div>
-                    <ReceitasTab medications={medications} documents={documents} onViewPdf={handleViewPdf} />
-                  </div>
-                )}
+                <MedicalArchiveSection medications={medications} documents={documents} onViewPdf={handleViewPdf} />
               </motion.div>
             </div>
 
