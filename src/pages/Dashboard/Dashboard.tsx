@@ -1,10 +1,8 @@
 // src/pages/Dashboard/Dashboard.tsx
 import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
-import { usePregnancy, useNotifications, toDate } from '../../hooks/usePregnancy';
+import { usePregnancy, toDate } from '../../hooks/usePregnancy';
 import type { Consultation, Exam } from '../../types';
 import DocViewerModal from '../../components/Documents/DocViewerModal';
 import type { PDFData } from '../../components/Documents/DocViewerModal';
@@ -43,16 +41,7 @@ function getBabySize(week: number): { size: string; weight: string; icon: string
   return { size: '38cm', weight: '3.2kg', icon: '👶' };
 }
 
-function timeAgo(date: any): string {
-  if (!date) return '';
-  const d = toDate(date);
-  const diff = (new Date().getTime() - d.getTime()) / 1000;
-  if (diff < 60)     return 'agora mesmo';
-  if (diff < 3600)   return `${Math.floor(diff / 60)} min atrás`;
-  if (diff < 86400)  return `${Math.floor(diff / 3600)}h atrás`;
-  if (diff < 604800) return `${Math.floor(diff / 86400)}d atrás`;
-  return format(d, 'dd/MM/yyyy', { locale: ptBR });
-}
+
 
 
 
@@ -300,41 +289,7 @@ function GestationVideo({ month }: { month: number }) {
 
 
 
-// ==================== NOTIFICATIONS ====================
-function NotificationsCard({ notifications, onMarkRead }: { notifications: any[]; onMarkRead: (id: string) => void }) {
-  if (notifications.length === 0) return null;
-  const unread   = notifications.filter(n => !n.read).length;
-  const displayed = notifications.slice(0, 5);
 
-  return (
-    <div className="nm-card" style={{ marginBottom: 16 }}>
-      <div className="nm-card-header">
-        <h3 className="nm-card-title">🔔 Notificações</h3>
-        {unread > 0 && <span className="notif-badge">{unread} nova{unread > 1 ? 's' : ''}</span>}
-      </div>
-      <div className="notif-list" style={{ padding: '4px 0' }}>
-        {displayed.map((n, i) => (
-          <motion.div
-            key={n.id || i}
-            className={`notif-item${!n.read ? ' unread' : ''}`}
-            onClick={() => !n.read && onMarkRead(n.id)}
-            initial={{ opacity: 0, x: 8 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: i * 0.06 }}
-          >
-            {!n.read && <div className="notif-dot" />}
-            <div className="notif-icon">{n.icon || '📋'}</div>
-            <div className="notif-body">
-              <h5>{n.title}</h5>
-              <p>{n.body}</p>
-            </div>
-            <div className="notif-time">{timeAgo(n.createdAt)}</div>
-          </motion.div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 
 
@@ -375,12 +330,6 @@ function SidebarPanel({ pregnancy }: { pregnancy: any }) {
                    <div className="card-v2-field"><label>DPP</label><span>{pregnancy.expectedBirthDate ? format(toDate(pregnancy.expectedBirthDate), 'dd/MM/yyyy') : '--'}</span></div>
                    <div className="card-v2-field"><label>SANGUE</label><span>Não Inf.</span></div>
                  </div>
-                 {pregnancy.baby?.name && (
-                   <div className="card-v2-field" style={{marginTop: '2px'}}>
-                     <label>BEBÊ</label>
-                     <span>{pregnancy.baby.name.split(' ')[0]}</span>
-                   </div>
-                 )}
               </div>
             </div>
 
@@ -422,12 +371,7 @@ export default function Dashboard() {
   const { currentUser } = useAuth();
   const { pregnancy, consultations, exams, loading } =
     usePregnancy(currentUser?.email || null, currentUser?.uid || null);
-  const { notifications } = useNotifications(currentUser?.uid || null);
   const [pdfData, setPdfData] = useState<PDFData | null>(null);
-
-  const handleMarkRead = async (notifId: string) => {
-    try { await updateDoc(doc(db, 'notifications', notifId), { read: true }); } catch {}
-  };
 
   /* Loading */
   if (loading) {
@@ -547,9 +491,7 @@ export default function Dashboard() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4 }}
             >
-              {notifications.length > 0 && (
-                <NotificationsCard notifications={notifications} onMarkRead={handleMarkRead} />
-              )}
+              {/* Notificações foram movidas para a Navbar */}
 
 
             </motion.div>

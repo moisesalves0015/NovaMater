@@ -3,28 +3,109 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
-import { useNotifications } from '../../hooks/usePregnancy';
+import { useNotifications, toDate } from '../../hooks/usePregnancy';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import './Navbar.css';
+
+function timeAgo(date: any): string {
+  if (!date) return '';
+  const d = toDate(date);
+  const diff = (new Date().getTime() - d.getTime()) / 1000;
+  if (diff < 60)     return 'agora mesmo';
+  if (diff < 3600)   return `${Math.floor(diff / 60)} min atrás`;
+  if (diff < 86400)  return `${Math.floor(diff / 3600)}h atrás`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d atrás`;
+  return format(d, 'dd/MM/yyyy', { locale: ptBR });
+}
 import './Navbar.css';
 
 function NotificationBell({ userId }: { userId: string }) {
-  const { unreadCount } = useNotifications(userId);
-  if (unreadCount === 0) return null;
+  const { notifications, unreadCount } = useNotifications(userId);
+  const [open, setOpen] = useState(false);
+
+  const handleMarkRead = async (notifId: string) => {
+    try { await updateDoc(doc(db, 'notifications', notifId), { read: true }); } catch {}
+  };
+
   return (
-    <div style={{ position: 'relative', cursor: 'pointer' }}>
-      <span style={{ fontSize: '1.2rem' }}>🔔</span>
-      <span style={{
-        position: 'absolute', top: -6, right: -6,
-        background: 'var(--accent-pink)',
-        color: '#fff',
-        borderRadius: '50%',
-        width: 18, height: 18,
-        fontSize: '0.65rem',
-        fontWeight: 900,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        border: '2px solid #fff',
-      }}>
-        {unreadCount > 9 ? '9+' : unreadCount}
-      </span>
+    <div style={{ position: 'relative' }}>
+      <div 
+        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }} 
+        onClick={() => setOpen(!open)}
+      >
+        <span style={{ fontSize: '1.2rem' }}>🔔</span>
+        {unreadCount > 0 && (
+          <span style={{
+            position: 'absolute', top: -6, right: -6,
+            background: 'var(--accent-pink)',
+            color: '#fff',
+            borderRadius: '50%',
+            width: 18, height: 18,
+            fontSize: '0.65rem',
+            fontWeight: 900,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: '2px solid #fff',
+          }}>
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            className="profile-popover glass-box"
+            style={{ width: '300px', right: '-80px', padding: 0, overflow: 'hidden' }}
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+          >
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#1e293b' }}>Notificações</h4>
+              {unreadCount > 0 && <span style={{ fontSize: '0.75rem', background: '#fdf2f8', color: '#be185d', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>{unreadCount} novas</span>}
+            </div>
+            
+            <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
+              {notifications.length === 0 ? (
+                <div style={{ padding: '24px 16px', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
+                  Nenhuma notificação no momento.
+                </div>
+              ) : (
+                notifications.map((n: any) => (
+                  <div
+                    key={n.id}
+                    onClick={() => {
+                      if (!n.read) handleMarkRead(n.id);
+                    }}
+                    style={{
+                      padding: '12px 16px',
+                      borderBottom: '1px solid #f8fafc',
+                      background: n.read ? '#fff' : '#f0f9ff',
+                      cursor: n.read ? 'default' : 'pointer',
+                      display: 'flex', gap: '12px', alignItems: 'flex-start'
+                    }}
+                  >
+                    <div style={{ fontSize: '1.2rem' }}>{n.icon || '📋'}</div>
+                    <div style={{ flex: 1 }}>
+                      <h5 style={{ margin: '0 0 4px', fontSize: '0.85rem', color: '#0f172a' }}>{n.title}</h5>
+                      <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b' }}>{n.body}</p>
+                      <div style={{ marginTop: '6px', fontSize: '0.7rem', color: '#94a3b8' }}>
+                        {timeAgo(n.createdAt)}
+                      </div>
+                    </div>
+                    {!n.read && (
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#3b82f6', marginTop: '6px' }} />
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

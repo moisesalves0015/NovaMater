@@ -75,7 +75,7 @@
 .dashboard {
   min-height: 100vh;
   background: var(--clr-bg);
-  padding-bottom: var(--sp-12);
+  padding-bottom: 120px;
 }
 
 .dashboard-loading {
@@ -1458,6 +1458,7 @@
   perspective: 1000px;
   z-index: 1;
   margin: 0 auto;
+  margin-bottom: 25px; /* prevent shadow clipping */
 }
 
 .card-v2-inner {
