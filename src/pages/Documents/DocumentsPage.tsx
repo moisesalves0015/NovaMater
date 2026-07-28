@@ -435,9 +435,6 @@ export default function DocumentsPage() {
                                 />
                               )}
                               <div className="doc-card-header">
-                                <div className="doc-card-icon">
-                                  <doc.icon size={16} strokeWidth={1.5} />
-                                </div>
                                 <div className="doc-card-title-area">
                                   <div className="doc-card-title">{doc.title}</div>
                                   <span className={`doc-status ${doc.statusClass}`}>{doc.status}</span>

@@ -126,19 +126,18 @@
 
 /* ===== MAIN CONTENT ===== */
 .docs-content {
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 24px 20px;
+  max-width: 100%;
+  padding: 16px 0;
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 16px;
 }
 
 /* ===== CATEGORY SECTION ===== */
 .docs-category {
   background: #fff;
-  border-radius: 16px;
-  border: 1px solid #f1f5f9;
+  border-top: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f1f5f9;
   box-shadow: 0 2px 12px rgba(0,0,0,0.04);
   overflow: hidden;
   transition: box-shadow 0.2s;
@@ -152,7 +151,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
+  padding: 12px 20px;
   background: linear-gradient(135deg, #fdf2f8 0%, #faf5ff 100%);
   border-bottom: 1px solid #f1e6f5;
   cursor: pointer;
@@ -231,7 +230,7 @@
 
 /* ===== DOCUMENT CARDS (HORIZONTAL SCROLL) ===== */
 .docs-category-body {
-  padding: 12px;
+  padding: 12px 20px;
   display: flex;
   gap: 12px;
   overflow-x: auto;
@@ -267,25 +266,12 @@
   position: relative;
 }
 
-.doc-card-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  background: #fdf2f8;
-  color: #be185d;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  border: 1px solid #fce7f3;
-}
-
 .doc-card-image {
-  width: 100%;
-  height: 70px;
-  border-radius: 8px;
+  width: calc(100% + 20px);
+  margin: -10px -10px 8px -10px;
+  height: 90px;
+  border-radius: 12px 12px 0 0;
   object-fit: cover;
-  margin-bottom: 6px;
   background: #e2e8f0;
 }
 
@@ -299,8 +285,10 @@
   font-size: 0.75rem;
   font-weight: 700;
   color: #1e293b;
-  line-height: 1.2;
   margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Status badges */
@@ -336,10 +324,14 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .doc-card-meta-icon {
   color: #94a3b8;
+  flex-shrink: 0;
 }
 
 /* Card actions (Dropdown) */
@@ -459,7 +451,6 @@
   .docs-hero-title  { font-size: 1.4rem; }
   
   .docs-toolbar-inner { flex-direction: column; padding: 10px 16px; }
-  .docs-content       { padding: 16px; gap: 16px; }
 
   .docs-category-header { padding: 12px 14px; }
   .docs-category-icon-wrap { width: 36px; height: 36px; }
