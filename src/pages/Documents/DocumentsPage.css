@@ -330,80 +330,69 @@
   flex-shrink: 0;
 }
 
-/* Card actions (Dropdown) */
-.doc-menu-trigger {
-  position: absolute;
-  bottom: 8px;
-  right: 8px;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  color: #64748b;
-  padding: 4px;
-  cursor: pointer;
-  border-radius: 6px;
+/* Card actions */
+.doc-card-actions {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
+  gap: 6px;
+  margin-top: 10px;
 }
 
-.doc-menu-trigger:hover {
+.doc-action-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s ease;
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.doc-action-btn:hover {
   background: #e2e8f0;
   color: #1e293b;
 }
 
-.doc-dropdown {
-  position: absolute;
-  bottom: 38px;
-  right: 8px;
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  padding: 4px;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  min-width: 140px;
-}
-
-.doc-dropdown-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  background: transparent;
-  border: none;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #475569;
-  border-radius: 6px;
-  cursor: pointer;
-  text-align: left;
-}
-
-.doc-dropdown-item:hover {
-  background: #f1f5f9;
-  color: #1e293b;
-}
-
-.doc-dropdown-item.primary {
+.doc-action-btn-primary {
   color: #be185d;
-}
-
-.doc-dropdown-item.primary:hover {
   background: #fdf2f8;
 }
 
-.doc-dropdown-item:disabled {
+.doc-action-btn-primary:hover {
+  background: #fce7f3;
+}
+
+.doc-action-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.doc-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9;
+/* ===== EXAM ACTIONS (DUAL BUTTONS) ===== */
+.doc-exam-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 8px;
+}
+
+.doc-exam-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.doc-exam-actions-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 /* ===== EMPTY STATE ===== */
