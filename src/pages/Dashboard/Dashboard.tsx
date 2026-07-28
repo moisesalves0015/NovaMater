@@ -348,57 +348,46 @@ function SidebarPanel({ pregnancy }: { pregnancy: any }) {
         <h3 className="section-title">Cartão de Identificação</h3>
         <span className="section-legend">Responsáveis</span>
       </div>
-      <div className="nm-sidebar-card">
-        <div className="sidebar-parent-card">
-          <div className="spc-top-header">
-            <div className="spc-hospital-brand">
-              <span className="spc-brand-dot"></span>
-              <span>NOVAMATER CARE</span>
+      <div className="nm-sidebar-card" style={{ padding: 0, background: 'transparent', border: 'none', boxShadow: 'none' }}>
+        <div className="dash-carteirinha">
+          <div className="card-v2-inner">
+            <div className="card-v2-hole"></div>
+            <div className="card-v2-holo"></div>
+            <div className="card-v2-top">
+              <div className="card-v2-brand">
+                 <div className="brand-v2-icon"></div>
+                 <span>NOVAMATER</span>
+              </div>
             </div>
-            <span className="spc-system-id">ID: {pregnancy.id?.substring(0, 6).toUpperCase() || '872911'}</span>
-          </div>
-          
-          <div className="spc-main-content">
-            {/* LADO DA MÃE */}
-            <div className="spc-parent-side" style={{ flex: 1, paddingRight: 0, borderRight: 'none', display: 'flex', gap: '16px' }}>
-              <div className="spc-avatar-box">
-                <div className="spc-avatar-frame">
-                  <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="#d94b88" strokeWidth="1.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
-                  </svg>
-                </div>
-                <span className="spc-avatar-badge">MÃE</span>
+            
+            <div className="card-v2-middle">
+              <div className="card-v2-avatar">
+                 <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#d94b88" strokeWidth="1.5">
+                   <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                 </svg>
               </div>
-              
-              <div className="spc-info-col" style={{ flex: 1 }}>
-                <div className="spc-info-item">
-                  <span className="spc-label">NICK DA MÃE</span>
-                  <span className="spc-val">{pregnancy.motherName}</span>
-                </div>
-                <div className="spc-info-item">
-                  <span className="spc-label">SANGUE</span>
-                  <span className="spc-val">Não Inf.</span>
-                </div>
+              <div className="card-v2-details">
+                 <div className="card-v2-field">
+                   <label>PACIENTE (MÃE)</label>
+                   <span>{pregnancy.motherName}</span>
+                 </div>
+                 <div className="card-v2-grid">
+                   <div className="card-v2-field"><label>DPP</label><span>{pregnancy.expectedBirthDate ? format(toDate(pregnancy.expectedBirthDate), 'dd/MM/yyyy') : '--'}</span></div>
+                   <div className="card-v2-field"><label>SANGUE</label><span>Não Inf.</span></div>
+                 </div>
+                 {pregnancy.baby?.name && (
+                   <div className="card-v2-field" style={{marginTop: '2px'}}>
+                     <label>BEBÊ</label>
+                     <span>{pregnancy.baby.name.split(' ')[0]}</span>
+                   </div>
+                 )}
               </div>
+            </div>
 
-              <div className="spc-info-col" style={{ flex: 1 }}>
-                <div className="spc-info-item">
-                  <span className="spc-label">DPP</span>
-                  <span className="spc-val">{pregnancy.expectedBirthDate ? format(toDate(pregnancy.expectedBirthDate), 'dd/MM/yyyy') : 'Não Inf.'}</span>
-                </div>
-                <div className="spc-info-item">
-                  <span className="spc-label">PLANO / CONVÊNIO</span>
-                  <span className="spc-val">Particular</span>
-                </div>
-              </div>
+            <div className="card-v2-bottom">
+               <div className="card-v2-barcode"></div>
+               <span>ID: {pregnancy.id?.substring(0, 6).toUpperCase() || '872911'}</span>
             </div>
-          </div>
-
-          <div className="spc-bottom-footer">
-            <div className="spc-barcode-pattern">
-              <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
-            </div>
-            <span className="spc-sec-label">IDENTIFICAÇÃO PARENTAL</span>
           </div>
         </div>
       </div>
