@@ -322,17 +322,24 @@ function SidebarPanel({ pregnancy }: { pregnancy: any }) {
                  </svg>
               </div>
               <div className="card-v2-details">
-                 <div className="card-v2-field">
-                   <label>PACIENTE (MÃE)</label>
-                   <span style={{ fontSize: '0.78rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pregnancy.motherName}</span>
-                 </div>
-                 <div className="card-v2-grid" style={{ marginTop: '4px' }}>
-                   <div className="card-v2-field"><label>DPP</label><span>{pregnancy.expectedBirthDate ? format(toDate(pregnancy.expectedBirthDate), 'dd/MM/yyyy') : '--'}</span></div>
-                   <div className="card-v2-field"><label>SANGUE</label><span>Não Inf.</span></div>
-                 </div>
-                 <div className="card-v2-grid" style={{ marginTop: '2px' }}>
-                   <div className="card-v2-field" style={{ visibility: 'hidden' }}><label>-</label><span>-</span></div>
-                   <div className="card-v2-field"><label>OBSTETRA</label><span>iKalleb</span></div>
+                 {/* 2x2 grid: PACIENTE | SANGUE / DPP | OBSTETRA */}
+                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px' }}>
+                   <div className="card-v2-field">
+                     <label>PACIENTE (MÃE)</label>
+                     <span style={{ fontSize: '0.75rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pregnancy.motherName}</span>
+                   </div>
+                   <div className="card-v2-field">
+                     <label>SANGUE</label>
+                     <span>Não Inf.</span>
+                   </div>
+                   <div className="card-v2-field">
+                     <label>DPP</label>
+                     <span>{pregnancy.expectedBirthDate ? format(toDate(pregnancy.expectedBirthDate), 'dd/MM/yyyy') : '--'}</span>
+                   </div>
+                   <div className="card-v2-field">
+                     <label>OBSTETRA</label>
+                     <span>iKalleb</span>
+                   </div>
                  </div>
               </div>
             </div>
