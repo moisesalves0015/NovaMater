@@ -370,8 +370,11 @@ function SidebarPanel({ pregnancy }: { pregnancy: any }) {
           <div className="coin-icon"><Coins size={12} /></div>
         </div>
         <div className="sidebar-banner-content">
-          <h4>Gravidez Completa</h4>
-          <p>Compre moedas no jogo e tenha a gestação mais realista no IMVU!</p>
+          <div>
+            <div className="sidebar-discount-badge">Promoção Ativa</div>
+            <h4 style={{ color: '#fff' }}>Gravidez Completa</h4>
+            <p style={{ marginTop: '2px', marginBottom: '8px' }}>Compre moedas no jogo e tenha a gestação mais realista no IMVU!</p>
+          </div>
           <div className="sidebar-banner-btn">
             <Coins size={14} style={{ marginRight: 6 }} /> 
             Adquirir Créditos 
@@ -466,14 +469,14 @@ export default function Dashboard() {
           {/* BANNERS INCENTIVO TOPO */}
           <div className="incentive-banners-row">
             <div className="banner-card" onClick={() => window.location.href = '/agendamentos'}>
-              <h4><CalendarHeart size={18} color="var(--accent-pink)" /> Consultas</h4>
+              <h4>Consultas</h4>
               <p>Mantenha seu pré-natal em dia agendando consultas.</p>
-              <div className="banner-card-icon"><CalendarHeart size={72} strokeWidth={1} color="rgba(217, 75, 136, 0.08)" /></div>
+              <div className="banner-card-icon"><CalendarHeart size={84} strokeWidth={1} color="rgba(217, 75, 136, 0.08)" /></div>
             </div>
             <div className="banner-card" onClick={() => window.location.href = '/pacotes'}>
-              <h4><Microscope size={18} color="var(--accent-pink)" /> Exames</h4>
+              <h4>Exames</h4>
               <p>Realize seus exames e ultrassons laboratoriais.</p>
-              <div className="banner-card-icon"><Microscope size={72} strokeWidth={1} color="rgba(217, 75, 136, 0.08)" /></div>
+              <div className="banner-card-icon"><Microscope size={84} strokeWidth={1} color="rgba(217, 75, 136, 0.08)" /></div>
             </div>
           </div>
 
