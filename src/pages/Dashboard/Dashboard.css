@@ -958,7 +958,6 @@
   border-radius: 12px;
   margin-top: 16px;
   margin-bottom: 24px;
-  container-type: size;
 }
 
 @media (max-width: 768px) {
@@ -975,8 +974,11 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 100cqh;
-  height: 100cqw;
+  /* To perfectly fit a 90deg rotated video in a 16:9 container without CQ units */
+  /* width = container height (56.25% of container width) */
+  /* height = container width (177.777% of container height) */
+  width: 56.25%;
+  height: 177.777%;
   object-fit: contain;
   transform: translate(-50%, -50%) rotate(90deg);
 }

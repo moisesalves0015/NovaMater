@@ -252,6 +252,7 @@ function GestationVideo({ month }: { month: number }) {
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
+    video.defaultMuted = true;
     if (video.duration && isFinite(video.duration)) initSegment(video);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentMonth]);
