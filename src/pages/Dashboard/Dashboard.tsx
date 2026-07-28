@@ -262,7 +262,7 @@ function GestationVideo({ month }: { month: number }) {
       <video
         ref={videoRef}
         className="gestation-video"
-        src="/0728.mp4"
+        src="https://firebasestorage.googleapis.com/v0/b/novamater-82fca.firebasestorage.app/o/videos%2F0728.mp4?alt=media&token=8940c001-25e9-42f6-a4df-e6af2b8f17e0"
         muted
         playsInline
         autoPlay
