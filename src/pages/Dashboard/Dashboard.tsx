@@ -210,7 +210,10 @@ function GestationVideo({ month }: { month: number }) {
     segEnd.current   = currentMonth * seg;
     didSnap.current  = false;
     video.playbackRate = 0.25;
-    video.currentTime  = segStart.current;
+    
+    if (Math.abs(video.currentTime - segStart.current) > 0.5) {
+      video.currentTime = segStart.current;
+    }
     video.play().catch(() => {});
   };
 
@@ -219,10 +222,26 @@ function GestationVideo({ month }: { month: number }) {
     const video = videoRef.current;
     if (!video) return;
 
+    const dur = video.duration;
+    // Safari fallback: initialize when duration becomes available if we missed it
+    if (segEnd.current === 0 && dur && isFinite(dur)) {
+      initSegment(video);
+      return;
+    }
+
+    if (segEnd.current === 0) return;
+
     const t = video.currentTime;
 
+    // If it wanders before our segment, force it back
+    if (t < segStart.current - 0.2) {
+       video.currentTime = segStart.current;
+       didSnap.current = false;
+       return;
+    }
+
     // Reset snap guard when we're back at the start of the segment
-    if (t < segEnd.current - SNAP_BEFORE) {
+    if (t >= segStart.current && t < segEnd.current - SNAP_BEFORE) {
       didSnap.current = false;
     }
 
@@ -485,12 +504,12 @@ export default function Dashboard() {
             <div className="banner-card" onClick={() => window.location.href = '/agendamentos'}>
               <h4><CalendarHeart size={18} color="#be185d" style={{ flexShrink: 0 }} /> Consultas</h4>
               <p>Mantenha seu pré-natal em dia agendando consultas.</p>
-              <div className="banner-card-icon"><CalendarHeart size={84} strokeWidth={1} color="rgba(217, 75, 136, 0.08)" /></div>
+              <div className="banner-card-icon"><CalendarHeart size={110} strokeWidth={1.5} color="#be185d" /></div>
             </div>
             <div className="banner-card" onClick={() => window.location.href = '/pacotes'}>
               <h4><Microscope size={18} color="#be185d" style={{ flexShrink: 0 }} /> Exames</h4>
               <p>Realize seus exames e ultrassons laboratoriais.</p>
-              <div className="banner-card-icon"><Microscope size={84} strokeWidth={1} color="rgba(217, 75, 136, 0.08)" /></div>
+              <div className="banner-card-icon"><Microscope size={110} strokeWidth={1.5} color="#be185d" /></div>
             </div>
           </div>
 

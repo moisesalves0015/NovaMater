@@ -1878,10 +1878,10 @@
   position: absolute;
   right: -5px;
   bottom: -15px;
-  font-size: 4.5rem;
-  opacity: 0.1;
+  opacity: 0.12;
   transform: rotate(-10deg);
   user-select: none;
+  pointer-events: none;
 }
 
 .sidebar-banner {
