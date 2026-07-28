@@ -953,7 +953,7 @@
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  background: #000;
+  background: linear-gradient(135deg, #fdf2f8, #fbcfe8);
   overflow: hidden;
   border-radius: 12px;
   margin-top: 16px;

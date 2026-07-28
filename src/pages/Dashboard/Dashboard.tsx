@@ -266,15 +266,15 @@ function GestationVideo({ month }: { month: number }) {
           exit={{ opacity: 0 }}
           style={{
             position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-            background: '#000', zIndex: 10,
+            background: 'linear-gradient(135deg, #fdf2f8, #fbcfe8)', zIndex: 10,
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            color: 'var(--accent-pink)'
+            gap: '12px'
           }}
         >
-          <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }} style={{ fontSize: '3rem', marginBottom: 12 }}>
+          <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }} style={{ fontSize: '3rem', lineHeight: 1 }}>
             🌸
           </motion.div>
-          <span style={{ fontWeight: 500, fontSize: '0.9rem', opacity: 0.8 }}>Carregando Ultrassom...</span>
+          <span style={{ fontWeight: 600, fontSize: '0.95rem', color: '#db2777' }}>Carregando vídeo...</span>
         </motion.div>
       )}
       <video
