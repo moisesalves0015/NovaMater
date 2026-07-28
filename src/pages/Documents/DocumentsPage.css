@@ -5,17 +5,16 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-/* ===== PAGE WRAPPER ===== */
 .docs-page {
   min-height: 100vh;
-  background: var(--bg-main, #fdf2f8);
+  background: var(--clr-bg, #f9f9fb);
   padding-top: 64px; /* fixed navbar height */
   padding-bottom: 100px;
 }
 
 /* ===== HERO HEADER (Simplificado tipo Caderneta) ===== */
 .docs-hero {
-  background: linear-gradient(135deg, #be185d 0%, #9333ea 100%);
+  background: linear-gradient(135deg, #c9195a 0%, #e0527a 60%, #f472b6 100%);
   padding: 24px 0 24px;
   position: relative;
   overflow: hidden;
@@ -171,7 +170,7 @@
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #be185d, #9333ea);
+  background: linear-gradient(135deg, #c9195a, #f472b6);
   color: #fff;
   display: flex;
   align-items: center;
@@ -193,6 +192,9 @@
   font-size: 0.75rem;
   color: #64748b;
   margin: 2px 0 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .docs-category-header-right {

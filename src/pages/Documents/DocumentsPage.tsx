@@ -63,8 +63,8 @@ const CATEGORIES: DocCategory[] = [
   { id: 'lab',           icon: TestTube,      name: 'Exames Laboratoriais',  desc: 'Hemograma, Sorologia, Urina e demais exames' },
   { id: 'imagem',        icon: ImageIcon,     name: 'Exames de Imagem',      desc: 'Ultrassom, Radiografia e Ressonância' },
   { id: 'prescricoes',   icon: Pill,          name: 'Prescrições Médicas',   desc: 'Receitas, Medicamentos e Solicitações' },
-  { id: 'relatorios',    icon: Stethoscope,   name: 'Relatórios Médicos',    desc: 'Evolução clínica, Laudos e Encaminhamentos' },
-  { id: 'solicitacoes',  icon: CalendarDays,  name: 'Solicitações',          desc: 'Pedidos de exames, internação e encaminhamento' },
+  { id: 'relatorios',    icon: Stethoscope,   name: 'Relatórios Médicos',    desc: 'Evolução clínica e Laudos' },
+  { id: 'solicitacoes',  icon: CalendarDays,  name: 'Solicitações',          desc: 'Encaminhamento e Internação' },
   { id: 'paciente',      icon: IdCard,        name: 'Documentos da Paciente',desc: 'Carteirinha, QR Code e Identificação' },
   { id: 'bebe',          icon: Baby,          name: 'Documentos do Bebê',    desc: 'Certidão, Registro Neonatal e Vacinação' },
 ];
@@ -133,15 +133,14 @@ export default function DocumentsPage() {
   );
 
   const [search, setSearch]       = useState('');
-  const [sort, setSort]           = useState<'recente' | 'antigo' | 'az'>('recente');
   const [openCats, setOpenCats]   = useState<Record<string, boolean>>({
-    certificados: true,
-    declaracoes:  true,
-    lab:          true,
-    imagem:       true,
-    prescricoes:  true,
-    relatorios:   true,
-    solicitacoes: true,
+    certificados: false,
+    declaracoes:  false,
+    lab:          false,
+    imagem:       false,
+    prescricoes:  false,
+    relatorios:   false,
+    solicitacoes: false,
     paciente:     false,
     bebe:         false,
   });
@@ -224,14 +223,10 @@ export default function DocumentsPage() {
     });
 
     // Sort
-    result.sort((a, b) => {
-      if (sort === 'recente') return b.date.getTime() - a.date.getTime();
-      if (sort === 'antigo')  return a.date.getTime() - b.date.getTime();
-      return a.title.localeCompare(b.title, 'pt-BR');
-    });
+    result.sort((a, b) => b.date.getTime() - a.date.getTime());
 
     return result;
-  }, [documents, exams, ultrasounds, medications, pregnancy, sort]);
+  }, [documents, exams, ultrasounds, medications, pregnancy]);
 
   // ===== FILTER LOGIC =====
   const filtered = useMemo(() => {
@@ -340,15 +335,6 @@ export default function DocumentsPage() {
                 </button>
               )}
             </div>
-            <select
-              className="docs-sort-select"
-              value={sort}
-              onChange={e => setSort(e.target.value as any)}
-            >
-              <option value="recente">⬇ Mais recente</option>
-              <option value="antigo">⬆ Mais antigo</option>
-              <option value="az">A → Z</option>
-            </select>
           </div>
         </div>
       </div>
