@@ -13,7 +13,7 @@ import {
 } from '../../lib/gestationUtils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Calendar, Baby, Stethoscope, TestTube, Scale, CalendarHeart, Microscope, Coins } from 'lucide-react';
+import { Calendar, Baby, Stethoscope, TestTube, Scale, CalendarHeart, Microscope, Coins, ArrowRight } from 'lucide-react';
 import './Dashboard.css';
 
 // ==================== HELPERS ====================
@@ -363,16 +363,23 @@ function SidebarPanel({ pregnancy }: { pregnancy: any }) {
       </div>
       <div className="sidebar-banner" onClick={() => window.location.href = '/pacotes'}>
         <div className="coin-fall-bg">
-          <div className="coin"></div><div className="coin"></div><div className="coin"></div>
-          <div className="coin"></div><div className="coin"></div>
+          <div className="coin-icon"><Coins size={14} /></div>
+          <div className="coin-icon"><Coins size={10} /></div>
+          <div className="coin-icon"><Coins size={14} /></div>
+          <div className="coin-icon"><Coins size={18} /></div>
+          <div className="coin-icon"><Coins size={12} /></div>
         </div>
         <div className="sidebar-banner-content">
           <h4>Gravidez Completa</h4>
-          <p>Compre créditos para ter uma gravidez completa e liberar suas barrigas.</p>
-          <div className="sidebar-banner-btn"><Coins size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} /> Comprar Créditos</div>
-          <div style={{ fontSize: '0.65rem', textAlign: 'center', marginTop: '12px', opacity: 0.85, lineHeight: 1.2 }}>Parceiro de confiança com entrega garantida.</div>
+          <p>Compre moedas no jogo e tenha a gestação mais realista no IMVU!</p>
+          <div className="sidebar-banner-btn">
+            <Coins size={14} style={{ marginRight: 6 }} /> 
+            Adquirir Créditos 
+            <ArrowRight size={14} style={{ marginLeft: 6 }} />
+          </div>
         </div>
         <img src="/pregnant-woman.png" alt="Gestante" className="sidebar-banner-img" />
+        <div className="sidebar-banner-footer">Parceiro de confiança com entrega garantida.</div>
       </div>
 
     </div>
@@ -461,12 +468,12 @@ export default function Dashboard() {
             <div className="banner-card" onClick={() => window.location.href = '/agendamentos'}>
               <h4><CalendarHeart size={18} color="var(--accent-pink)" /> Consultas</h4>
               <p>Mantenha seu pré-natal em dia agendando consultas.</p>
-              <div className="banner-card-icon"><CalendarHeart size={72} strokeWidth={1} color="var(--accent-pink)" /></div>
+              <div className="banner-card-icon"><CalendarHeart size={72} strokeWidth={1} color="rgba(217, 75, 136, 0.08)" /></div>
             </div>
             <div className="banner-card" onClick={() => window.location.href = '/pacotes'}>
               <h4><Microscope size={18} color="var(--accent-pink)" /> Exames</h4>
               <p>Realize seus exames e ultrassons laboratoriais.</p>
-              <div className="banner-card-icon"><Microscope size={72} strokeWidth={1} color="var(--accent-pink)" /></div>
+              <div className="banner-card-icon"><Microscope size={72} strokeWidth={1} color="rgba(217, 75, 136, 0.08)" /></div>
             </div>
           </div>
 
