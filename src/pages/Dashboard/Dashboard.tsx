@@ -13,7 +13,7 @@ import {
 } from '../../lib/gestationUtils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Calendar, Baby, Stethoscope, TestTube, Scale } from 'lucide-react';
+import { Calendar, Baby, Stethoscope, TestTube, Scale, CalendarHeart, Microscope, Coins } from 'lucide-react';
 import './Dashboard.css';
 
 // ==================== HELPERS ====================
@@ -361,6 +361,18 @@ function SidebarPanel({ pregnancy }: { pregnancy: any }) {
           </div>
         </div>
       </div>
+      <div className="sidebar-banner" onClick={() => window.location.href = '/pacotes'}>
+        <div className="coin-fall-bg">
+          <div className="coin"></div><div className="coin"></div><div className="coin"></div>
+          <div className="coin"></div><div className="coin"></div>
+        </div>
+        <div className="sidebar-banner-content">
+          <h4>Gravidez Completa</h4>
+          <p>Compre créditos para ter uma gravidez completa e liberar suas barrigas.</p>
+          <div className="sidebar-banner-btn"><Coins size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} /> Comprar Créditos</div>
+        </div>
+        <img src="/pregnant-woman.png" alt="Gestante" className="sidebar-banner-img" />
+      </div>
 
     </div>
   );
@@ -442,6 +454,20 @@ export default function Dashboard() {
               </div>
             </div>
           )}
+
+          {/* BANNERS INCENTIVO TOPO */}
+          <div className="incentive-banners-row">
+            <div className="banner-card" onClick={() => window.location.href = '/agendamentos'}>
+              <h4><CalendarHeart size={18} color="var(--accent-pink)" /> Consultas</h4>
+              <p>Mantenha seu pré-natal em dia agendando consultas.</p>
+              <div className="banner-card-icon"><CalendarHeart size={72} strokeWidth={1} color="var(--accent-pink)" /></div>
+            </div>
+            <div className="banner-card" onClick={() => window.location.href = '/pacotes'}>
+              <h4><Microscope size={18} color="var(--accent-pink)" /> Exames</h4>
+              <p>Realize seus exames e ultrassons laboratoriais.</p>
+              <div className="banner-card-icon"><Microscope size={72} strokeWidth={1} color="var(--accent-pink)" /></div>
+            </div>
+          </div>
 
           {/* STATS */}
           <div className="sidebar-section-header" style={{ marginBottom: '8px', padding: 0 }}>

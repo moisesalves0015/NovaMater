@@ -1827,3 +1827,166 @@
     font-size: 0.5rem;
   }
 }
+
+/* ===================== BANNERS DE INCENTIVO ===================== */
+.incentive-banners-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.banner-card {
+  position: relative;
+  background: linear-gradient(135deg, #fff 0%, #fdf2f8 100%);
+  border: 1px solid #fce7f3;
+  border-radius: 16px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(236, 72, 153, 0.05);
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+}
+
+.banner-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(236, 72, 153, 0.12);
+}
+
+.banner-card h4 {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #be185d;
+  margin: 0 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.banner-card p {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.3;
+  max-width: 85%;
+}
+
+.banner-card-icon {
+  position: absolute;
+  right: -5px;
+  bottom: -15px;
+  font-size: 4.5rem;
+  opacity: 0.1;
+  transform: rotate(-10deg);
+  user-select: none;
+}
+
+/* Sidebar Large Banner */
+.sidebar-banner {
+  position: relative;
+  background: linear-gradient(135deg, #c9195a 0%, #f472b6 100%);
+  border-radius: 16px;
+  padding: 24px 20px;
+  min-height: 150px;
+  margin-top: 24px;
+  color: #fff;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(201, 25, 90, 0.25);
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.sidebar-banner:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(201, 25, 90, 0.35);
+}
+
+.sidebar-banner-content {
+  position: relative;
+  z-index: 2;
+  max-width: 65%;
+}
+
+.sidebar-banner h4 {
+  font-size: 1.1rem;
+  font-weight: 800;
+  margin: 0 0 8px;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.sidebar-banner p {
+  font-size: 0.75rem;
+  margin: 0 0 12px;
+  opacity: 0.9;
+  line-height: 1.4;
+}
+
+.sidebar-banner-btn {
+  display: inline-block;
+  background: #fff;
+  color: #c9195a;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.sidebar-banner-img {
+  position: absolute;
+  right: -20px;
+  bottom: -10px;
+  height: 125%;
+  z-index: 3;
+  pointer-events: none;
+  filter: drop-shadow(-4px 4px 8px rgba(0,0,0,0.2));
+}
+
+/* Coin Animation Background */
+.coin-fall-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.coin {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: radial-gradient(circle at 30% 30%, #fef08a, #eab308);
+  border-radius: 50%;
+  box-shadow: inset -2px -2px 4px rgba(161, 98, 7, 0.4), 0 2px 4px rgba(0,0,0,0.15);
+  opacity: 0.5;
+  top: -20px;
+  animation: coinFall linear infinite;
+}
+
+.coin:nth-child(1) { left: 10%; animation-duration: 3.5s; animation-delay: 0s; }
+.coin:nth-child(2) { left: 25%; animation-duration: 4.2s; animation-delay: 1.2s; width: 10px; height: 10px; }
+.coin:nth-child(3) { left: 45%; animation-duration: 3.8s; animation-delay: 0.5s; }
+.coin:nth-child(4) { left: 65%; animation-duration: 4.5s; animation-delay: 2.1s; width: 18px; height: 18px; }
+.coin:nth-child(5) { left: 85%; animation-duration: 3.2s; animation-delay: 1.5s; }
+
+@keyframes coinFall {
+  0% { transform: translateY(-20px) rotate(0deg); opacity: 0; }
+  10% { opacity: 0.7; }
+  85% { opacity: 0.7; }
+  100% { transform: translateY(180px) rotate(360deg); opacity: 0; }
+}
+
+@media (max-width: 640px) {
+  .incentive-banners-row {
+    grid-template-columns: 1fr;
+  }
+}
