@@ -57,8 +57,7 @@ export default function Navbar() {
 
   return (
     <header className={`modern-navbar-wrapper ${scrolled ? 'is-scrolled' : ''}`}>
-      <div className="container">
-        <nav className="modern-navbar glass-box">
+      <nav className="modern-navbar glass-box" style={{ width: '100%' }}>
           {/* LOGO */}
           <Link to="/" className="nav-logo">
             <div className="logo-sparkle">🌸</div>
@@ -141,7 +140,6 @@ export default function Navbar() {
             <span className="bar" />
           </button>
         </nav>
-      </div>
 
       {/* MOBILE DRAWER MODAL */}
       <AnimatePresence>

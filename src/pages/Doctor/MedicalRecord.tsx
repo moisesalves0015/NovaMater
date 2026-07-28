@@ -1711,11 +1711,30 @@ export default function MedicalRecord() {
     );
   }
 
+  const isImageExam = (type: string) => ['ultrassom', 'ecografia-morfológica'].includes(type);
+  const labExams = exams.filter(e => !isImageExam(e.type));
+  const legacyImgExams = exams.filter(e => isImageExam(e.type)).map(e => ({
+     id: e.id,
+     pregnancyId: e.pregnancyId,
+     type: (EXAM_LABELS as any)[e.type] || e.type,
+     gestationalWeek: null,
+     fetalWeight: '',
+     fetalHeartRate: '',
+     observations: (e as any).notes || '',
+     result: e.result || '',
+     imageUrl: null,
+     date: e.actualDate || e.scheduledDate || (e as any).requestDate,
+     performedBy: (e as any).requestedBy,
+     createdAt: (e as any).requestedAt,
+     _legacy: true
+  }));
+  const allUltrasounds = [...legacyImgExams, ...ultrasounds];
+
   const tabs: { key: TabKey; label: string; icon: string; count?: number }[] = [
     { key: 'resumo', label: 'Resumo', icon: '📋' },
     { key: 'consultas', label: 'Consultas', icon: '🩺', count: consultations.length },
-    { key: 'exames', label: 'Exames', icon: '🧪', count: exams.length },
-    { key: 'ultrassom', label: 'Ultrassom', icon: '🔬', count: ultrasounds.length },
+    { key: 'exames', label: 'Exames', icon: '🧪', count: labExams.length },
+    { key: 'ultrassom', label: 'Ultrassom', icon: '🔬', count: allUltrasounds.length },
     { key: 'medicamentos', label: 'Medicamentos', icon: '💊', count: medications.filter(m => m.active).length },
     { key: 'documentos', label: 'Documentos', icon: '📄', count: documents.length },
     { key: 'timeline', label: 'Timeline', icon: '📝', count: timelineEvents.length },
@@ -1814,11 +1833,11 @@ export default function MedicalRecord() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
             >
-              {tab === 'resumo' && <TabResumo pregnancy={pregnancy} />}
-              {tab === 'consultas' && <TabConsultas pregnancy={pregnancy} consultations={consultations} />}
-              {tab === 'exames' && <TabExames pregnancy={pregnancy} exams={exams} />}
-              {tab === 'ultrassom' && <TabUltrassom pregnancy={pregnancy} ultrasounds={ultrasounds} />}
-              {tab === 'medicamentos' && <TabMedicamentos pregnancy={pregnancy} medications={medications} />}
+              { tab === 'resumo' && <TabResumo pregnancy={pregnancy} /> }
+              { tab === 'consultas' && <TabConsultas pregnancy={pregnancy} consultations={consultations} /> }
+              { tab === 'exames' && <TabExames pregnancy={pregnancy} exams={labExams} /> }
+              { tab === 'ultrassom' && <TabUltrassom pregnancy={pregnancy} ultrasounds={allUltrasounds as any} /> }
+              { tab === 'medicamentos' && <TabMedicamentos pregnancy={pregnancy} medications={medications} /> }
               {tab === 'documentos' && <TabDocumentos pregnancy={pregnancy} documents={documents} />}
               {tab === 'timeline' && <TabTimeline timelineEvents={timelineEvents} />}
               {tab === 'notas' && <TabNotas pregnancy={pregnancy} />}

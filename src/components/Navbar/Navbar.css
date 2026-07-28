@@ -2,7 +2,7 @@
 
 .modern-navbar-wrapper {
   position: fixed;
-  top: 16px;
+  top: 0;
   left: 0;
   right: 0;
   z-index: 1000;
@@ -10,18 +10,18 @@
 }
 
 .modern-navbar-wrapper.is-scrolled {
-  top: 8px;
+  top: 0;
 }
 
 .modern-navbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 24px;
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px solid var(--border-light);
-  border-radius: var(--r-full);
-  box-shadow: var(--shadow-md);
+  padding: 6px 24px;
+  background: rgba(255, 255, 255, 0.95);
+  border-bottom: 1px solid var(--border-light);
+  border-radius: 0;
+  box-shadow: var(--shadow-sm);
 }
 
 /* LOGO */

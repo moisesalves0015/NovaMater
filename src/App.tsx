@@ -3,6 +3,7 @@ import { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Navbar from './components/Navbar/Navbar';
+import BottomNav from './components/BottomNav/BottomNav';
 import './index.css';
 
 // Lazy-loaded pages
@@ -14,7 +15,9 @@ const DoctorPanel = lazy(() => import('./pages/Doctor/DoctorPanel'));
 const MedicalRecord = lazy(() => import('./pages/Doctor/MedicalRecord'));
 const Memorial = lazy(() => import('./pages/Memorial/Memorial'));
 const Packages = lazy(() => import('./pages/Packages/Packages'));
-const Appointments = lazy(() => import('./pages/Appointments/Appointments'));
+const CalendarPage = lazy(() => import('./pages/Calendar/CalendarPage'));
+const BookletPage = lazy(() => import('./pages/Booklet/BookletPage'));
+const DocumentsPage = lazy(() => import('./pages/Documents/DocumentsPage'));
 
 function LoadingScreen() {
   return (
@@ -55,7 +58,9 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
 }
 
 function AppRoutes() {
-  const { userData } = useAuth();
+  const { userData, currentUser } = useAuth();
+  const isAdminFlow = userData?.role === 'doctor' || userData?.role === 'admin';
+  const isAuth = !!currentUser;
 
   return (
     <>
@@ -68,12 +73,29 @@ function AppRoutes() {
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/memorial" element={<Memorial />} />
           <Route path="/pacotes" element={<Packages />} />
-          <Route path="/agendamentos" element={<Appointments />} />
 
           {/* Rota Exclusiva da Mãe / Gestante */}
           <Route path="/dashboard" element={
             <ProtectedRoute allowedRoles={['mother', 'father', 'guest']}>
               <Dashboard />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/calendario" element={
+            <ProtectedRoute allowedRoles={['mother', 'father', 'guest']}>
+              <CalendarPage />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/caderneta" element={
+            <ProtectedRoute allowedRoles={['mother', 'father', 'guest']}>
+              <BookletPage />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/documentos" element={
+            <ProtectedRoute allowedRoles={['mother', 'father', 'guest']}>
+              <DocumentsPage />
             </ProtectedRoute>
           } />
 
@@ -92,10 +114,11 @@ function AppRoutes() {
 
           {/* Fallback de redirecionamento esperto */}
           <Route path="*" element={
-            <Navigate to={(userData?.role === 'doctor' || userData?.role === 'admin') ? '/admin' : '/dashboard'} replace />
+            <Navigate to={isAdminFlow ? '/admin' : '/dashboard'} replace />
           } />
         </Routes>
       </Suspense>
+      {isAuth && !isAdminFlow && <BottomNav />}
     </>
   );
 }
