@@ -1453,7 +1453,7 @@
 .dash-carteirinha {
   position: relative;
   width: 100%;
-  max-width: 320px;
+  max-width: 100%; /* Wider width to fill container */
   height: 200px;
   perspective: 1000px;
   z-index: 1;
@@ -2021,11 +2021,16 @@
   z-index: 1;
 }
 
-.coin-icon:nth-child(1) { left: 10%; animation-duration: 3.5s; animation-delay: 0s; }
-.coin-icon:nth-child(2) { left: 25%; animation-duration: 4.2s; animation-delay: 1.2s; }
-.coin-icon:nth-child(3) { left: 45%; animation-duration: 3.8s; animation-delay: 0.5s; }
-.coin-icon:nth-child(4) { left: 65%; animation-duration: 4.5s; animation-delay: 2.1s; }
-.coin-icon:nth-child(5) { left: 85%; animation-duration: 3.2s; animation-delay: 1.5s; }
+.coin-icon:nth-child(1) { left: 8%; animation-duration: 3.5s; animation-delay: 0s; }
+.coin-icon:nth-child(2) { left: 20%; animation-duration: 4.2s; animation-delay: 1.2s; }
+.coin-icon:nth-child(3) { left: 35%; animation-duration: 3.8s; animation-delay: 0.5s; }
+.coin-icon:nth-child(4) { left: 50%; animation-duration: 4.5s; animation-delay: 2.1s; }
+.coin-icon:nth-child(5) { left: 62%; animation-duration: 3.2s; animation-delay: 1.5s; }
+.coin-icon:nth-child(6) { left: 74%; animation-duration: 4.0s; animation-delay: 0.7s; }
+.coin-icon:nth-child(7) { left: 86%; animation-duration: 3.6s; animation-delay: 1.9s; }
+.coin-icon:nth-child(8) { left: 15%; animation-duration: 4.6s; animation-delay: 2.5s; }
+.coin-icon:nth-child(9) { left: 40%; animation-duration: 3.4s; animation-delay: 1.1s; }
+.coin-icon:nth-child(10) { left: 70%; animation-duration: 4.3s; animation-delay: 0.3s; }
 
 @keyframes coinFall {
   0% { transform: translateY(-20px) rotate(0deg); opacity: 0; }

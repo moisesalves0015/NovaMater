@@ -324,11 +324,15 @@ function SidebarPanel({ pregnancy }: { pregnancy: any }) {
               <div className="card-v2-details">
                  <div className="card-v2-field">
                    <label>PACIENTE (MÃE)</label>
-                   <span>{pregnancy.motherName}</span>
+                   <span style={{ fontSize: '0.78rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pregnancy.motherName}</span>
                  </div>
-                 <div className="card-v2-grid">
+                 <div className="card-v2-grid" style={{ marginTop: '4px' }}>
                    <div className="card-v2-field"><label>DPP</label><span>{pregnancy.expectedBirthDate ? format(toDate(pregnancy.expectedBirthDate), 'dd/MM/yyyy') : '--'}</span></div>
                    <div className="card-v2-field"><label>SANGUE</label><span>Não Inf.</span></div>
+                 </div>
+                 <div className="card-v2-grid" style={{ marginTop: '2px' }}>
+                   <div className="card-v2-field" style={{ visibility: 'hidden' }}><label>-</label><span>-</span></div>
+                   <div className="card-v2-field"><label>OBSTETRA</label><span>iKalleb</span></div>
                  </div>
               </div>
             </div>
@@ -363,11 +367,14 @@ function SidebarPanel({ pregnancy }: { pregnancy: any }) {
       </div>
       <div className="sidebar-banner" onClick={() => window.location.href = '/pacotes'}>
         <div className="coin-fall-bg">
-          <div className="coin-icon"><Coins size={14} /></div>
-          <div className="coin-icon"><Coins size={10} /></div>
-          <div className="coin-icon"><Coins size={14} /></div>
+          <div className="coin-icon"><Coins size={22} /></div>
+          <div className="coin-icon"><img src="/seal_1.png" alt="seal 1" style={{ width: '30px', height: '30px', objectFit: 'contain' }} /></div>
           <div className="coin-icon"><Coins size={18} /></div>
-          <div className="coin-icon"><Coins size={12} /></div>
+          <div className="coin-icon"><img src="/seal_2.png" alt="seal 2" style={{ width: '32px', height: '32px', objectFit: 'contain' }} /></div>
+          <div className="coin-icon"><Coins size={24} /></div>
+          <div className="coin-icon"><img src="/seal_3.png" alt="seal 3" style={{ width: '28px', height: '28px', objectFit: 'contain' }} /></div>
+          <div className="coin-icon"><img src="/seal_4.png" alt="seal 4" style={{ width: '26px', height: '26px', objectFit: 'contain' }} /></div>
+          <div className="coin-icon"><Coins size={20} /></div>
         </div>
         <div className="sidebar-banner-content">
           <div>
@@ -469,12 +476,12 @@ export default function Dashboard() {
           {/* BANNERS INCENTIVO TOPO */}
           <div className="incentive-banners-row">
             <div className="banner-card" onClick={() => window.location.href = '/agendamentos'}>
-              <h4>Consultas</h4>
+              <h4><CalendarHeart size={18} color="#be185d" style={{ flexShrink: 0 }} /> Consultas</h4>
               <p>Mantenha seu pré-natal em dia agendando consultas.</p>
               <div className="banner-card-icon"><CalendarHeart size={84} strokeWidth={1} color="rgba(217, 75, 136, 0.08)" /></div>
             </div>
             <div className="banner-card" onClick={() => window.location.href = '/pacotes'}>
-              <h4>Exames</h4>
+              <h4><Microscope size={18} color="#be185d" style={{ flexShrink: 0 }} /> Exames</h4>
               <p>Realize seus exames e ultrassons laboratoriais.</p>
               <div className="banner-card-icon"><Microscope size={84} strokeWidth={1} color="rgba(217, 75, 136, 0.08)" /></div>
             </div>
