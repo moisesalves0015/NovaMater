@@ -425,9 +425,12 @@ export default function DocumentsPage() {
                               animate={{ opacity: 1, x: 0 }}
                               transition={{ delay: Math.min(idx * 0.04, 0.4) }}
                             >
+                              {doc.category === 'imagem' && (doc.examRaw as any)?.imageUrl && (
+                                <img src={(doc.examRaw as any).imageUrl} alt={doc.title} className="doc-card-image" />
+                              )}
                               <div className="doc-card-header">
                                 <div className="doc-card-icon">
-                                  <doc.icon size={22} strokeWidth={1.5} />
+                                  <doc.icon size={18} strokeWidth={1.5} />
                                 </div>
                                 <div className="doc-card-title-area">
                                   <div className="doc-card-title">{doc.title}</div>
@@ -459,21 +462,21 @@ export default function DocumentsPage() {
                                     onClick={() => handleView(doc)}
                                     title="Visualizar documento"
                                   >
-                                    <Eye size={15} /> Ver
+                                    <Eye size={16} />
                                   </button>
                                   <button
                                     className="doc-action-btn doc-action-btn-ghost"
                                     onClick={() => handlePrint(doc)}
                                     title="Imprimir / PDF"
                                   >
-                                    <Printer size={15} /> PDF
+                                    <Printer size={16} />
                                   </button>
                                   <button
                                     className="doc-action-btn doc-action-btn-ghost"
                                     onClick={() => handleShare(doc)}
                                     title="Compartilhar"
                                   >
-                                    <Share2 size={15} />
+                                    <Share2 size={16} />
                                   </button>
                                 </div>
                               )}
@@ -485,8 +488,9 @@ export default function DocumentsPage() {
                                   <button 
                                     className="doc-action-btn doc-action-btn-ghost"
                                     onClick={() => handleExamAction(doc, 'pedido')}
+                                    title="Visualizar Solicitação"
                                   >
-                                    <FileText size={15} /> Visualizar Solicitação
+                                    <FileText size={16} />
                                   </button>
                                   
                                   <div className="doc-exam-actions-label" style={{ marginTop: 8 }}>Resultado / Laudo</div>
@@ -495,8 +499,9 @@ export default function DocumentsPage() {
                                     disabled={doc.status !== 'Realizado'}
                                     onClick={() => handleExamAction(doc, 'resultado')}
                                     style={{ opacity: doc.status !== 'Realizado' ? 0.6 : 1 }}
+                                    title={doc.status === 'Realizado' ? 'Ver Resultado' : 'Pendente'}
                                   >
-                                    <Eye size={15} /> {doc.status === 'Realizado' ? 'Ver Resultado' : 'Pendente'}
+                                    <Eye size={16} />
                                   </button>
                                 </div>
                               )}

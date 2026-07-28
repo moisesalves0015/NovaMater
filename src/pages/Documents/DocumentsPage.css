@@ -9,13 +9,14 @@
 .docs-page {
   min-height: 100vh;
   background: var(--bg-main, #fdf2f8);
+  padding-top: 64px; /* fixed navbar height */
   padding-bottom: 100px;
 }
 
 /* ===== HERO HEADER (Simplificado tipo Caderneta) ===== */
 .docs-hero {
   background: linear-gradient(135deg, #be185d 0%, #9333ea 100%);
-  padding: 36px 0 36px;
+  padding: 24px 0 24px;
   position: relative;
   overflow: hidden;
 }
@@ -37,15 +38,15 @@
 }
 
 .docs-hero-title {
-  font-size: 1.8rem;
+  font-size: 1.5rem;
   font-weight: 800;
   color: #fff;
-  margin: 0 0 6px;
+  margin: 0 0 4px;
   letter-spacing: -0.02em;
 }
 
 .docs-hero-sub {
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   color: rgba(255,255,255,0.85);
   margin: 0;
 }
@@ -230,9 +231,9 @@
 
 /* ===== DOCUMENT CARDS (HORIZONTAL SCROLL) ===== */
 .docs-category-body {
-  padding: 20px;
+  padding: 12px;
   display: flex;
-  gap: 16px;
+  gap: 12px;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -245,9 +246,9 @@
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  padding: 16px;
-  width: 280px;
-  min-width: 280px;
+  padding: 12px;
+  width: 220px;
+  min-width: 220px;
   transition: all 0.2s;
 }
 
@@ -260,14 +261,14 @@
 .doc-card-header {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 10px;
+  margin-bottom: 8px;
 }
 
 .doc-card-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   background: #fdf2f8;
   color: #be185d;
   display: flex;
@@ -277,17 +278,26 @@
   border: 1px solid #fce7f3;
 }
 
+.doc-card-image {
+  width: 100%;
+  height: 90px;
+  border-radius: 8px;
+  object-fit: cover;
+  margin-bottom: 8px;
+  background: #e2e8f0;
+}
+
 .doc-card-title-area {
   flex: 1;
   min-width: 0;
 }
 
 .doc-card-title {
-  font-size: 0.88rem;
+  font-size: 0.8rem;
   font-weight: 700;
   color: #1e293b;
   line-height: 1.3;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 /* Status badges */
@@ -312,13 +322,13 @@
 .doc-card-meta {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 16px;
+  gap: 4px;
+  margin-bottom: 12px;
   flex: 1;
 }
 
 .doc-card-meta-item {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: #64748b;
   display: flex;
   align-items: center;
@@ -341,15 +351,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 8px;
+  gap: 0;
+  padding: 6px;
   border-radius: 8px;
-  font-size: 0.75rem;
-  font-weight: 600;
   cursor: pointer;
   border: none;
   transition: all 0.15s ease;
-  font-family: inherit;
 }
 
 .doc-action-btn-primary {
@@ -436,7 +443,7 @@
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 640px) {
-  .docs-hero-title  { font-size: 1.5rem; }
+  .docs-hero-title  { font-size: 1.4rem; }
   
   .docs-toolbar-inner { flex-direction: column; padding: 10px 16px; }
   .docs-content       { padding: 16px; gap: 16px; }
@@ -445,5 +452,5 @@
   .docs-category-icon-wrap { width: 36px; height: 36px; }
   .docs-category-name  { font-size: 0.85rem; }
 
-  .doc-card { width: 240px; min-width: 240px; padding: 14px; }
+  .doc-card { width: 200px; min-width: 200px; padding: 10px; }
 }
