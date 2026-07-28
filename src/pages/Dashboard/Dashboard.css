@@ -383,10 +383,9 @@
 
 /* ===================== LAYOUT GRID ===================== */
 .nm-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
+  display: flex;
+  flex-direction: column;
   gap: var(--sp-5);
-  align-items: start;
 }
 
 /* ===================== BASE CARD ===================== */
@@ -1562,21 +1561,17 @@
 
 /* ===================== RESPONSIVE ===================== */
 @media (max-width: 1024px) {
-  .nm-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .nm-sidebar {
-    order: -1;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-direction: column;
     gap: var(--sp-4);
   }
 }
 
 @media (max-width: 768px) {
   .nm-sidebar {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
   }
 }
 

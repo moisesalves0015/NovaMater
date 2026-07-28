@@ -439,65 +439,6 @@ export default function DocumentsPage() {
                                   <div className="doc-card-title">{doc.title}</div>
                                   <span className={`doc-status ${doc.statusClass}`}>{doc.status}</span>
                                 </div>
-                                
-                                {/* Trigger do Dropdown */}
-                                {(doc.raw || doc.examRaw) && (
-                                  <button
-                                    className="doc-menu-trigger"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setActiveMenuId(activeMenuId === doc.id ? null : doc.id);
-                                    }}
-                                  >
-                                    <MoreVertical size={16} />
-                                  </button>
-                                )}
-                                
-                                {/* Dropdown Menu */}
-                                {activeMenuId === doc.id && (
-                                  <motion.div 
-                                    className="doc-dropdown"
-                                    initial={{ opacity: 0, scale: 0.95, y: -5 }}
-                                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                                    exit={{ opacity: 0, scale: 0.95, y: -5 }}
-                                    transition={{ duration: 0.15 }}
-                                  >
-                                    {/* Standard Doc Actions */}
-                                    {doc.raw && (
-                                      <>
-                                        <button className="doc-dropdown-item primary" onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); handleView(doc); }}>
-                                          <Eye size={14} /> Visualizar
-                                        </button>
-                                        <button className="doc-dropdown-item" onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); handlePrint(doc); }}>
-                                          <Printer size={14} /> Imprimir / PDF
-                                        </button>
-                                        <button className="doc-dropdown-item" onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); handleShare(doc); }}>
-                                          <Share2 size={14} /> Compartilhar
-                                        </button>
-                                      </>
-                                    )}
-
-                                    {/* Exam Dual Actions */}
-                                    {doc.examRaw && (
-                                      <>
-                                        <button className="doc-dropdown-item" onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); handleExamAction(doc, 'pedido'); }}>
-                                          <FileText size={14} /> Ver Solicitação
-                                        </button>
-                                        <button 
-                                          className="doc-dropdown-item primary" 
-                                          disabled={doc.status !== 'Realizado'}
-                                          onClick={(e) => { 
-                                            e.stopPropagation(); 
-                                            setActiveMenuId(null); 
-                                            if (doc.status === 'Realizado') handleExamAction(doc, 'resultado');
-                                          }}
-                                        >
-                                          <Eye size={14} /> {doc.status === 'Realizado' ? 'Ver Resultado' : 'Pendente'}
-                                        </button>
-                                      </>
-                                    )}
-                                  </motion.div>
-                                )}
                               </div>
                               
                               <div className="doc-card-meta">
@@ -515,6 +456,65 @@ export default function DocumentsPage() {
                                   Dr(a). {doc.doctor}
                                 </div>
                               </div>
+
+                              {/* Trigger do Dropdown */}
+                              {(doc.raw || doc.examRaw) && (
+                                <button
+                                  className="doc-menu-trigger"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveMenuId(activeMenuId === doc.id ? null : doc.id);
+                                  }}
+                                >
+                                  <MoreVertical size={16} />
+                                </button>
+                              )}
+                              
+                              {/* Dropdown Menu */}
+                              {activeMenuId === doc.id && (
+                                <motion.div 
+                                  className="doc-dropdown"
+                                  initial={{ opacity: 0, scale: 0.95, y: 5 }}
+                                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                                  exit={{ opacity: 0, scale: 0.95, y: 5 }}
+                                  transition={{ duration: 0.15 }}
+                                >
+                                  {/* Standard Doc Actions */}
+                                  {doc.raw && (
+                                    <>
+                                      <button className="doc-dropdown-item primary" onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); handleView(doc); }}>
+                                        <Eye size={14} /> Visualizar
+                                      </button>
+                                      <button className="doc-dropdown-item" onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); handlePrint(doc); }}>
+                                        <Printer size={14} /> Imprimir / PDF
+                                      </button>
+                                      <button className="doc-dropdown-item" onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); handleShare(doc); }}>
+                                        <Share2 size={14} /> Compartilhar
+                                      </button>
+                                    </>
+                                  )}
+
+                                  {/* Exam Dual Actions */}
+                                  {doc.examRaw && (
+                                    <>
+                                      <button className="doc-dropdown-item" onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); handleExamAction(doc, 'pedido'); }}>
+                                        <FileText size={14} /> Ver Solicitação
+                                      </button>
+                                      <button 
+                                        className="doc-dropdown-item primary" 
+                                        disabled={doc.status !== 'Realizado'}
+                                        onClick={(e) => { 
+                                          e.stopPropagation(); 
+                                          setActiveMenuId(null); 
+                                          if (doc.status === 'Realizado') handleExamAction(doc, 'resultado');
+                                        }}
+                                      >
+                                        <Eye size={14} /> {doc.status === 'Realizado' ? 'Ver Resultado' : 'Pendente'}
+                                      </button>
+                                    </>
+                                  )}
+                                </motion.div>
+                              )}
                             </motion.div>
                           ))
                         )}

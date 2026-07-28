@@ -263,7 +263,6 @@
   align-items: flex-start;
   gap: 8px;
   margin-bottom: 6px;
-  position: relative;
 }
 
 .doc-card-image {
@@ -278,7 +277,6 @@
 .doc-card-title-area {
   flex: 1;
   min-width: 0;
-  padding-right: 20px; /* space for the 3-dots menu */
 }
 
 .doc-card-title {
@@ -286,9 +284,7 @@
   font-weight: 700;
   color: #1e293b;
   margin-bottom: 3px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.25;
 }
 
 /* Status badges */
@@ -337,17 +333,18 @@
 /* Card actions (Dropdown) */
 .doc-menu-trigger {
   position: absolute;
-  top: 0;
-  right: 0;
-  background: transparent;
-  border: none;
-  color: #94a3b8;
-  padding: 2px;
+  bottom: 8px;
+  right: 8px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+  padding: 4px;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.2s;
 }
 
 .doc-menu-trigger:hover {
@@ -357,8 +354,8 @@
 
 .doc-dropdown {
   position: absolute;
-  top: 28px;
-  right: 10px;
+  bottom: 38px;
+  right: 8px;
   background: #fff;
   border: 1px solid #e2e8f0;
   border-radius: 8px;

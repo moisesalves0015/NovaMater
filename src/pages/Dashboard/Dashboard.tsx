@@ -360,7 +360,7 @@ function SidebarPanel({ pregnancy }: { pregnancy: any }) {
           
           <div className="spc-main-content">
             {/* LADO DA MÃE */}
-            <div className="spc-parent-side">
+            <div className="spc-parent-side" style={{ flex: 1, paddingRight: 0, borderRight: 'none', display: 'flex', gap: '16px' }}>
               <div className="spc-avatar-box">
                 <div className="spc-avatar-frame">
                   <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="#d94b88" strokeWidth="1.5">
@@ -370,7 +370,7 @@ function SidebarPanel({ pregnancy }: { pregnancy: any }) {
                 <span className="spc-avatar-badge">MÃE</span>
               </div>
               
-              <div className="spc-info-col">
+              <div className="spc-info-col" style={{ flex: 1 }}>
                 <div className="spc-info-item">
                   <span className="spc-label">NICK DA MÃE</span>
                   <span className="spc-val">{pregnancy.motherName}</span>
@@ -380,36 +380,18 @@ function SidebarPanel({ pregnancy }: { pregnancy: any }) {
                   <span className="spc-val">Não Inf.</span>
                 </div>
               </div>
-            </div>
 
-            {/* LADO DO PAI */}
-            {pregnancy.fatherName ? (
-              <div className="spc-parent-side">
-                <div className="spc-avatar-box">
-                  <div className="spc-avatar-frame" style={{ stroke: '#2563eb' }}>
-                    <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="#3b82f6" strokeWidth="1.5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
-                    </svg>
-                  </div>
-                  <span className="spc-avatar-badge" style={{ background: '#3b82f6' }}>PAI</span>
+              <div className="spc-info-col" style={{ flex: 1 }}>
+                <div className="spc-info-item">
+                  <span className="spc-label">DPP</span>
+                  <span className="spc-val">{pregnancy.expectedBirthDate ? format(toDate(pregnancy.expectedBirthDate), 'dd/MM/yyyy') : 'Não Inf.'}</span>
                 </div>
-                
-                <div className="spc-info-col">
-                  <div className="spc-info-item">
-                    <span className="spc-label">NICK DO PAI</span>
-                    <span className="spc-val">{pregnancy.fatherName}</span>
-                  </div>
-                  <div className="spc-info-item">
-                    <span className="spc-label">SANGUE</span>
-                    <span className="spc-val">Não Inf.</span>
-                  </div>
+                <div className="spc-info-item">
+                  <span className="spc-label">PLANO / CONVÊNIO</span>
+                  <span className="spc-val">Particular</span>
                 </div>
               </div>
-            ) : (
-              <div className="spc-parent-side empty">
-                 <span className="spc-label" style={{textAlign: 'center', width: '100%'}}>NICK PAI<br/>NÃO INF.</span>
-              </div>
-            )}
+            </div>
           </div>
 
           <div className="spc-bottom-footer">
