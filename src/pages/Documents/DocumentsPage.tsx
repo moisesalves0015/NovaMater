@@ -4,6 +4,27 @@ import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import {
+  FileText,
+  ClipboardList,
+  TestTube,
+  Image as ImageIcon,
+  Pill,
+  Stethoscope,
+  CalendarDays,
+  IdCard,
+  Baby,
+  Search,
+  X,
+  ChevronDown,
+  Eye,
+  Printer,
+  Share2,
+  FileBox,
+  FileBadge2,
+  CalendarClock,
+  UserRound
+} from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePregnancy, toDate } from '../../hooks/usePregnancy';
 import DocViewerModal from '../../components/Documents/DocViewerModal';
@@ -11,6 +32,7 @@ import type { PDFData } from '../../components/Documents/DocViewerModal';
 import type { MedDocument, Medication, Exam, Ultrasound } from '../../types';
 import './DocumentsPage.css';
 
+// ===== TYPE MAPS =====
 function docStatusLabel(type: string): string {
   const map: Record<string, string> = {
     atestado:                  'Emitido',
@@ -30,28 +52,27 @@ function docStatusLabel(type: string): string {
 // ===== CATEGORY DEFINITION =====
 interface DocCategory {
   id: string;
-  icon: string;
+  icon: React.FC<any>;
   name: string;
   desc: string;
-  filterKey: string; // matches docs-chip-filter values
 }
 
 const CATEGORIES: DocCategory[] = [
-  { id: 'certificados',  icon: '📄', name: 'Certificados',          desc: 'Certidões, Altas e Registros Oficiais',          filterKey: 'certificados' },
-  { id: 'declaracoes',   icon: '📋', name: 'Declarações',           desc: 'Declarações médicas e comparecimentos',           filterKey: 'declaracoes'  },
-  { id: 'lab',           icon: '🧪', name: 'Exames Laboratoriais',  desc: 'Hemograma, Sorologia, Urina e demais exames',     filterKey: 'exames'       },
-  { id: 'imagem',        icon: '🩻', name: 'Exames de Imagem',      desc: 'Ultrassom, Radiografia e Ressonância',           filterKey: 'exames'       },
-  { id: 'prescricoes',   icon: '💊', name: 'Prescrições Médicas',   desc: 'Receitas, Medicamentos e Solicitações',          filterKey: 'receitas'     },
-  { id: 'relatorios',    icon: '🩺', name: 'Relatórios Médicos',    desc: 'Evolução clínica, Laudos e Encaminhamentos',     filterKey: 'relatorios'   },
-  { id: 'solicitacoes',  icon: '📅', name: 'Solicitações',          desc: 'Pedidos de exames, internação e encaminhamento', filterKey: 'todos'        },
-  { id: 'paciente',      icon: '💳', name: 'Documentos da Paciente', desc: 'Carteirinha, QR Code e Identificação',          filterKey: 'certificados' },
-  { id: 'bebe',          icon: '👶', name: 'Documentos do Bebê',    desc: 'Certidão, Registro Neonatal e Vacinação',        filterKey: 'certificados' },
+  { id: 'certificados',  icon: FileBadge2,    name: 'Certificados',          desc: 'Certidões, Altas e Registros Oficiais' },
+  { id: 'declaracoes',   icon: ClipboardList, name: 'Declarações',           desc: 'Declarações médicas e comparecimentos' },
+  { id: 'lab',           icon: TestTube,      name: 'Exames Laboratoriais',  desc: 'Hemograma, Sorologia, Urina e demais exames' },
+  { id: 'imagem',        icon: ImageIcon,     name: 'Exames de Imagem',      desc: 'Ultrassom, Radiografia e Ressonância' },
+  { id: 'prescricoes',   icon: Pill,          name: 'Prescrições Médicas',   desc: 'Receitas, Medicamentos e Solicitações' },
+  { id: 'relatorios',    icon: Stethoscope,   name: 'Relatórios Médicos',    desc: 'Evolução clínica, Laudos e Encaminhamentos' },
+  { id: 'solicitacoes',  icon: CalendarDays,  name: 'Solicitações',          desc: 'Pedidos de exames, internação e encaminhamento' },
+  { id: 'paciente',      icon: IdCard,        name: 'Documentos da Paciente',desc: 'Carteirinha, QR Code e Identificação' },
+  { id: 'bebe',          icon: Baby,          name: 'Documentos do Bebê',    desc: 'Certidão, Registro Neonatal e Vacinação' },
 ];
 
 // ===== UNIFIED DOCUMENT ITEM =====
 interface UnifiedDoc {
   id: string;
-  icon: string;
+  icon: React.FC<any>;
   title: string;
   number?: string;
   date: Date;
@@ -60,19 +81,8 @@ interface UnifiedDoc {
   statusClass: string;
   category: string;
   raw?: MedDocument; // for viewer
-  examType?: string; // for exams
+  examRaw?: Exam | Ultrasound; // for exams
 }
-
-// ===== FILTER CHIP DEFS =====
-const FILTER_CHIPS = [
-  { key: 'todos',         label: 'Todos'        },
-  { key: 'recentes',      label: '⏱ Recentes'  },
-  { key: 'exames',        label: '🧪 Exames'    },
-  { key: 'certificados',  label: '📄 Certificados' },
-  { key: 'declaracoes',   label: '📋 Declarações'  },
-  { key: 'receitas',      label: '💊 Receitas'  },
-  { key: 'relatorios',    label: '🩺 Relatórios' },
-];
 
 // ===== HELPER: derive category id from DocumentType =====
 function getCatForDocType(type: string): string {
@@ -91,13 +101,21 @@ function getCatForDocType(type: string): string {
   return map[type] || 'relatorios';
 }
 
+function getIconForDocType(type: string): React.FC<any> {
+  const map: Record<string, React.FC<any>> = {
+    'receita': Pill,
+    'laudo': Stethoscope,
+    'encaminhamento': ClipboardList,
+    'alta-hospitalar': FileBadge2,
+    'registro-parto': Baby,
+  };
+  return map[type] || FileText;
+}
+
 // ===== EXAM ICONS =====
-function examIcon(type: string): string {
-  if (type?.includes('ultrassom')) return '🖼️';
-  if (type?.includes('hemograma') || type?.includes('sangue')) return '🩸';
-  if (type?.includes('urina')) return '🧫';
-  if (type?.includes('glicemia') || type?.includes('curva')) return '📊';
-  return '🧪';
+function examIcon(type: string): React.FC<any> {
+  if (type?.includes('ultrassom')) return ImageIcon;
+  return TestTube;
 }
 
 function examCatId(category?: string, type?: string): string {
@@ -113,7 +131,6 @@ export default function DocumentsPage() {
     currentUser?.uid || null
   );
 
-  const [filter, setFilter]       = useState('todos');
   const [search, setSearch]       = useState('');
   const [sort, setSort]           = useState<'recente' | 'antigo' | 'az'>('recente');
   const [openCats, setOpenCats]   = useState<Record<string, boolean>>({
@@ -141,7 +158,7 @@ export default function DocumentsPage() {
     documents.forEach((d: MedDocument) => {
       result.push({
         id:          d.id,
-        icon:        d.type === 'receita' ? '💊' : d.type === 'laudo' ? '🔬' : d.type === 'encaminhamento' ? '📨' : d.type === 'alta-hospitalar' ? '🏥' : d.type === 'registro-parto' ? '🍼' : '📄',
+        icon:        getIconForDocType(d.type),
         title:       d.title,
         number:      d.verificationCode,
         date:        toDate(d.issuedAt),
@@ -171,7 +188,7 @@ export default function DocumentsPage() {
         status:      e.status === 'realizado' ? 'Realizado' : e.status === 'cancelado' ? 'Cancelado' : e.status === 'pendente-resultado' ? 'Em análise' : 'Agendado',
         statusClass: statusClassMap[e.status] || 'doc-status-pendente',
         category:    catId,
-        examType:    e.type,
+        examRaw:     e,
       });
     });
 
@@ -179,13 +196,14 @@ export default function DocumentsPage() {
     ultrasounds.forEach((u: Ultrasound) => {
       result.push({
         id:          u.id,
-        icon:        '🖼️',
+        icon:        ImageIcon,
         title:       u.type || 'Ultrassom',
         date:        toDate(u.date),
         doctor:      u.performedBy || pregnancy.doctorName,
         status:      'Realizado',
         statusClass: 'doc-status-emitido',
         category:    'imagem',
+        examRaw:     u as any,
       });
     });
 
@@ -193,7 +211,7 @@ export default function DocumentsPage() {
     medications.forEach((m: Medication) => {
       result.push({
         id:          m.id,
-        icon:        '💊',
+        icon:        Pill,
         title:       m.name + (m.dose ? ` — ${m.dose}` : ''),
         date:        toDate(m.prescribedAt || m.startDate),
         doctor:      m.prescribedBy || pregnancy.doctorName,
@@ -216,26 +234,15 @@ export default function DocumentsPage() {
   // ===== FILTER LOGIC =====
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
     return allDocs.filter(d => {
-      const matchSearch = !q ||
-        d.title.toLowerCase().includes(q) ||
+      if (!q) return true;
+      return d.title.toLowerCase().includes(q) ||
         (d.doctor || '').toLowerCase().includes(q) ||
         (d.number || '').toLowerCase().includes(q) ||
         format(d.date, 'dd/MM/yyyy').includes(q);
-
-      let matchFilter = true;
-      if (filter === 'recentes')     matchFilter = d.date >= sevenDaysAgo;
-      else if (filter === 'exames')  matchFilter = d.category === 'lab' || d.category === 'imagem';
-      else if (filter === 'certificados') matchFilter = d.category === 'certificados';
-      else if (filter === 'declaracoes')  matchFilter = d.category === 'declaracoes';
-      else if (filter === 'receitas')     matchFilter = d.category === 'prescricoes';
-      else if (filter === 'relatorios')   matchFilter = d.category === 'relatorios';
-
-      return matchSearch && matchFilter;
     });
-  }, [allDocs, search, filter]);
+  }, [allDocs, search]);
 
   const docsForCat = (catId: string) => filtered.filter(d => d.category === catId);
 
@@ -265,10 +272,24 @@ export default function DocumentsPage() {
     }
   };
 
+  const handleExamAction = (doc: UnifiedDoc, action: 'pedido' | 'resultado') => {
+    if (action === 'pedido') {
+      alert(`Visualizando pedido médico de: ${doc.title}`);
+    } else {
+      if (doc.status !== 'Realizado') {
+        alert('O resultado deste exame ainda não está disponível.');
+        return;
+      }
+      alert(`Visualizando laudo/resultado de: ${doc.title}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="docs-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh', flexDirection: 'column', gap: 16 }}>
-        <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }} style={{ fontSize: '3rem' }}>🌸</motion.div>
+        <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }} style={{ color: '#be185d' }}>
+          <Stethoscope size={48} strokeWidth={1.5} />
+        </motion.div>
         <p style={{ color: '#be185d', fontWeight: 600 }}>Carregando arquivos médicos...</p>
       </div>
     );
@@ -277,43 +298,22 @@ export default function DocumentsPage() {
   if (!pregnancy) {
     return (
       <div className="docs-page page-enter" style={{ padding: '80px 20px', textAlign: 'center' }}>
-        <div style={{ fontSize: '3rem', marginBottom: 16 }}>📁</div>
+        <div style={{ color: '#cbd5e1', marginBottom: 16, display: 'flex', justifyContent: 'center' }}>
+          <FileBox size={64} strokeWidth={1.5} />
+        </div>
         <h2 style={{ color: '#475569' }}>Arquivos Indisponíveis</h2>
         <p style={{ color: '#94a3b8' }}>Você precisa ter um prontuário ativo para acessar os documentos.</p>
       </div>
     );
   }
 
-  const totalDocs = allDocs.length;
-  const totalCerts = allDocs.filter(d => d.category === 'certificados').length;
-  const totalExams  = allDocs.filter(d => d.category === 'lab' || d.category === 'imagem').length;
-  const totalMeds   = allDocs.filter(d => d.category === 'prescricoes').length;
-
   return (
     <div className="docs-page page-enter">
       {/* ===== HERO ===== */}
       <div className="docs-hero">
         <div className="docs-hero-content">
-          <h1 className="docs-hero-title">📁 Centro de Documentação Médica</h1>
-          <p className="docs-hero-sub">Prontuário de {pregnancy.motherName} · {pregnancy.hospitalName}</p>
-          <div className="docs-hero-stats">
-            <div className="docs-hero-stat">
-              <span className="docs-hero-stat-val">{totalDocs}</span>
-              <span className="docs-hero-stat-label">Total</span>
-            </div>
-            <div className="docs-hero-stat">
-              <span className="docs-hero-stat-val">{totalCerts}</span>
-              <span className="docs-hero-stat-label">Certificados</span>
-            </div>
-            <div className="docs-hero-stat">
-              <span className="docs-hero-stat-val">{totalExams}</span>
-              <span className="docs-hero-stat-label">Exames</span>
-            </div>
-            <div className="docs-hero-stat">
-              <span className="docs-hero-stat-val">{totalMeds}</span>
-              <span className="docs-hero-stat-label">Prescrições</span>
-            </div>
-          </div>
+          <h1 className="docs-hero-title">Documentos Médicos</h1>
+          <p className="docs-hero-sub">Prontuário eletrônico de {pregnancy.motherName}</p>
         </div>
       </div>
 
@@ -322,7 +322,7 @@ export default function DocumentsPage() {
         <div className="docs-toolbar-inner">
           <div className="docs-search-row">
             <div className="docs-search-box">
-              <span className="docs-search-icon">🔍</span>
+              <Search className="docs-search-icon" size={18} />
               <input
                 type="text"
                 placeholder="Buscar por nome, médico, número ou data..."
@@ -332,8 +332,10 @@ export default function DocumentsPage() {
               {search && (
                 <button
                   onClick={() => setSearch('')}
-                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1rem', color: '#94a3b8', padding: 0, lineHeight: 1 }}
-                >✕</button>
+                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}
+                >
+                  <X size={16} color="#94a3b8" />
+                </button>
               )}
             </div>
             <select
@@ -346,18 +348,6 @@ export default function DocumentsPage() {
               <option value="az">A → Z</option>
             </select>
           </div>
-          <div className="docs-filter-row">
-            {FILTER_CHIPS.map(chip => (
-              <button
-                key={chip.key}
-                className={`docs-chip-filter${filter === chip.key ? ' active' : ''}`}
-                onClick={() => setFilter(chip.key)}
-              >
-                {chip.label}
-                {chip.key === 'todos' && ` (${totalDocs})`}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 
@@ -365,15 +355,15 @@ export default function DocumentsPage() {
       <div className="docs-content">
         {filtered.length === 0 && search ? (
           <div className="docs-global-empty">
-            <div className="docs-global-empty-icon">🔍</div>
+            <div className="docs-global-empty-icon"><Search size={48} strokeWidth={1.5} /></div>
             <h3>Nenhum resultado</h3>
-            <p>Tente outro termo de busca ou remova os filtros ativos.</p>
+            <p>Tente outro termo de busca.</p>
           </div>
         ) : (
           CATEGORIES.map(cat => {
             const catDocs = docsForCat(cat.id);
-            // When filtering, hide empty categories (except "todos")
-            if (filter !== 'todos' && catDocs.length === 0) return null;
+            // When filtering, hide empty categories
+            if (search && catDocs.length === 0) return null;
 
             return (
               <motion.div
@@ -391,7 +381,9 @@ export default function DocumentsPage() {
                   aria-expanded={openCats[cat.id]}
                 >
                   <div className="docs-category-header-left">
-                    <div className="docs-category-icon-wrap">{cat.icon}</div>
+                    <div className="docs-category-icon-wrap">
+                      <cat.icon size={24} strokeWidth={1.5} />
+                    </div>
                     <div className="docs-category-info">
                       <p className="docs-category-name">{cat.name}</p>
                       <p className="docs-category-desc">{cat.desc}</p>
@@ -401,7 +393,9 @@ export default function DocumentsPage() {
                     <span className={`docs-category-count${catDocs.length === 0 ? ' empty' : ''}`}>
                       {catDocs.length}
                     </span>
-                    <span className={`docs-category-chevron${openCats[cat.id] ? ' open' : ''}`}>▼</span>
+                    <span className={`docs-category-chevron${openCats[cat.id] ? ' open' : ''}`}>
+                      <ChevronDown size={20} strokeWidth={2} />
+                    </span>
                   </div>
                 </div>
 
@@ -419,8 +413,8 @@ export default function DocumentsPage() {
                       <div className="docs-category-body">
                         {catDocs.length === 0 ? (
                           <div className="docs-cat-empty">
-                            <div className="docs-cat-empty-icon">{cat.icon}</div>
-                            <p>Nenhum documento desta categoria disponível ainda.</p>
+                            <div className="docs-cat-empty-icon"><FileBox size={40} strokeWidth={1.5} /></div>
+                            <p>Nenhum documento disponível ainda.</p>
                           </div>
                         ) : (
                           catDocs.map((doc, idx) => (
@@ -429,52 +423,83 @@ export default function DocumentsPage() {
                               className="doc-card"
                               initial={{ opacity: 0, x: -8 }}
                               animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: idx * 0.04 }}
+                              transition={{ delay: Math.min(idx * 0.04, 0.4) }}
                             >
-                              <div className="doc-card-icon">{doc.icon}</div>
-                              <div className="doc-card-body">
-                                <div className="doc-card-title">{doc.title}</div>
-                                <div className="doc-card-meta">
+                              <div className="doc-card-header">
+                                <div className="doc-card-icon">
+                                  <doc.icon size={22} strokeWidth={1.5} />
+                                </div>
+                                <div className="doc-card-title-area">
+                                  <div className="doc-card-title">{doc.title}</div>
                                   <span className={`doc-status ${doc.statusClass}`}>{doc.status}</span>
-                                  {doc.number && (
-                                    <>
-                                      <span className="doc-card-sep">·</span>
-                                      <span className="doc-card-meta-item">🔢 {doc.number}</span>
-                                    </>
-                                  )}
-                                  <span className="doc-card-sep">·</span>
-                                  <span className="doc-card-meta-item">📅 {format(doc.date, "dd/MM/yyyy", { locale: ptBR })}</span>
-                                  <span className="doc-card-sep">·</span>
-                                  <span className="doc-card-meta-item">👩‍⚕️ {doc.doctor}</span>
                                 </div>
                               </div>
-                              <div className="doc-card-actions">
-                                {doc.raw && (
+                              
+                              <div className="doc-card-meta">
+                                {doc.number && (
+                                  <div className="doc-card-meta-item">
+                                    <span className="doc-card-meta-icon">#</span> {doc.number}
+                                  </div>
+                                )}
+                                <div className="doc-card-meta-item">
+                                  <CalendarClock size={13} className="doc-card-meta-icon" /> 
+                                  {format(doc.date, "dd/MM/yyyy", { locale: ptBR })}
+                                </div>
+                                <div className="doc-card-meta-item">
+                                  <UserRound size={13} className="doc-card-meta-icon" /> 
+                                  Dr(a). {doc.doctor}
+                                </div>
+                              </div>
+
+                              {/* Standard Doc Actions */}
+                              {doc.raw && (
+                                <div className="doc-card-actions">
                                   <button
                                     className="doc-action-btn doc-action-btn-primary"
                                     onClick={() => handleView(doc)}
                                     title="Visualizar documento"
                                   >
-                                    👁 Visualizar
+                                    <Eye size={15} /> Ver
                                   </button>
-                                )}
-                                {doc.raw && (
                                   <button
                                     className="doc-action-btn doc-action-btn-ghost"
                                     onClick={() => handlePrint(doc)}
-                                    title="Imprimir / Baixar PDF"
+                                    title="Imprimir / PDF"
                                   >
-                                    🖨️
+                                    <Printer size={15} /> PDF
                                   </button>
-                                )}
-                                <button
-                                  className="doc-action-btn doc-action-btn-ghost"
-                                  onClick={() => handleShare(doc)}
-                                  title="Compartilhar"
-                                >
-                                  🔗
-                                </button>
-                              </div>
+                                  <button
+                                    className="doc-action-btn doc-action-btn-ghost"
+                                    onClick={() => handleShare(doc)}
+                                    title="Compartilhar"
+                                  >
+                                    <Share2 size={15} />
+                                  </button>
+                                </div>
+                              )}
+
+                              {/* Exam Dual Actions */}
+                              {doc.examRaw && (
+                                <div className="doc-exam-actions">
+                                  <div className="doc-exam-actions-label">Pedido Médico</div>
+                                  <button 
+                                    className="doc-action-btn doc-action-btn-ghost"
+                                    onClick={() => handleExamAction(doc, 'pedido')}
+                                  >
+                                    <FileText size={15} /> Visualizar Solicitação
+                                  </button>
+                                  
+                                  <div className="doc-exam-actions-label" style={{ marginTop: 8 }}>Resultado / Laudo</div>
+                                  <button 
+                                    className={`doc-action-btn ${doc.status === 'Realizado' ? 'doc-action-btn-primary' : 'doc-action-btn-ghost'}`}
+                                    disabled={doc.status !== 'Realizado'}
+                                    onClick={() => handleExamAction(doc, 'resultado')}
+                                    style={{ opacity: doc.status !== 'Realizado' ? 0.6 : 1 }}
+                                  >
+                                    <Eye size={15} /> {doc.status === 'Realizado' ? 'Ver Resultado' : 'Pendente'}
+                                  </button>
+                                </div>
+                              )}
                             </motion.div>
                           ))
                         )}
