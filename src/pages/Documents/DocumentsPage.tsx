@@ -23,7 +23,8 @@ import {
   FileBox,
   FileBadge2,
   CalendarClock,
-  UserRound
+  UserRound,
+  MoreVertical
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePregnancy, toDate } from '../../hooks/usePregnancy';
@@ -145,6 +146,7 @@ export default function DocumentsPage() {
     bebe:         false,
   });
   const [pdfData, setPdfData] = useState<PDFData | null>(null);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
   const toggleCat = (id: string) =>
     setOpenCats(prev => ({ ...prev, [id]: !prev[id] }));
@@ -352,7 +354,7 @@ export default function DocumentsPage() {
       </div>
 
       {/* ===== CONTENT ===== */}
-      <div className="docs-content">
+      <div className="docs-content" onClick={() => setActiveMenuId(null)}>
         {filtered.length === 0 && search ? (
           <div className="docs-global-empty">
             <div className="docs-global-empty-icon"><Search size={48} strokeWidth={1.5} /></div>
@@ -425,17 +427,80 @@ export default function DocumentsPage() {
                               animate={{ opacity: 1, x: 0 }}
                               transition={{ delay: Math.min(idx * 0.04, 0.4) }}
                             >
-                              {doc.category === 'imagem' && (doc.examRaw as any)?.imageUrl && (
-                                <img src={(doc.examRaw as any).imageUrl} alt={doc.title} className="doc-card-image" />
+                              {(doc.category === 'imagem' && (doc.examRaw as any)) && (
+                                <img 
+                                  src={(doc.examRaw as any).imageUrl || '/ultrasound-cover.png'} 
+                                  alt={doc.title} 
+                                  className="doc-card-image" 
+                                />
                               )}
                               <div className="doc-card-header">
                                 <div className="doc-card-icon">
-                                  <doc.icon size={18} strokeWidth={1.5} />
+                                  <doc.icon size={16} strokeWidth={1.5} />
                                 </div>
                                 <div className="doc-card-title-area">
                                   <div className="doc-card-title">{doc.title}</div>
                                   <span className={`doc-status ${doc.statusClass}`}>{doc.status}</span>
                                 </div>
+                                
+                                {/* Trigger do Dropdown */}
+                                {(doc.raw || doc.examRaw) && (
+                                  <button
+                                    className="doc-menu-trigger"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveMenuId(activeMenuId === doc.id ? null : doc.id);
+                                    }}
+                                  >
+                                    <MoreVertical size={16} />
+                                  </button>
+                                )}
+                                
+                                {/* Dropdown Menu */}
+                                {activeMenuId === doc.id && (
+                                  <motion.div 
+                                    className="doc-dropdown"
+                                    initial={{ opacity: 0, scale: 0.95, y: -5 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.95, y: -5 }}
+                                    transition={{ duration: 0.15 }}
+                                  >
+                                    {/* Standard Doc Actions */}
+                                    {doc.raw && (
+                                      <>
+                                        <button className="doc-dropdown-item primary" onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); handleView(doc); }}>
+                                          <Eye size={14} /> Visualizar
+                                        </button>
+                                        <button className="doc-dropdown-item" onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); handlePrint(doc); }}>
+                                          <Printer size={14} /> Imprimir / PDF
+                                        </button>
+                                        <button className="doc-dropdown-item" onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); handleShare(doc); }}>
+                                          <Share2 size={14} /> Compartilhar
+                                        </button>
+                                      </>
+                                    )}
+
+                                    {/* Exam Dual Actions */}
+                                    {doc.examRaw && (
+                                      <>
+                                        <button className="doc-dropdown-item" onClick={(e) => { e.stopPropagation(); setActiveMenuId(null); handleExamAction(doc, 'pedido'); }}>
+                                          <FileText size={14} /> Ver Solicitação
+                                        </button>
+                                        <button 
+                                          className="doc-dropdown-item primary" 
+                                          disabled={doc.status !== 'Realizado'}
+                                          onClick={(e) => { 
+                                            e.stopPropagation(); 
+                                            setActiveMenuId(null); 
+                                            if (doc.status === 'Realizado') handleExamAction(doc, 'resultado');
+                                          }}
+                                        >
+                                          <Eye size={14} /> {doc.status === 'Realizado' ? 'Ver Resultado' : 'Pendente'}
+                                        </button>
+                                      </>
+                                    )}
+                                  </motion.div>
+                                )}
                               </div>
                               
                               <div className="doc-card-meta">
@@ -453,58 +518,6 @@ export default function DocumentsPage() {
                                   Dr(a). {doc.doctor}
                                 </div>
                               </div>
-
-                              {/* Standard Doc Actions */}
-                              {doc.raw && (
-                                <div className="doc-card-actions">
-                                  <button
-                                    className="doc-action-btn doc-action-btn-primary"
-                                    onClick={() => handleView(doc)}
-                                    title="Visualizar documento"
-                                  >
-                                    <Eye size={16} />
-                                  </button>
-                                  <button
-                                    className="doc-action-btn doc-action-btn-ghost"
-                                    onClick={() => handlePrint(doc)}
-                                    title="Imprimir / PDF"
-                                  >
-                                    <Printer size={16} />
-                                  </button>
-                                  <button
-                                    className="doc-action-btn doc-action-btn-ghost"
-                                    onClick={() => handleShare(doc)}
-                                    title="Compartilhar"
-                                  >
-                                    <Share2 size={16} />
-                                  </button>
-                                </div>
-                              )}
-
-                              {/* Exam Dual Actions */}
-                              {doc.examRaw && (
-                                <div className="doc-exam-actions">
-                                  <div className="doc-exam-actions-label">Pedido Médico</div>
-                                  <button 
-                                    className="doc-action-btn doc-action-btn-ghost"
-                                    onClick={() => handleExamAction(doc, 'pedido')}
-                                    title="Visualizar Solicitação"
-                                  >
-                                    <FileText size={16} />
-                                  </button>
-                                  
-                                  <div className="doc-exam-actions-label" style={{ marginTop: 8 }}>Resultado / Laudo</div>
-                                  <button 
-                                    className={`doc-action-btn ${doc.status === 'Realizado' ? 'doc-action-btn-primary' : 'doc-action-btn-ghost'}`}
-                                    disabled={doc.status !== 'Realizado'}
-                                    onClick={() => handleExamAction(doc, 'resultado')}
-                                    style={{ opacity: doc.status !== 'Realizado' ? 0.6 : 1 }}
-                                    title={doc.status === 'Realizado' ? 'Ver Resultado' : 'Pendente'}
-                                  >
-                                    <Eye size={16} />
-                                  </button>
-                                </div>
-                              )}
                             </motion.div>
                           ))
                         )}
