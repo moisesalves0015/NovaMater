@@ -208,6 +208,7 @@ function GestationVideo({ month }: { month: number }) {
   const segStart = useRef<number>(0);
   const segEnd   = useRef<number>(0);
   const didSnap  = useRef<boolean>(false); // guard: snap only once per cycle
+  const [loadingVideo, setLoadingVideo] = useState(true);
 
   const currentMonth = Math.max(1, Math.min(month, 9));
   const SNAP_BEFORE  = 0.4; // video-seconds before segEnd to trigger the seek
@@ -259,6 +260,23 @@ function GestationVideo({ month }: { month: number }) {
 
   return (
     <div className="gestation-video-wrapper">
+      {loadingVideo && (
+        <motion.div
+          initial={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={{
+            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+            background: '#000', zIndex: 10,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            color: 'var(--accent-pink)'
+          }}
+        >
+          <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }} style={{ fontSize: '3rem', marginBottom: 12 }}>
+            🌸
+          </motion.div>
+          <span style={{ fontWeight: 500, fontSize: '0.9rem', opacity: 0.8 }}>Carregando Ultrassom...</span>
+        </motion.div>
+      )}
       <video
         ref={videoRef}
         className="gestation-video"
@@ -267,6 +285,7 @@ function GestationVideo({ month }: { month: number }) {
         muted
         playsInline
         autoPlay
+        onCanPlay={() => setLoadingVideo(false)}
         loop
         onLoadedMetadata={handleLoadedMetadata}
         onTimeUpdate={handleTimeUpdate}
