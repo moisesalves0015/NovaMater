@@ -404,13 +404,12 @@ function SidebarPanel({ pregnancy }: { pregnancy: any }) {
         </div>
         <div className="sidebar-banner-content">
           <div>
-            <div className="sidebar-discount-badge">Promoção Ativa</div>
+            <div className="sidebar-discount-badge">Parceria IR3h Store</div>
             <h4 style={{ color: '#fff' }}>Gravidez Completa</h4>
             <p style={{ marginTop: '2px', marginBottom: '8px' }}>Compre moedas no jogo e tenha a gestação mais realista no IMVU!</p>
           </div>
           <div className="sidebar-banner-btn">
-            <Coins size={14} style={{ marginRight: 6 }} /> 
-            Adquirir Créditos 
+            Aproveitar Promoções
             <ArrowRight size={14} style={{ marginLeft: 6 }} />
           </div>
         </div>
