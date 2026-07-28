@@ -1890,7 +1890,7 @@
   background: linear-gradient(135deg, #c9195a 0%, #f472b6 100%);
   border-radius: 16px;
   padding: 24px 20px;
-  min-height: 150px;
+  min-height: 220px; /* Taller height */
   margin-top: 24px;
   color: #fff;
   overflow: hidden;
@@ -1940,9 +1940,9 @@
 
 .sidebar-banner-img {
   position: absolute;
-  right: -20px;
+  right: -30px;
   bottom: -10px;
-  height: 125%;
+  height: 110%; /* adjusted to fit nicely in taller banner */
   z-index: 3;
   pointer-events: none;
   filter: drop-shadow(-4px 4px 8px rgba(0,0,0,0.2));
@@ -1987,6 +1987,17 @@
 
 @media (max-width: 640px) {
   .incentive-banners-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px; /* reduced gap */
+  }
+  .banner-card {
+    padding: 12px 10px;
+  }
+  .banner-card h4 {
+    font-size: 0.8rem;
+  }
+  .banner-card p {
+    font-size: 0.65rem;
+    max-width: 100%;
   }
 }

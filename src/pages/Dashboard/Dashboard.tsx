@@ -370,6 +370,7 @@ function SidebarPanel({ pregnancy }: { pregnancy: any }) {
           <h4>Gravidez Completa</h4>
           <p>Compre créditos para ter uma gravidez completa e liberar suas barrigas.</p>
           <div className="sidebar-banner-btn"><Coins size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} /> Comprar Créditos</div>
+          <div style={{ fontSize: '0.65rem', textAlign: 'center', marginTop: '12px', opacity: 0.85, lineHeight: 1.2 }}>Parceiro de confiança com entrega garantida.</div>
         </div>
         <img src="/pregnant-woman.png" alt="Gestante" className="sidebar-banner-img" />
       </div>
