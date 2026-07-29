@@ -1452,13 +1452,10 @@
 /* ===================== CARTEIRINHA DA MÃE (V2 STYLE) ===================== */
 .dash-carteirinha {
   position: relative;
-  width: 100%;
-  max-width: 100%; /* Wider width to fill container */
   height: 200px;
   perspective: 1000px;
   z-index: 1;
-  margin: 0 auto;
-  margin-bottom: 25px; /* prevent shadow clipping */
+  margin: 16px; /* space for 360 shadow */
 }
 
 .card-v2-inner {
@@ -1470,8 +1467,8 @@
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 
-    0 15px 25px rgba(0,0,0,0.1),
-    0 5px 10px rgba(0,0,0,0.05),
+    0 0 24px rgba(0,0,0,0.12),
+    0 0 8px rgba(0,0,0,0.06),
     inset 0 1px 0 rgba(255,255,255,1);
   display: flex;
   flex-direction: column;

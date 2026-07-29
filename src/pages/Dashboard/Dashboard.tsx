@@ -322,7 +322,7 @@ function SidebarPanel({ pregnancy }: { pregnancy: any }) {
         <h3 className="section-title">Cartão de Identificação</h3>
         <span className="section-legend">Responsáveis</span>
       </div>
-      <div className="nm-sidebar-card" style={{ padding: 0, background: 'transparent', border: 'none', boxShadow: 'none' }}>
+      <div className="nm-sidebar-card" style={{ padding: 0, background: 'transparent', border: 'none', boxShadow: 'none', overflow: 'visible' }}>
         <div className="dash-carteirinha">
           <div className="card-v2-inner">
             <div className="card-v2-hole"></div>
