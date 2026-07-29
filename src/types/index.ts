@@ -154,6 +154,7 @@ export interface Medication {
   prescribedBy?: string;
   prescribedAt: any;
   active: boolean;
+  type?: 'casa' | 'consultorio';
 }
 
 export interface PrescriptionItem {

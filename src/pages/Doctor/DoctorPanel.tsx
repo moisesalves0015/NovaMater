@@ -7,8 +7,9 @@ import {
 } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
 import { initializeApp, getApp, getApps } from 'firebase/app';
-import { db, firebaseConfig } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
+import { db, firebaseConfig } from '../../lib/firebase';
+import { addAuditLog } from '../../lib/audit';
 
 function createSecondaryAuth() {
   const secondaryAppName = 'SecondaryApp';
@@ -605,6 +606,7 @@ function UsersTab() {
 }
 
 function AppointmentsTab() {
+  const { userData } = useAuth();
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -618,6 +620,29 @@ function AppointmentsTab() {
 
   useEffect(() => {
     loadData();
+  }, []);
+
+  const [pregnancyNicks, setPregnancyNicks] = useState<Record<string, string>>({});
+  const [editingAppId, setEditingAppId] = useState<string | null>(null);
+  const [editDate, setEditDate] = useState('');
+  const [editTime, setEditTime] = useState('');
+
+  // Fetch consultations that are pending scheduling
+  const [pendingConsultations, setPendingConsultations] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchPregnancies = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'pregnancies'));
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Pregnancy));
+        const map: Record<string, string> = {};
+        list.forEach(p => {
+          map[p.id] = p.motherName;
+        });
+        setPregnancyNicks(map);
+      } catch(e) { console.error(e); }
+    };
+    fetchPregnancies();
   }, []);
 
   const loadData = async () => {
@@ -639,6 +664,14 @@ function AppointmentsTab() {
         setTempDays(data.daysOfWeek || []);
         setTempTimes(data.timeSlots || []);
       }
+
+      // Fetch Firestore consultations that are 'aguardando-agendamento'
+      const consultSnap = await getDocs(collection(db, 'consultations'));
+      const list = consultSnap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter((c: any) => c.status === 'aguardando-agendamento');
+      setPendingConsultations(list);
+
     } catch (err) {
       console.error(err);
     }
@@ -679,7 +712,7 @@ function AppointmentsTab() {
       loadData();
     } catch (e: any) {
       if (e.code === 'not-found') {
-        await addDoc(collection(db, 'settings'), { daysOfWeek: tempDays, timeSlots: tempTimes }); // Wait, document needs to be exactly "appointments". I should use setDoc.
+        await addDoc(collection(db, 'settings'), { daysOfWeek: tempDays, timeSlots: tempTimes });
       }
     }
     setSavingSettings(false);
@@ -692,6 +725,44 @@ function AppointmentsTab() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const handleConfirmConsultation = async (consultId: string, consultationNumber: number, pregnancyId: string) => {
+    if (!editDate || !editTime) {
+      alert('Por favor, informe a data e o horário para agendar esta consulta.');
+      return;
+    }
+    setSavingSettings(true);
+    try {
+      const scheduledDateTime = new Date(`${editDate}T${editTime}:00`);
+      await updateDoc(doc(db, 'consultations', consultId), {
+        status: 'agendada',
+        scheduledDate: scheduledDateTime
+      });
+      await addAuditLog({
+        pregnancyId,
+        userId: userData?.uid || '',
+        userName: userData?.name || '',
+        action: 'Confirmação de Agendamento Pós-Parto (Admin)',
+        newValue: `${consultationNumber}ª Consulta agendada para ${editDate} às ${editTime}`,
+      });
+      // Registrar também no painel geral de appointments do hospital para histórico
+      await addDoc(collection(db, 'appointments'), {
+        patientNick: pregnancyNicks[pregnancyId] || 'Gestante',
+        reason: `${consultationNumber}ª Consulta de Retorno Pós-Parto e Pezinho`,
+        date: editDate,
+        time: editTime,
+        status: 'accepted',
+        createdAt: serverTimestamp(),
+      });
+      alert('Consulta agendada com sucesso!');
+      setEditingAppId(null);
+      loadData();
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao agendar consulta.');
+    }
+    setSavingSettings(false);
   };
 
   const pending = appointments.filter(a => a.status === 'pending');
@@ -758,6 +829,56 @@ function AppointmentsTab() {
         >
           {savingSettings ? 'Salvando...' : '💾 Salvar Configurações'}
         </button>
+      </div>
+
+      {/* CONSULTAS AGUARDANDO AGENDAMENTO (RETORNO / PEZINHO) */}
+      <div className="glass-box" style={{ padding: 24 }}>
+        <h3 className="patients-section-title" style={{ marginTop: 0, marginBottom: 16 }}>Solicitações de Pré-Natal / Retorno ({pendingConsultations.length})</h3>
+        {pendingConsultations.length === 0 ? (
+          <p style={{ color: '#666' }}>Nenhuma solicitação de agendamento de retorno pendente no momento.</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {pendingConsultations.map(c => (
+              <div key={c.id} style={{ border: '1px solid #e2e8f0', padding: 16, borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 12, background: '#fff9fb' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>Mãe: {pregnancyNicks[c.pregnancyId] || 'Carregando...'}</div>
+                    <div style={{ color: '#475569', fontSize: '0.9rem' }}>Consulta Solicitada: {c.consultationNumber}ª Consulta (Retorno Pós-Parto)</div>
+                    <div style={{ color: 'var(--accent-pink)', fontWeight: 600 }}>Condutas de RPG: {c.conducts}</div>
+                  </div>
+                  <div>
+                    <span className="badge badge-pink">Aguardando Data/Hora</span>
+                  </div>
+                </div>
+
+                {editingAppId === c.id ? (
+                  <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: '0.8rem' }}>Data</label>
+                      <input type="date" className="form-input" style={{ padding: '6px 10px' }} value={editDate} onChange={e => setEditDate(e.target.value)} />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: '0.8rem' }}>Horário</label>
+                      <input type="time" className="form-input" style={{ padding: '6px 10px' }} value={editTime} onChange={e => setEditTime(e.target.value)} />
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button className="btn btn-secondary btn-sm" onClick={() => setEditingAppId(null)}>Cancelar</button>
+                      <button className="btn btn-primary btn-sm" onClick={() => handleConfirmConsultation(c.id, c.consultationNumber, c.pregnancyId)}>
+                        Confirmar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <button className="btn-modern btn-modern-primary btn-sm" onClick={() => { setEditDate(''); setEditTime(''); setEditingAppId(c.id); }}>
+                      📅 Definir Data & Agendar
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="glass-box" style={{ padding: 24 }}>

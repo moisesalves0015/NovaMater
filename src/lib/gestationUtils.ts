@@ -192,3 +192,296 @@ export function getTimelineEvents(plan: GestationPlan, startDate: Date) {
     isCurrent: currentGestationMonth(startDate, plan) === e.month,
   }));
 }
+
+// ============================================================
+// PROTOCOLO MENSAL INTELIGENTE (SmartAssistant)
+// ============================================================
+
+export interface MonthlyMedication {
+  name: string;
+  dose: string;
+  frequency: string;
+  instructions: string;
+  purpose?: string;
+  whyNeeded?: string;
+  expectedBenefit?: string;
+}
+
+export interface MonthlyProtocolEntry {
+  title: string;
+  description: string;
+  exams: ExamType[];
+  medications: MonthlyMedication[];
+  alerts: string[];
+  highRiskExams?: ExamType[];
+}
+
+/**
+ * Protocolo clínico recomendado por mês gestacional.
+ * Baseado no protocolo do Ministério da Saúde e OMS.
+ * Enriquecido com informações didáticas detalhadas (Finalidade, Motivo, Benefício esperado)
+ * voltadas para a dinâmica de simulação/RPG.
+ */
+export const MONTHLY_PROTOCOL: Record<number, MonthlyProtocolEntry> = {
+  1: {
+    title: '1º Mês — Confirmação e Cadastro',
+    description: 'Consulta inicial de pré-natal. Confirmar gestação, solicitar exames de 1º trimestre, iniciar suplementação.',
+    exams: ['hemograma', 'urina', 'toxoplasmose', 'rubéola', 'hiv', 'sifilis', 'hepatite-b', 'glicemia'],
+    medications: [
+      {
+        name: 'Ácido Fólico',
+        dose: '5mg',
+        frequency: '1x ao dia',
+        instructions: 'Tomar em jejum, continuar até o 3º mês.',
+        purpose: 'Prevenção de defeitos no tubo neural (DTN) do feto.',
+        whyNeeded: 'O tubo neural se fecha nas primeiras semanas gestacionais, necessitando de folato em níveis adequados.',
+        expectedBenefit: 'Prevenir anencefalia e espinha bífida (desenvolvimento correto do cérebro e medula fetal).'
+      },
+      {
+        name: 'Sulfato Ferroso',
+        dose: '40mg',
+        frequency: '1x ao dia',
+        instructions: 'Tomar longe das refeições, preferencialmente com suco cítrico.',
+        purpose: 'Prevenção da anemia ferropriva gestacional.',
+        whyNeeded: 'O volume de sangue materno se expande drasticamente no início da gestação, aumentando a demanda por ferro.',
+        expectedBenefit: 'Garantir transporte adequado de oxigênio à placenta, evitando fadiga materna e baixo peso fetal.'
+      },
+    ],
+    alerts: [
+      'Confirmar data da última menstruação (DUM) e calcular DPP',
+      'Orientar sobre alimentação saudável e evitar álcool/tabaco',
+      'Verificar cartão de vacinas — atualizar se necessário',
+    ],
+    highRiskExams: ['urina'],
+  },
+  2: {
+    title: '2º Mês — Pré-Natal Inicial',
+    description: 'Acompanhar resultados dos exames do 1º mês. Primeiro ultrassom para confirmar idade gestacional.',
+    exams: ['ultrassom'],
+    medications: [
+      {
+        name: 'Ácido Fólico',
+        dose: '5mg',
+        frequency: '1x ao dia',
+        instructions: 'Continuar suplementação.',
+        purpose: 'Desenvolvimento neural contínuo do bebê.',
+        whyNeeded: 'Divisão celular intensa e formação primária do sistema nervoso.',
+        expectedBenefit: 'Proteção total da integridade do sistema nervoso central do embrião.'
+      },
+      {
+        name: 'Sulfato Ferroso',
+        dose: '40mg',
+        frequency: '1x ao dia',
+        instructions: 'Continuar suplementação.',
+        purpose: 'Suporte à hematopoese (produção de glóbulos vermelhos).',
+        whyNeeded: 'Necessário para oxigenação celular do útero em expansão.',
+        expectedBenefit: 'Manutenção do fluxo vital de oxigênio e nutrientes no saco gestacional.'
+      },
+    ],
+    alerts: [
+      'Avaliar resultados dos exames do 1º mês',
+      'Discutir achados do ultrassom com a paciente',
+      'Orientar sobre sintomas normais do 1º trimestre (náuseas, fadiga)',
+    ],
+  },
+  3: {
+    title: '3º Mês — 1º Trimestre',
+    description: 'Avaliação do 1º trimestre. Hemograma de controle e ultrassom morfológico precoce.',
+    exams: ['hemograma', 'ultrassom'],
+    medications: [
+      {
+        name: 'Ácido Fólico',
+        dose: '5mg',
+        frequency: '1x ao dia',
+        instructions: 'Pode reduzir dose após este mês, conforme avaliação médica.',
+        purpose: 'Conclusão da fase de organogênese básica.',
+        whyNeeded: 'Última etapa crítica de fechamento das estruturas básicas do crânio e coluna.',
+        expectedBenefit: 'Garantia de organogênese do sistema nervoso sem anomalias morfológicas.'
+      },
+      {
+        name: 'Sulfato Ferroso',
+        dose: '40mg',
+        frequency: '1x ao dia',
+        instructions: 'Continuar.',
+        purpose: 'Estabilização metabólica sanguínea.',
+        whyNeeded: 'Prevenir quedas abruptas de hemoglobina à medida que a circulação fetal se consolida.',
+        expectedBenefit: 'Prevenção de aborto espontâneo precoce por insuficiência circulatória.'
+      },
+    ],
+    alerts: [
+      'Ultrassom morfológico de 1º trimestre (11-14 semanas)',
+      'Avaliar risco para pré-eclâmpsia',
+      'Orientar sobre exercícios físicos leves permitidos',
+    ],
+    highRiskExams: ['hemograma'],
+  },
+  4: {
+    title: '4º Mês — Revisão de Exames',
+    description: 'Controle de glicemia e urina. Acompanhar crescimento fetal.',
+    exams: ['glicemia', 'urina'],
+    medications: [
+      {
+        name: 'Sulfato Ferroso',
+        dose: '40mg',
+        frequency: '1x ao dia',
+        instructions: 'Continuar.',
+        purpose: 'Suporte de ferro para a hemoglobina.',
+        whyNeeded: 'Início do segundo trimestre, período de crescimento acelerado dos tecidos fetais.',
+        expectedBenefit: 'Prevenir partos prematuros e peso insuficiente ao nascer.'
+      },
+      {
+        name: 'Vitamina D',
+        dose: '1000UI',
+        frequency: '1x ao dia',
+        instructions: 'Tomar junto com a maior refeição do dia.',
+        purpose: 'Absorção de cálcio e mineralização óssea do bebê.',
+        whyNeeded: 'Necessário para guiar o cálcio aos ossos em formação do feto, evitando raquitismo neonatal.',
+        expectedBenefit: 'Esqueleto fetal forte e saudável, regulação do sistema imunológico da mãe.'
+      },
+    ],
+    alerts: [
+      'Medir altura uterina (AU)',
+      'Orientar sobre movimentos fetais',
+      'Avaliar ganho de peso gestacional',
+    ],
+  },
+  5: {
+    title: '5º Mês — Morfológico e Revelação',
+    description: 'Ecografia morfológica de 2º trimestre. Possível revelação do sexo.',
+    exams: ['ecografia-morfológica'],
+    medications: [
+      {
+        name: 'Sulfato Ferroso',
+        dose: '40mg',
+        frequency: '1x ao dia',
+        instructions: 'Continuar.',
+        purpose: 'Garantia de reservas de ferro maternas.',
+        whyNeeded: 'O feto começa a estocar ferro em seus próprios órgãos para os primeiros meses após o parto.',
+        expectedBenefit: 'Feto com estoques adequados de ferro pós-parto e mãe sem sinais de anemia severa.'
+      },
+    ],
+    alerts: [
+      'Ecografia morfológica (20-24 semanas)',
+      'Avaliação de placenta e líquido amniótico',
+      'Orientar sobre posição de dormir (decúbito lateral esquerdo)',
+    ],
+    highRiskExams: ['ecografia-morfológica'],
+  },
+  6: {
+    title: '6º Mês — 2º Trimestre',
+    description: 'Acompanhamento do 2º trimestre. Hemograma e ultrassom de crescimento.',
+    exams: ['hemograma', 'ultrassom'],
+    medications: [
+      {
+        name: 'Sulfato Ferroso',
+        dose: '40mg',
+        frequency: '1x ao dia',
+        instructions: 'Continuar.',
+        purpose: 'Estabilidade sanguínea no pico de expansão plasmática.',
+        whyNeeded: 'Prevenir a anemia dilucional (fisiológica) que ocorre devido ao aumento do plasma.',
+        expectedBenefit: 'Manter a hemoglobina da gestante estável em níveis seguros (> 11 g/dL).'
+      },
+      {
+        name: 'Carbonato de Cálcio',
+        dose: '500mg',
+        frequency: '2x ao dia',
+        instructions: 'Tomar junto às refeições. Não tomar no mesmo horário do Sulfato Ferroso.',
+        purpose: 'Prevenção de perda de densidade óssea materna e pré-eclâmpsia.',
+        whyNeeded: 'A calcificação dos ossos do bebê se intensifica; a falta de cálcio na dieta consome as reservas ósseas da mãe.',
+        expectedBenefit: 'Evitar cãibras, cáries gestacionais e reduzir a reatividade vascular associada à pré-eclâmpsia.'
+      },
+    ],
+    alerts: [
+      'Avaliar edemas nos membros inferiores',
+      'Verificar pressão arterial com atenção',
+      'Orientar sobre sinais de pré-eclâmpsia',
+    ],
+  },
+  7: {
+    title: '7º Mês — Preparação para o Parto',
+    description: 'Curva glicêmica e urina de controle. Iniciar planejamento do parto.',
+    exams: ['curva-glicemia', 'urina'],
+    medications: [
+      {
+        name: 'Sulfato Ferroso',
+        dose: '40mg',
+        frequency: '1x ao dia',
+        instructions: 'Continuar até o parto.',
+        purpose: 'Proteção contra hemorragia pós-parto.',
+        whyNeeded: 'Preparar a paciente para a perda sanguínea fisiológica inevitável que ocorre no parto.',
+        expectedBenefit: 'Mãe com boa tolerância hemodinâmica no parto e menor necessidade de transfusão.'
+      },
+    ],
+    alerts: [
+      'Curva glicêmica (TOTG 75g) — rastreio de diabetes gestacional',
+      'Discutir plano de parto com a paciente',
+      'Orientar sobre sinais de trabalho de parto prematuro',
+    ],
+    highRiskExams: ['curva-glicemia', 'urina'],
+  },
+  8: {
+    title: '8º Mês — Revisão Final',
+    description: 'Ultrassom de crescimento fetal e rastreio de Streptococcus.',
+    exams: ['ultrassom', 'streptococcus'],
+    medications: [
+      {
+        name: 'Sulfato Ferroso',
+        dose: '40mg',
+        frequency: '1x ao dia',
+        instructions: 'Continuar.',
+        purpose: 'Manutenção do oxigênio tecidual na reta final.',
+        whyNeeded: 'O feto cresce rapidamente em peso, consumindo grande parcela energética materna.',
+        expectedBenefit: 'Mãe com disposição física conservada para as contrações e dilatação.'
+      },
+    ],
+    alerts: [
+      'Swab vaginal/retal para GBS (Streptococcus agalactiae)',
+      'Avaliar apresentação fetal',
+      'Discutir analgesia no parto (epidural)',
+      'Verificar data prevista do parto e planejar internação',
+    ],
+    highRiskExams: ['streptococcus'],
+  },
+  9: {
+    title: '9º Mês — Agendamento do Parto',
+    description: 'Consulta final. Confirmar data do parto e orientações pós-parto.',
+    exams: ['hemograma', 'urina', 'ultrassom'],
+    medications: [
+      {
+        name: 'Sulfato Ferroso',
+        dose: '40mg',
+        frequency: '1x ao dia',
+        instructions: 'Continuar até orientação médica pós-parto.',
+        purpose: 'Estoque contra anemia no puerpério.',
+        whyNeeded: 'O aleitamento materno consome estoques nutricionais substanciais da mãe.',
+        expectedBenefit: 'Recuperação pós-parto rápida, prevenindo depressão pós-parto correlacionada com anemia.'
+      },
+    ],
+    alerts: [
+      'Confirmar data e local do parto',
+      'Orientar sobre amamentação',
+      'Orientar sobre sinais de alerta: sangramento, ruptura de bolsa, redução de movimentos',
+      'Preparar documentação para internação',
+      'Agendar consulta de retorno pós-parto, teste do pezinho e avaliação do bebê',
+    ],
+    highRiskExams: ['hemograma', 'urina'],
+  },
+};
+
+/**
+ * Medicamentos comuns em pré-natal para prescrição rápida.
+ */
+export const COMMON_MEDICATIONS: MonthlyMedication[] = [
+  { name: 'Ácido Fólico', dose: '5mg', frequency: '1x ao dia', instructions: 'Tomar em jejum, preferencialmente de manhã.' },
+  { name: 'Sulfato Ferroso', dose: '40mg', frequency: '1x ao dia', instructions: 'Tomar 1h antes das refeições, com suco de laranja.' },
+  { name: 'Carbonato de Cálcio', dose: '500mg', frequency: '2x ao dia', instructions: 'Tomar junto às refeições.' },
+  { name: 'Vitamina D3', dose: '1000UI', frequency: '1x ao dia', instructions: 'Tomar junto com alimento gorduroso.' },
+  { name: 'Ômega-3 (DHA)', dose: '200mg', frequency: '1x ao dia', instructions: 'Tomar junto às refeições.' },
+  { name: 'Dipirona Sódica', dose: '500mg', frequency: 'Conforme necessidade (máx 4x/dia)', instructions: 'Usar apenas em caso de dor ou febre. Não usar no 3º trimestre.' },
+  { name: 'Metoclopramida', dose: '10mg', frequency: '3x ao dia (antes das refeições)', instructions: 'Para náuseas graves. Usar por curto período.' },
+  { name: 'Ranitidina', dose: '150mg', frequency: '2x ao dia', instructions: 'Para azia/refluxo. Tomar antes das refeições.' },
+  { name: 'Progesterona Micronizada', dose: '200mg', frequency: '1x ao dia (vaginal)', instructions: 'Conforme prescrição médica.' },
+  { name: 'Heparina de Baixo Peso Molecular', dose: 'Conforme peso', frequency: '1x ao dia (subcutânea)', instructions: 'Apenas para alto risco trombótico. Aplicação supervisionada.' },
+];
+
+

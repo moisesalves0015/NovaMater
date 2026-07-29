@@ -4,7 +4,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   doc, updateDoc, collection, query,
-  where, onSnapshot, addDoc, serverTimestamp
+  where, onSnapshot, addDoc, serverTimestamp,
+  deleteDoc
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -14,10 +15,22 @@ import type {
   Pregnancy, Consultation, Exam, Ultrasound,
   Medication, MedDocument, DocumentType, AuditLog
 } from '../../types';
-import { EXAM_LABELS, PRESET_PLANS } from '../../lib/gestationUtils';
+import {
+  EXAM_LABELS, PRESET_PLANS,
+  MONTHLY_PROTOCOL, COMMON_MEDICATIONS,
+  currentGestationMonth,
+} from '../../lib/gestationUtils';
+import type { ExamType } from '../../types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { addAuditLog, createNotification, createTimelineEvent } from '../../lib/audit';
+import {
+  Stethoscope, FlaskConical, ScanLine, Pill, FileText,
+  History, BookOpen, Baby, ShieldAlert, ClipboardList,
+  CalendarDays, ChevronDown, ChevronUp,
+  Plus, AlertTriangle, Info, Zap,
+  Activity, CheckCircle2,
+} from 'lucide-react';
 import './MedicalRecord.css';
 
 // =================== HELPERS ===================
@@ -33,14 +46,457 @@ function safeFormat(val: any, fmt: string): string {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const labels: Record<string, string> = {
-    realizada: '✓ Realizada', agendada: '⏰ Agendada', cancelada: '✕ Cancelada',
-    remarcada: '↻ Remarcada', faltou: '✗ Faltou',
-    realizado: '✓ Realizado', agendado: '⏰ Agendado', cancelado: '✕ Cancelado',
-    'pendente-resultado': '📋 Resultado Pendente',
-    ativa: '● Ativa', vencida: '⚠ Vencida',
+  const map: Record<string, { label: string; cls: string }> = {
+    realizada:  { label: 'Realizada',  cls: 'status-realizada' },
+    agendada:   { label: 'Agendada',   cls: 'status-agendada' },
+    cancelada:  { label: 'Cancelada',  cls: 'status-cancelada' },
+    remarcada:  { label: 'Remarcada',  cls: 'status-remarcada' },
+    faltou:     { label: 'Faltou',     cls: 'status-faltou' },
+    realizado:  { label: 'Realizado',  cls: 'status-realizada' },
+    agendado:   { label: 'Agendado',   cls: 'status-agendada' },
+    cancelado:  { label: 'Cancelado',  cls: 'status-cancelada' },
+    'pendente-resultado': { label: 'Resultado Pendente', cls: 'status-remarcada' },
+    'aguardando-agendamento': { label: 'Aguardando Agendamento', cls: 'status-agendada' },
+    ativa:      { label: 'Ativa',      cls: 'status-realizada' },
+    vencida:    { label: 'Vencida',    cls: 'status-cancelada' },
   };
-  return <span className={`badge status-${status}`}>{labels[status] || status}</span>;
+  const entry = map[status] || { label: status, cls: 'status-agendada' };
+  return <span className={`badge ${entry.cls}`}>{entry.label}</span>;
+}
+
+// =================== SMART ASSISTANT ===================
+interface SmartAssistantProps {
+  pregnancy: Pregnancy;
+  consultations: Consultation[];
+  exams: Exam[];
+  medications: Medication[];
+  activeTab: string;
+  setTab: (tab: TabKey) => void;
+}
+
+function SmartAssistant({
+  pregnancy,
+  consultations,
+  exams,
+  medications,
+  activeTab,
+  setTab,
+}: SmartAssistantProps) {
+  const { userData } = useAuth();
+  const [adding, setAdding] = useState<string | null>(null);
+  const [open, setOpen] = useState(true);
+
+  const currentMonth = currentGestationMonth(toDate(pregnancy.startDate), pregnancy.gestationPlan);
+  const protocol = MONTHLY_PROTOCOL[currentMonth];
+  if (!protocol) return null;
+
+  const isHighRisk = pregnancy.riskLevel === 'alto' || pregnancy.riskLevel === 'muito-alto';
+
+  // Filters based on activeTab
+  const showExamsSection = activeTab === 'resumo' || activeTab === 'exames';
+  const showMedsSection = activeTab === 'resumo' || activeTab === 'medicamentos';
+  const showAlertsSection = activeTab === 'resumo' || activeTab === 'consultas' || activeTab === 'notas';
+
+  // Which exams are already in the system for this month?
+  const existingExamTypes = new Set(
+    exams.filter(e => e.gestationMonth === currentMonth).map(e => e.type)
+  );
+  const missingExams = protocol.exams.filter(e => !existingExamTypes.has(e));
+  const extraHighRiskExams = isHighRisk && protocol.highRiskExams
+    ? protocol.highRiskExams.filter(e => !existingExamTypes.has(e))
+    : [];
+
+  // Which medications are already active?
+  const existingMedNames = new Set(medications.filter(m => m.active).map(m => m.name.toLowerCase()));
+  const missingMeds = protocol.medications.filter(m => !existingMedNames.has(m.name.toLowerCase()));
+
+  // Pending consultations this month
+  const pendingConsults = consultations.filter(
+    c => c.gestationMonth === currentMonth && c.status !== 'realizada'
+  );
+
+  const handleAddExam = async (examType: ExamType) => {
+    setAdding(`exam-${examType}`);
+    try {
+      await addDoc(collection(db, 'exams'), {
+        pregnancyId: pregnancy.id,
+        type: examType,
+        gestationMonth: currentMonth,
+        status: 'agendado',
+        scheduledDate: serverTimestamp(),
+        requestedBy: userData?.name || pregnancy.doctorName,
+        requestedAt: serverTimestamp(),
+      });
+      await addAuditLog({
+        pregnancyId: pregnancy.id,
+        userId: userData?.uid || '',
+        userName: userData?.name || '',
+        action: 'Solicitação de Exame (Assistente)',
+        newValue: EXAM_LABELS[examType] || examType,
+      });
+      await createNotification(pregnancy.motherId, pregnancy.id!, 'exame-solicitado',
+        'Novo exame solicitado',
+        `Foi solicitado o exame: ${EXAM_LABELS[examType] || examType}.`,
+        '🧪'
+      );
+    } catch (e) { console.error(e); }
+    setAdding(null);
+  };
+
+  const handleAddMed = async (med: typeof COMMON_MEDICATIONS[0]) => {
+    setAdding(`med-${med.name}`);
+    try {
+      // De acordo com a solicitacao do usuario, medicamentos prescritos pelo assistente
+      // recomendados mensalmente sao para uso Domiciliar ("casa") por padrao.
+      await addDoc(collection(db, 'medications'), {
+        pregnancyId: pregnancy.id,
+        name: med.name,
+        dose: med.dose,
+        frequency: med.frequency,
+        instructions: med.instructions,
+        type: 'casa', // Domiciliar por padrão
+        prescribedBy: userData?.name || pregnancy.doctorName,
+        prescribedAt: serverTimestamp(),
+        startDate: serverTimestamp(),
+        active: true,
+      });
+      await addAuditLog({
+        pregnancyId: pregnancy.id,
+        userId: userData?.uid || '',
+        userName: userData?.name || '',
+        action: 'Prescrição (Assistente)',
+        newValue: `${med.name} ${med.dose} [Uso Domiciliar]`,
+      });
+      await createNotification(pregnancy.motherId, pregnancy.id!, 'medicamento-prescrito',
+        'Novo medicamento prescrito',
+        `Foi prescrito: ${med.name} ${med.dose} (Uso Domiciliar).`,
+        '💊'
+      );
+    } catch (e) { console.error(e); }
+    setAdding(null);
+  };
+
+  const pendingExamsCount = showExamsSection ? (missingExams.length + (isHighRisk ? extraHighRiskExams.length : 0)) : 0;
+  const pendingMedsCount = showMedsSection ? missingMeds.length : 0;
+  const pendingConsultsCount = showAlertsSection ? pendingConsults.length : 0;
+  const totalPending = pendingExamsCount + pendingMedsCount + pendingConsultsCount;
+
+  return (
+    <div className="smart-assistant">
+      <div className="sa-header" onClick={() => setOpen(!open)}>
+        <div className="sa-header-left">
+          <div className="sa-icon-wrap">
+            <Zap size={18} color="#fff" strokeWidth={2.5} />
+          </div>
+          <div>
+            <h4 className="sa-title">Assistente Obstétrico — {protocol.title}</h4>
+            <p className="sa-desc">{protocol.description}</p>
+          </div>
+        </div>
+        <div className="sa-header-right">
+          {totalPending > 0 && (
+            <span className="sa-pending-badge">{totalPending} pendentes</span>
+          )}
+          {open ? <ChevronUp size={18} color="#c9195a" /> : <ChevronDown size={18} color="#c9195a" />}
+        </div>
+      </div>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            style={{ overflow: 'hidden' }}
+          >
+            <div className="sa-body">
+              {/* ALERTAS/AÇÕES CONSTRUTIVAS */}
+              {showAlertsSection && protocol.alerts.length > 0 && (
+                <div className="sa-section">
+                  <h5 className="sa-section-title"><Info size={15} /> Ações Recomendadas (Construtivo)</h5>
+                  <div className="sa-item-list">
+                    {protocol.alerts.map((alert, i) => {
+                      // Determinar dinamicamente a ação com base na string do alerta
+                      const alertLower = alert.toLowerCase();
+                      
+                      let actionButton = null;
+                      if (alertLower.includes('confirmar data e local') || alertLower.includes('confirmar data da última')) {
+                        actionButton = (
+                          <button
+                            className="sa-add-btn"
+                            onClick={() => {
+                              // Seleciona a aba documentos e inicia um documento de confirmação do local de parto
+                              setTab('documentos');
+                              const targetContent = `Declaração de Confirmação do Local de Parto\n\nPaciente: ${pregnancy.motherName}\nHospital de Referência: ${pregnancy.hospitalName}\nData Provável do Parto (DPP): ${safeFormat(pregnancy.expectedBirthDate, 'dd/MM/yyyy')}\nMédico Responsável: Dr(a). ${pregnancy.doctorName}\n\nDeclaramos que o plano de parto está acordado para a data especificada acima.`;
+                              // Salva no banco de dados
+                              const verificationCode = `NM-${Date.now().toString(36).toUpperCase()}`;
+                              addDoc(collection(db, 'documents'), {
+                                pregnancyId: pregnancy.id,
+                                type: 'declaracao-gestacional',
+                                title: 'Confirmação de Local de Parto',
+                                content: targetContent,
+                                version: 1,
+                                issuedBy: userData?.name || pregnancy.doctorName,
+                                // fallback values if user context isn't fully loaded
+                                issuedById: userData?.uid || pregnancy.doctorId || 'unknown',
+                                issuedAt: serverTimestamp(),
+                                verificationCode,
+                              }).then(() => {
+                                addAuditLog({
+                                  pregnancyId: pregnancy.id,
+                                  userId: userData?.uid || '',
+                                  userName: userData?.name || '',
+                                  action: 'Emissão de Documento (Assistente)',
+                                  newValue: 'Confirmação de Local de Parto',
+                                });
+                                createNotification(pregnancy.motherId, pregnancy.id!, 'documento-disponivel', 'Novo documento emitido', 'O documento "Confirmação de Local de Parto" foi emitido.', '📄');
+                              }).catch(e => console.error(e));
+                            }}
+                          >
+                            <FileText size={12} /> Confirmar Parto
+                          </button>
+                        );
+                      } else if (alertLower.includes('amamentação')) {
+                        actionButton = (
+                          <button
+                            className="sa-add-btn"
+                            onClick={() => {
+                              setTab('documentos');
+                              const targetContent = `Orientações de Amamentação Exclusiva\n\nPaciente: ${pregnancy.motherName}\nData: ${safeFormat(new Date(), "dd/MM/yyyy")}\n\nOrientações:\n1. Amamentação livre demanda.\n2. Pega correta: boca bem aberta, lábios virados para fora, abocanhando a maior parte da aréola.\n3. Evitar bicos artificiais (chupetas/mamadeiras).\n4. Hidratação materna abundante.`;
+                              const verificationCode = `NM-${Date.now().toString(36).toUpperCase()}`;
+                              addDoc(collection(db, 'documents'), {
+                                pregnancyId: pregnancy.id,
+                                type: 'receita',
+                                title: 'Orientações de Amamentação',
+                                content: targetContent,
+                                version: 1,
+                                issuedBy: userData?.name || pregnancy.doctorName,
+                                issuedById: userData?.uid || pregnancy.doctorId || 'unknown',
+                                issuedAt: serverTimestamp(),
+                                verificationCode,
+                              }).then(() => {
+                                addAuditLog({
+                                  pregnancyId: pregnancy.id,
+                                  userId: userData?.uid || '',
+                                  userName: userData?.name || '',
+                                  action: 'Emissão de Documento (Assistente)',
+                                  newValue: 'Orientações de Amamentação',
+                                });
+                                createNotification(pregnancy.motherId, pregnancy.id!, 'documento-disponivel', 'Novo documento emitido', 'O documento "Orientações de Amamentação" foi emitido.', '📄');
+                              }).catch(e => console.error(e));
+                            }}
+                          >
+                            <FileText size={12} /> Amamentação
+                          </button>
+                        );
+                      } else if (alertLower.includes('sinais de alerta') || alertLower.includes('pré-eclâmpsia')) {
+                        actionButton = (
+                          <button
+                            className="sa-add-btn"
+                            onClick={() => {
+                              setTab('documentos');
+                              const targetContent = `Guia de Sinais de Alerta na Gestação\n\nPaciente: ${pregnancy.motherName}\nData: ${safeFormat(new Date(), "dd/MM/yyyy")}\n\nProcure imediatamente a Maternidade se apresentar:\n- Sangramento vaginal de qualquer intensidade.\n- Perda de líquido amniótico (bolsa rota).\n- Contrações uterinas rítmicas e dolorosas antes da hora.\n- Dor de cabeça forte, visão embaçada ou dor na nuca (sinais de alerta para pré-eclâmpsia).`;
+                              const verificationCode = `NM-${Date.now().toString(36).toUpperCase()}`;
+                              addDoc(collection(db, 'documents'), {
+                                pregnancyId: pregnancy.id,
+                                type: 'receita',
+                                title: 'Guia de Sinais de Alerta',
+                                content: targetContent,
+                                version: 1,
+                                issuedBy: userData?.name || pregnancy.doctorName,
+                                issuedById: userData?.uid || pregnancy.doctorId || 'unknown',
+                                issuedAt: serverTimestamp(),
+                                verificationCode,
+                              }).then(() => {
+                                addAuditLog({
+                                  pregnancyId: pregnancy.id,
+                                  userId: userData?.uid || '',
+                                  userName: userData?.name || '',
+                                  action: 'Emissão de Documento (Assistente)',
+                                  newValue: 'Guia de Sinais de Alerta',
+                                });
+                                createNotification(pregnancy.motherId, pregnancy.id!, 'documento-disponivel', 'Novo documento emitido', 'O documento "Guia de Sinais de Alerta" foi emitido.', '📄');
+                              }).catch(e => console.error(e));
+                            }}
+                          >
+                            <AlertTriangle size={12} /> Registrar Alertas
+                          </button>
+                        );
+                      } else if (alertLower.includes('documentação para internação') || alertLower.includes('cartão de vacinas')) {
+                        actionButton = (
+                          <button
+                            className="sa-add-btn"
+                            onClick={() => {
+                              setTab('documentos');
+                              const targetContent = `Guia de Preparação e Documentação para Internação\n\nPaciente: ${pregnancy.motherName}\nData: ${safeFormat(new Date(), "dd/MM/yyyy")}\n\nDocumentos e Itens necessários:\n- Cartão de Pré-natal atualizado.\n- Documento de Identidade com foto e Cartão SUS.\n- Exames realizados na gestação (especialmente do 3º trimestre).\n- Mala da gestante e do bebê organizada.`;
+                              const verificationCode = `NM-${Date.now().toString(36).toUpperCase()}`;
+                              addDoc(collection(db, 'documents'), {
+                                pregnancyId: pregnancy.id,
+                                type: 'declaracao-gestacional',
+                                title: 'Documentação para Internação',
+                                content: targetContent,
+                                version: 1,
+                                issuedBy: userData?.name || pregnancy.doctorName,
+                                issuedById: userData?.uid || pregnancy.doctorId || 'unknown',
+                                issuedAt: serverTimestamp(),
+                                verificationCode,
+                              }).then(() => {
+                                addAuditLog({
+                                  pregnancyId: pregnancy.id,
+                                  userId: userData?.uid || '',
+                                  userName: userData?.name || '',
+                                  action: 'Emissão de Documento (Assistente)',
+                                  newValue: 'Guia de Internação',
+                                });
+                                createNotification(pregnancy.motherId, pregnancy.id!, 'documento-disponivel', 'Novo documento emitido', 'O documento "Documentação para Internação" foi emitido.', '📄');
+                              }).catch(e => console.error(e));
+                            }}
+                          >
+                            <FileText size={12} /> Internação
+                          </button>
+                        );
+                      } else if (alertLower.includes('retorno pós-parto') || alertLower.includes('pezinho')) {
+                        actionButton = (
+                          <button
+                            className="sa-add-btn"
+                            onClick={async () => {
+                              // Redireciona e agenda retorno com status aguardando-agendamento
+                              setTab('consultas');
+                              try {
+                                const nextNum = consultations.length + 1;
+                                const c = {
+                                  pregnancyId: pregnancy.id,
+                                  consultationNumber: nextNum,
+                                  gestationMonth: 9,
+                                  status: 'aguardando-agendamento',
+                                  scheduledDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                                  doctorName: userData?.name || pregnancy.doctorName,
+                                  diagnosis: 'Consulta de Avaliação Pós-Parto (Retorno)',
+                                  conducts: 'Solicitar teste do pezinho para o recém-nascido e avaliar contrações pós-parto e cicatriz.',
+                                };
+                                await addDoc(collection(db, 'consultations'), c);
+                                await addAuditLog({
+                                  pregnancyId: pregnancy.id,
+                                  userId: userData?.uid || '',
+                                  userName: userData?.name || '',
+                                  action: 'Solicitação de Retorno Pós-Parto (Assistente)',
+                                  newValue: `${nextNum}ª Consulta (Retorno - Aguardando Agendamento)`,
+                                });
+                                createNotification(pregnancy.motherId, pregnancy.id!, 'consulta-agendada', 'Consulta pós-parto solicitada', 'A consulta de retorno e teste do pezinho aguarda definição de agendamento.', '🩺');
+                              } catch(e) { console.error(e); }
+                            }}
+                          >
+                            <CalendarDays size={12} /> Agendar Retorno
+                          </button>
+                        );
+                      }
+ 
+                      return (
+                        <div key={i} className="sa-item" style={{ gap: 12 }}>
+                          <div style={{ flex: 1 }}>
+                            <span className="sa-item-name" style={{ fontSize: '0.85rem' }}>{alert}</span>
+                          </div>
+                          {actionButton}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+ 
+              {/* EXAMES FALTANTES */}
+              {showExamsSection && missingExams.length > 0 && (
+                <div className="sa-section">
+                  <h5 className="sa-section-title"><FlaskConical size={15} /> Solicitar Exames Recomendados — {currentMonth}º Mês</h5>
+                  <div className="sa-item-list">
+                    {missingExams.map(examType => (
+                      <div key={examType} className="sa-item">
+                        <span className="sa-item-name">{EXAM_LABELS[examType] || examType}</span>
+                        <button
+                          className="sa-add-btn"
+                          disabled={adding === `exam-${examType}`}
+                          onClick={() => handleAddExam(examType as ExamType)}
+                        >
+                          {adding === `exam-${examType}` ? '...' : <><Plus size={12} strokeWidth={3} /> Solicitar</>}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+ 
+              {/* EXAMES DE ALTO RISCO */}
+              {showExamsSection && isHighRisk && extraHighRiskExams.length > 0 && (
+                <div className="sa-section">
+                  <h5 className="sa-section-title" style={{ color: '#dc2626' }}>
+                    <AlertTriangle size={15} /> Exames Adicionais — Alto Risco
+                  </h5>
+                  <div className="sa-item-list">
+                    {extraHighRiskExams.map(examType => (
+                      <div key={`hr-${examType}`} className="sa-item high-risk">
+                        <span className="sa-item-name">{EXAM_LABELS[examType] || examType}</span>
+                        <button
+                          className="sa-add-btn"
+                          disabled={adding === `exam-${examType}`}
+                          onClick={() => handleAddExam(examType as ExamType)}
+                        >
+                          {adding === `exam-${examType}` ? '...' : <><Plus size={12} strokeWidth={3} /> Solicitar</>}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+ 
+              {/* MEDICAMENTOS SUGERIDOS */}
+              {showMedsSection && missingMeds.length > 0 && (
+                <div className="sa-section">
+                  <h5 className="sa-section-title"><Pill size={15} /> Suplementação Recomendada</h5>
+                  <div className="sa-item-list">
+                    {missingMeds.map(med => (
+                      <div key={med.name} className="sa-item" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10 }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                          <div style={{ flex: 1 }}>
+                            <span className="sa-item-name" style={{ fontSize: '0.9rem', fontWeight: 700 }}>{med.name}</span>
+                            <span className="sa-item-sub">{med.dose} · {med.frequency} · {med.instructions}</span>
+                          </div>
+                          <button
+                            className="sa-add-btn"
+                            disabled={adding === `med-${med.name}`}
+                            onClick={() => handleAddMed(med)}
+                          >
+                            {adding === `med-${med.name}` ? '...' : <><Plus size={12} strokeWidth={3} /> Prescrever</>}
+                          </button>
+                        </div>
+                        
+                        {/* RPG/Clinical context details */}
+                        <div style={{ background: 'rgba(201, 25, 90, 0.03)', border: '1px dashed #fce7f3', borderRadius: 8, padding: 8, fontSize: '0.78rem', color: '#475569', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          {med.purpose && <div><strong>Finalidade:</strong> {med.purpose}</div>}
+                          {med.whyNeeded && <div><strong>Por que é necessário:</strong> {med.whyNeeded}</div>}
+                          {med.expectedBenefit && <div><strong>Benefício Esperado:</strong> {med.expectedBenefit}</div>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* TUDO OK */}
+              {((showExamsSection && missingExams.length === 0) || !showExamsSection) &&
+               ((showMedsSection && missingMeds.length === 0) || !showMedsSection) &&
+               ((showAlertsSection && pendingConsults.length === 0) || !showAlertsSection) && (
+                <div className="sa-all-good">
+                  <CheckCircle2 size={24} color="#15803d" strokeWidth={1.5} />
+                  <p>Protocolo do {currentMonth}º mês completo para esta seção!</p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
 
 // =================== ABA 1: RESUMO ===================
@@ -203,6 +659,28 @@ function TabResumo({ pregnancy }: { pregnancy: Pregnancy }) {
 
   return (
     <div>
+      {/* KPI BAR */}
+      <div className="mr-kpi-bar">
+        <div className="mr-kpi-card">
+          <div className="mr-kpi-val">{currentGestationMonth(toDate(pregnancy.startDate), pregnancy.gestationPlan)}º</div>
+          <div className="mr-kpi-label">Mês Atual</div>
+        </div>
+        <div className="mr-kpi-card">
+          <div className="mr-kpi-val">{progress}%</div>
+          <div className="mr-kpi-label">Progresso</div>
+        </div>
+        <div className="mr-kpi-card">
+          <div className="mr-kpi-val">{totalWeeks}sem</div>
+          <div className="mr-kpi-label">Semana Gestacional</div>
+        </div>
+        <div className="mr-kpi-card" style={{ background: pregnancy.riskLevel === 'alto' || pregnancy.riskLevel === 'muito-alto' ? 'rgba(239,68,68,0.08)' : undefined }}>
+          <div className="mr-kpi-val" style={{ color: pregnancy.riskLevel === 'alto' || pregnancy.riskLevel === 'muito-alto' ? '#dc2626' : undefined, textTransform: 'capitalize', fontSize: '1rem' }}>
+            {pregnancy.riskLevel || 'habitual'}
+          </div>
+          <div className="mr-kpi-label">Risco</div>
+        </div>
+      </div>
+
       {pregnancy.currentStatus === 'parto' && (
         <div className="birth-banner">
           <span className="birth-banner-icon">🍼</span>
@@ -437,6 +915,7 @@ function TabConsultas({ pregnancy, consultations }: { pregnancy: Pregnancy; cons
   const [form, setForm] = useState(emptyForm);
 
   const sorted = [...consultations].sort((a, b) => a.consultationNumber - b.consultationNumber);
+  const currentMonth = currentGestationMonth(toDate(pregnancy.startDate), pregnancy.gestationPlan);
 
   const handleSaveStatus = async (c: Consultation, status: Consultation['status']) => {
     const prevStatus = c.status;
@@ -500,66 +979,141 @@ function TabConsultas({ pregnancy, consultations }: { pregnancy: Pregnancy; cons
   };
 
   const consultStatusMap: Record<string, string> = {
+    'aguardando-agendamento': '⏳ Aguardando Agendamento',
     agendada: '⏰ Agendada', realizada: '✓ Realizada',
     cancelada: '✕ Cancelada', remarcada: '↻ Remarcada', faltou: '✗ Faltou',
   };
 
+  const handleDeleteConsultation = async (consultId: string, number: number) => {
+    if (!window.confirm(`Tem certeza de que deseja excluir a ${number}ª Consulta?`)) return;
+    setSaving(true);
+    try {
+      await deleteDoc(doc(db, 'consultations', consultId));
+      await addAuditLog({
+        pregnancyId: pregnancy.id,
+        userId: userData?.uid || '',
+        userName: userData?.name || '',
+        action: 'Exclusão de Consulta',
+        newValue: `${number}ª Consulta`,
+      });
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao excluir consulta.');
+    }
+    setSaving(false);
+  };
+
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [manualForm, setManualForm] = useState({
+    gestationMonth: '1',
+    scheduledDate: format(new Date(), 'yyyy-MM-dd'),
+    status: 'aguardando-agendamento',
+    diagnosis: '',
+    conducts: '',
+    doctorNotes: '',
+  });
+
+  const handleSaveManualConsultation = async () => {
+    setSaving(true);
+    try {
+      const nextNumber = sorted.length + 1;
+      const parsedMonth = parseInt(manualForm.gestationMonth);
+      const c = {
+        pregnancyId: pregnancy.id,
+        consultationNumber: nextNumber,
+        gestationMonth: parsedMonth,
+        status: manualForm.status,
+        scheduledDate: new Date(manualForm.scheduledDate + 'T12:00:00'),
+        doctorName: userData?.name || pregnancy.doctorName,
+        diagnosis: manualForm.diagnosis,
+        conducts: manualForm.conducts,
+        doctorNotes: manualForm.doctorNotes,
+      };
+      await addDoc(collection(db, 'consultations'), c);
+      await addAuditLog({
+        pregnancyId: pregnancy.id,
+        userId: userData?.uid || '',
+        userName: userData?.name || '',
+        action: 'Agendamento Manual de Consulta',
+        newValue: `${nextNumber}ª Consulta (Mês ${parsedMonth})`,
+      });
+      setShowManualModal(false);
+      setManualForm({
+        gestationMonth: '1',
+        scheduledDate: format(new Date(), 'yyyy-MM-dd'),
+        status: 'aguardando-agendamento',
+        diagnosis: '',
+        conducts: '',
+        doctorNotes: '',
+      });
+    } catch(e) {
+      console.error(e);
+      alert('Erro ao agendar consulta.');
+    }
+    setSaving(false);
+  };
+
   return (
     <div>
-      {/* PAINEL DE SUGESTÕES INTELIGENTES (RPG) */}
-      <div className="glass-box" style={{ padding: 20, marginBottom: 24, borderLeft: '4px solid var(--accent-blue)', display: 'flex', gap: 16, alignItems: 'center' }}>
-        <span style={{ fontSize: '2rem' }}>💡</span>
-        <div style={{ flex: 1 }}>
-          <h4 style={{ color: 'var(--accent-blue)', marginBottom: 4 }}>Assistente Obstétrico</h4>
-          {sorted.length === 0 ? (
-            <p style={{ fontSize: '0.9rem', color: 'var(--txt-dark)' }}>
-              Prontuário iniciado. <strong>Sugerido:</strong> Agendar a 1ª Consulta de Pré-Natal para iniciar o acompanhamento.
-            </p>
-          ) : (
-            <p style={{ fontSize: '0.9rem', color: 'var(--txt-dark)' }}>
-              {sorted[sorted.length - 1].status === 'realizada' ? (
-                <>A última consulta foi realizada. <strong>Sugerido:</strong> Agendar a {sorted.length + 1}ª Consulta de Pré-Natal.</>
-              ) : (
-                <>Aguardando realização da {sorted.length}ª Consulta de Pré-Natal.</>
-              )}
-            </p>
-          )}
-        </div>
-        <button 
-          className="btn-modern btn-modern-primary"
-          onClick={async () => {
-            setSaving(true);
-            try {
-              const nextNumber = sorted.length + 1;
-              const c = {
-                pregnancyId: pregnancy.id,
-                consultationNumber: nextNumber,
-                gestationMonth: Math.min(9, nextNumber), // Simplification
-                status: 'agendada',
-                scheduledDate: new Date(),
-                doctorName: userData?.name || pregnancy.doctorName,
-              };
-              await addDoc(collection(db, 'consultations'), c);
-              await addAuditLog({
-                pregnancyId: pregnancy.id,
-                userId: userData?.uid || '',
-                userName: userData?.name || '',
-                action: 'Agendamento de Consulta',
-                newValue: `${nextNumber}ª Consulta`,
-              });
-            } catch(e) { console.error(e); }
-            setSaving(false);
-          }}
-          disabled={saving}
-        >
-          {saving ? 'Agendando...' : `+ Agendar ${sorted.length + 1}ª Consulta`}
-        </button>
-      </div>
-
       <div className="mr-card">
-        <div className="mr-card-header">
+        <div className="mr-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 className="mr-card-title">🩺 Consultas de Pré-Natal ({consultations.length})</h3>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() => {
+              setManualForm(p => ({ ...p, gestationMonth: String(currentMonth) }));
+              setShowManualModal(true);
+            }}
+            disabled={saving}
+          >
+            + Agendar Consulta Manual
+          </button>
         </div>
+
+        {/* Modal Manual de Agendamento */}
+        {showManualModal && (
+          <div className="modal-backdrop" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
+            <div className="mr-card" style={{ maxWidth: 500, width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+              <div className="mr-card-header">
+                <h3 className="mr-card-title">📅 Agendar Consulta Manual</h3>
+              </div>
+              <div className="mr-card-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div className="form-group">
+                  <label className="form-label">Mês da Consulta</label>
+                  <select className="form-select" value={manualForm.gestationMonth} onChange={e => setManualForm(p => ({ ...p, gestationMonth: e.target.value }))}>
+                    {[1,2,3,4,5,6,7,8,9].map(m => <option key={m} value={m}>{m}º Mês</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Data Prevista</label>
+                  <input type="date" className="form-input" value={manualForm.scheduledDate} onChange={e => setManualForm(p => ({ ...p, scheduledDate: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Status Inicial</label>
+                  <select className="form-select" value={manualForm.status} onChange={e => setManualForm(p => ({ ...p, status: e.target.value }))}>
+                    <option value="aguardando-agendamento">⏳ Aguardando Agendamento</option>
+                    <option value="agendada">⏰ Agendada</option>
+                    <option value="realizada">✓ Realizada</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Diagnóstico Inicial</label>
+                  <textarea className="form-textarea" placeholder="Ex: Avaliação de rotina..." value={manualForm.diagnosis} onChange={e => setManualForm(p => ({ ...p, diagnosis: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Condutas Iniciais</label>
+                  <textarea className="form-textarea" placeholder="Ex: Solicitação de exames..." value={manualForm.conducts} onChange={e => setManualForm(p => ({ ...p, conducts: e.target.value }))} />
+                </div>
+                <div className="form-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+                  <button className="btn btn-secondary btn-sm" onClick={() => setShowManualModal(false)}>Cancelar</button>
+                  <button className="btn btn-primary btn-sm" disabled={saving} onClick={handleSaveManualConsultation}>
+                    {saving ? 'Agendando...' : 'Confirmar Agendamento'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="mr-card-body">
           {sorted.length === 0 ? (
             <div className="empty-state">
@@ -636,17 +1190,27 @@ function TabConsultas({ pregnancy, consultations }: { pregnancy: Pregnancy; cons
                             </div>
                           </div>
                         ) : (
-                          <div className="form-actions">
-                            <select
-                              className="form-select"
-                              style={{ maxWidth: 180, padding: '8px 12px', fontSize: '0.82rem' }}
-                              value={c.status}
-                              onChange={e => handleSaveStatus(c, e.target.value as any)}
+                          <div className="form-actions" style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                              <select
+                                className="form-select"
+                                style={{ maxWidth: 180, padding: '8px 12px', fontSize: '0.82rem' }}
+                                value={c.status}
+                                onChange={e => handleSaveStatus(c, e.target.value as any)}
+                              >
+                                {Object.entries(consultStatusMap).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                              </select>
+                              <button className="btn btn-secondary btn-sm" onClick={() => { setForm({ ...emptyForm, ...c, returnDate: '', status: c.status as any }); setEditId(c.id); }}>
+                                ✏️ Editar
+                              </button>
+                            </div>
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              style={{ color: '#dc2626', borderColor: '#fecaca', background: '#fef2f2' }}
+                              onClick={() => handleDeleteConsultation(c.id, c.consultationNumber)}
+                              disabled={saving}
                             >
-                              {Object.entries(consultStatusMap).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                            </select>
-                            <button className="btn btn-secondary btn-sm" onClick={() => { setForm({ ...emptyForm, ...c, returnDate: '', status: c.status as any }); setEditId(c.id); }}>
-                              ✏️ Editar
+                              🗑️ Excluir
                             </button>
                           </div>
                         )}
@@ -1011,7 +1575,7 @@ function TabMedicamentos({ pregnancy, medications }: { pregnancy: Pregnancy; med
   const { userData } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name: '', dose: '', frequency: '', duration: '', instructions: '' });
+  const [form, setForm] = useState({ name: '', dose: '', frequency: '', duration: '', instructions: '', type: 'casa' });
 
   const handleAdd = async () => {
     if (!form.name || !form.dose) return;
@@ -1019,7 +1583,12 @@ function TabMedicamentos({ pregnancy, medications }: { pregnancy: Pregnancy; med
     try {
       await addDoc(collection(db, 'medications'), {
         pregnancyId: pregnancy.id,
-        ...form,
+        name: form.name,
+        dose: form.dose,
+        frequency: form.frequency,
+        duration: form.duration,
+        instructions: form.instructions,
+        type: form.type, // 'consultorio' or 'casa'
         prescribedBy: userData?.name,
         prescribedAt: serverTimestamp(),
         startDate: serverTimestamp(),
@@ -1032,7 +1601,7 @@ function TabMedicamentos({ pregnancy, medications }: { pregnancy: Pregnancy; med
         userId: userData?.uid || '',
         userName: userData?.name || '',
         action: 'Prescrição de Medicamento',
-        newValue: `${form.name} ${form.dose} (${form.frequency})`,
+        newValue: `${form.name} ${form.dose} (${form.frequency}) [Aplicar em: ${form.type === 'consultorio' ? 'Consultório' : 'Casa'}]`,
       });
 
       // Notification
@@ -1041,7 +1610,7 @@ function TabMedicamentos({ pregnancy, medications }: { pregnancy: Pregnancy; med
         pregnancy.id!,
         'medicamento-prescrito',
         'Novo medicamento prescrito',
-        `Foi prescrito o medicamento: ${form.name} ${form.dose}.`,
+        `Foi prescrito o medicamento: ${form.name} ${form.dose} (Aplicar em: ${form.type === 'consultorio' ? 'Consultório' : 'Casa'}).`,
         '💊'
       );
 
@@ -1050,7 +1619,7 @@ function TabMedicamentos({ pregnancy, medications }: { pregnancy: Pregnancy; med
         pregnancy.id!,
         'medicamento',
         `Medicamento Prescrito`,
-        `Prescrito: ${form.name} ${form.dose} — ${form.frequency}.`,
+        `Prescrito: ${form.name} ${form.dose} — ${form.frequency} (Aplicar em: ${form.type === 'consultorio' ? 'Consultório' : 'Casa'}).`,
         '💊',
         '#fb923c',
         userData?.uid || '',
@@ -1058,22 +1627,22 @@ function TabMedicamentos({ pregnancy, medications }: { pregnancy: Pregnancy; med
       );
 
       setShowForm(false);
-      setForm({ name: '', dose: '', frequency: '', duration: '', instructions: '' });
+      setForm({ name: '', dose: '', frequency: '', duration: '', instructions: '', type: 'casa' });
     } catch (e) { console.error(e); }
     setSaving(false);
   };
 
   const handleToggle = async (m: Medication) => {
-    const nextActive = !m.active;
     try {
-      await updateDoc(doc(db, 'medications', m.id), { active: nextActive });
+      // Exclui a medicação suspensa do banco para reaparecer no SmartAssistant
+      await deleteDoc(doc(db, 'medications', m.id));
 
       // Audit Log
       await addAuditLog({
         pregnancyId: pregnancy.id,
         userId: userData?.uid || '',
         userName: userData?.name || '',
-        action: nextActive ? 'Reativação de Medicamento' : 'Suspensão de Medicamento',
+        action: 'Suspensão de Medicamento',
         newValue: m.name,
       });
 
@@ -1082,15 +1651,14 @@ function TabMedicamentos({ pregnancy, medications }: { pregnancy: Pregnancy; med
         pregnancy.motherId,
         pregnancy.id!,
         'medicamento-status',
-        nextActive ? 'Medicamento reativado' : 'Medicamento suspenso',
-        `O uso de ${m.name} foi ${nextActive ? 'reativado' : 'suspenso'} pelo médico.`,
+        'Medicamento suspenso',
+        `O uso de ${m.name} foi suspenso/excluído pelo médico.`,
         '💊'
       );
     } catch (e) { console.error(e); }
   };
 
-  const active = medications.filter(m => m.active);
-  const inactive = medications.filter(m => !m.active);
+  const active = medications;
 
   return (
     <div>
@@ -1125,6 +1693,15 @@ function TabMedicamentos({ pregnancy, medications }: { pregnancy: Pregnancy; med
                 <div className="form-group"><label className="form-label">Frequência</label><input className="form-input" value={form.frequency} onChange={e => setForm(p => ({...p, frequency: e.target.value}))} placeholder="Ex: 2x ao dia" /></div>
                 <div className="form-group"><label className="form-label">Duração</label><input className="form-input" value={form.duration} onChange={e => setForm(p => ({...p, duration: e.target.value}))} placeholder="Ex: 30 dias" /></div>
               </div>
+              <div className="form-row" style={{ marginBottom: 10 }}>
+                <div className="form-group">
+                  <label className="form-label">Local de Aplicação / Tipo</label>
+                  <select className="form-select" value={form.type} onChange={e => setForm(p => ({...p, type: e.target.value}))}>
+                    <option value="casa">Uso Domiciliar (Levar receita para Casa)</option>
+                    <option value="consultorio">Uso no Consultório (Aplicar no Hospital)</option>
+                  </select>
+                </div>
+              </div>
               <div className="form-group" style={{ marginBottom: 10 }}><label className="form-label">Orientações</label><textarea className="form-textarea" value={form.instructions} onChange={e => setForm(p => ({...p, instructions: e.target.value}))} placeholder="Tomar com água em jejum..." /></div>
               <div className="form-actions">
                 <button className="btn btn-secondary btn-sm" onClick={() => setShowForm(false)}>Cancelar</button>
@@ -1145,28 +1722,16 @@ function TabMedicamentos({ pregnancy, medications }: { pregnancy: Pregnancy; med
                       <div key={m.id} className="medication-item">
                         <div className="med-icon">💊</div>
                         <div className="med-info">
-                          <div className="med-name">{m.name}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span className="med-name">{m.name}</span>
+                            <span className="badge" style={{ fontSize: '0.62rem', padding: '2px 6px', borderRadius: 4, background: m.type === 'consultorio' ? '#fee2e2' : '#dcfce7', color: m.type === 'consultorio' ? '#dc2626' : '#15803d' }}>
+                              {m.type === 'consultorio' ? 'Aplicar no Hospital' : 'Uso Domiciliar'}
+                            </span>
+                          </div>
                           <div className="med-details">{m.dose} · {m.frequency}{m.duration ? ` · ${m.duration}` : ''}</div>
                           {m.instructions && <div style={{ fontSize: '0.78rem', color: 'var(--txt-muted)', marginTop: 2 }}>{m.instructions}</div>}
                         </div>
                         <button className="btn btn-sm btn-secondary" onClick={() => handleToggle(m)}>Desativar</button>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-              {inactive.length > 0 && (
-                <>
-                  <p style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--txt-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Histórico</p>
-                  <div className="medication-list">
-                    {inactive.map(m => (
-                      <div key={m.id} className="medication-item inactive">
-                        <div className="med-icon">💊</div>
-                        <div className="med-info">
-                          <div className="med-name">{m.name}</div>
-                          <div className="med-details">{m.dose} · {m.frequency}</div>
-                        </div>
-                        <button className="btn btn-sm btn-secondary" onClick={() => handleToggle(m)}>Reativar</button>
                       </div>
                     ))}
                   </div>
@@ -1730,27 +2295,23 @@ export default function MedicalRecord() {
   }));
   const allUltrasounds = [...legacyImgExams, ...ultrasounds];
 
-  const tabs: { key: TabKey; label: string; icon: string; count?: number }[] = [
-    { key: 'resumo', label: 'Resumo', icon: '📋' },
-    { key: 'consultas', label: 'Consultas', icon: '🩺', count: consultations.length },
-    { key: 'exames', label: 'Exames', icon: '🧪', count: labExams.length },
-    { key: 'ultrassom', label: 'Ultrassom', icon: '🔬', count: allUltrasounds.length },
-    { key: 'medicamentos', label: 'Medicamentos', icon: '💊', count: medications.filter(m => m.active).length },
-    { key: 'documentos', label: 'Documentos', icon: '📄', count: documents.length },
-    { key: 'timeline', label: 'Timeline', icon: '📝', count: timelineEvents.length },
-    { key: 'notas', label: 'Notas', icon: '📓' },
-    { key: 'parto', label: 'Parto', icon: '🍼' },
-    { key: 'logs', label: 'Logs', icon: '🛡️', count: auditLogs.length },
+  const tabs: { key: TabKey; label: string; iconEl: React.ReactNode; count?: number }[] = [
+    { key: 'resumo', label: 'Resumo', iconEl: <ClipboardList size={14} strokeWidth={2} /> },
+    { key: 'consultas', label: 'Consultas', iconEl: <Stethoscope size={14} strokeWidth={2} />, count: consultations.length },
+    { key: 'exames', label: 'Exames', iconEl: <FlaskConical size={14} strokeWidth={2} />, count: labExams.length },
+    { key: 'ultrassom', label: 'Ultrassom', iconEl: <ScanLine size={14} strokeWidth={2} />, count: allUltrasounds.length },
+    { key: 'medicamentos', label: 'Medicamentos', iconEl: <Pill size={14} strokeWidth={2} />, count: medications.filter(m => m.active).length },
+    { key: 'documentos', label: 'Documentos', iconEl: <FileText size={14} strokeWidth={2} />, count: documents.length },
+    { key: 'timeline', label: 'Timeline', iconEl: <History size={14} strokeWidth={2} />, count: timelineEvents.length },
+    { key: 'notas', label: 'Notas', iconEl: <BookOpen size={14} strokeWidth={2} /> },
+    { key: 'parto', label: 'Parto', iconEl: <Baby size={14} strokeWidth={2} /> },
+    { key: 'logs', label: 'Logs', iconEl: <ShieldAlert size={14} strokeWidth={2} />, count: auditLogs.length },
   ];
 
   const startDate = toDate(pregnancy.startDate);
   const now = new Date();
   const elapsed = (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
   const progress = Math.min(Math.round((elapsed / pregnancy.gestationPlan.totalDays) * 100), 100);
-  const sex = pregnancy.baby?.sex || 'não-revelado';
-  const isGirl = sex === 'menina' || sex === 'gêmeos-meninas';
-  const isBoy = sex === 'menino' || sex === 'gêmeos-meninos';
-
   return (
     <div className="mr-page">
       {/* HERO */}
@@ -1761,25 +2322,26 @@ export default function MedicalRecord() {
 
             <div className="mr-hero-top">
               <div className="mr-patient-info">
-                <h1>
-                  {isGirl ? '👧' : isBoy ? '👦' : '👶'} {pregnancy.motherName}
+                <h1 style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Baby size={28} strokeWidth={1.5} color="rgba(255,255,255,0.9)" />
+                  {pregnancy.motherName}
                 </h1>
                 <div className="mr-patient-meta">
-                  <span className="mr-meta-pill">🏥 {pregnancy.hospitalName}</span>
-                  <span className="mr-meta-pill">👨‍⚕️ {pregnancy.doctorName}</span>
-                  <span className="mr-meta-pill">📅 DPP: {safeFormat(pregnancy.expectedBirthDate, 'dd/MM/yyyy')}</span>
-                  {pregnancy.riskLevel && <span className="mr-meta-pill" style={{ background: pregnancy.riskLevel === 'alto' ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.18)' }}>⚠ Risco {pregnancy.riskLevel}</span>}
+                  <span className="mr-meta-pill"><Activity size={12} strokeWidth={2} /> {pregnancy.hospitalName}</span>
+                  <span className="mr-meta-pill"><Stethoscope size={12} strokeWidth={2} /> {pregnancy.doctorName}</span>
+                  <span className="mr-meta-pill"><CalendarDays size={12} strokeWidth={2} /> DPP: {safeFormat(pregnancy.expectedBirthDate, 'dd/MM/yyyy')}</span>
+                  {pregnancy.riskLevel && <span className="mr-meta-pill" style={{ background: pregnancy.riskLevel === 'alto' ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.18)' }}><AlertTriangle size={12} strokeWidth={2} /> Risco {pregnancy.riskLevel}</span>}
                 </div>
               </div>
 
               <div className="mr-hero-actions">
                 {pregnancy.currentStatus === 'ativa' && (
-                  <button className="btn-hero btn-hero-white" onClick={() => setTab('parto')}>
-                    🍼 Registrar Parto
+                  <button className="btn-hero btn-hero-white" onClick={() => setTab('parto')} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Baby size={16} strokeWidth={2} /> Registrar Parto
                   </button>
                 )}
-                <button className="btn-hero btn-hero-outline" onClick={() => setTab('documentos')}>
-                  📄 Emitir Documento
+                <button className="btn-hero btn-hero-outline" onClick={() => setTab('documentos')} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <FileText size={16} strokeWidth={2} /> Emitir Documento
                 </button>
               </div>
             </div>
@@ -1812,7 +2374,7 @@ export default function MedicalRecord() {
                 className={`mr-tab ${tab === t.key ? 'active' : ''}`}
                 onClick={() => setTab(t.key)}
               >
-                {t.icon} {t.label}
+                {t.iconEl} {t.label}
                 {t.count !== undefined && t.count > 0 && (
                   <span className="mr-tab-badge">{t.count}</span>
                 )}
@@ -1833,6 +2395,17 @@ export default function MedicalRecord() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
             >
+              {/* SmartAssistant shown above all tabs when pregnancy is active or birth is registered */}
+              {(pregnancy.currentStatus === 'ativa' || pregnancy.currentStatus === 'parto') && (
+                <SmartAssistant
+                  pregnancy={pregnancy}
+                  consultations={consultations}
+                  exams={exams}
+                  medications={medications}
+                  activeTab={tab}
+                  setTab={setTab}
+                />
+              )}
               { tab === 'resumo' && <TabResumo pregnancy={pregnancy} /> }
               { tab === 'consultas' && <TabConsultas pregnancy={pregnancy} consultations={consultations} /> }
               { tab === 'exames' && <TabExames pregnancy={pregnancy} exams={labExams} /> }

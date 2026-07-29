@@ -1,26 +1,35 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { Home, Calendar, BookOpen, FolderOpen, User } from 'lucide-react';
 import './BottomNav.css';
 
+const NAV_ITEMS = [
+  { to: '/dashboard', icon: Home, label: 'Início' },
+  { to: '/calendario', icon: Calendar, label: 'Agenda' },
+  { to: '/caderneta', icon: BookOpen, label: 'Caderneta' },
+  { to: '/documentos', icon: FolderOpen, label: 'Arquivos' },
+  { to: '/perfil', icon: User, label: 'Perfil' },
+];
+
 export default function BottomNav() {
+  const location = useLocation();
+
   return (
     <div className="bnav-container">
       <nav className="bottom-nav">
-        <NavLink to="/dashboard" className={({ isActive }) => `bnav-item ${isActive ? 'active' : ''}`} title="Início">
-          <Home size={22} strokeWidth={2.2} />
-        </NavLink>
-        <NavLink to="/calendario" className={({ isActive }) => `bnav-item ${isActive ? 'active' : ''}`} title="Calendário">
-          <Calendar size={22} strokeWidth={2.2} />
-        </NavLink>
-        <NavLink to="/caderneta" className={({ isActive }) => `bnav-item ${isActive ? 'active' : ''}`} title="Caderneta">
-          <BookOpen size={22} strokeWidth={2.2} />
-        </NavLink>
-        <NavLink to="/documentos" className={({ isActive }) => `bnav-item ${isActive ? 'active' : ''}`} title="Arquivos">
-          <FolderOpen size={22} strokeWidth={2.2} />
-        </NavLink>
-        <NavLink to="/perfil" className={({ isActive }) => `bnav-item ${isActive ? 'active' : ''}`} title="Perfil">
-          <User size={22} strokeWidth={2.2} />
-        </NavLink>
+        {NAV_ITEMS.map(({ to, icon: Icon, label }) => {
+          const isActive = location.pathname === to || location.pathname.startsWith(to + '/');
+          return (
+            <NavLink
+              key={to}
+              to={to}
+              className={`bnav-item ${isActive ? 'active' : ''}`}
+              title={label}
+            >
+              <Icon size={22} strokeWidth={2.2} />
+              <span className="bnav-label">{label}</span>
+            </NavLink>
+          );
+        })}
       </nav>
     </div>
   );
