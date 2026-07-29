@@ -12,6 +12,7 @@ import {
   Lock,
   Image,
 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePregnancy, toDate } from '../../hooks/usePregnancy';
 import { currentGestationMonth, EXAM_LABELS } from '../../lib/gestationUtils';
@@ -80,7 +81,12 @@ export default function BookletPage() {
     ? currentGestationMonth(toDate(pregnancy.startDate), pregnancy.gestationPlan)
     : 1;
 
-  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [searchParams] = useSearchParams();
+  const paramMonth = searchParams.get('month');
+  const paramExpand = searchParams.get('expand');
+
+  const initialMonth = paramMonth && pregnancy ? parseInt(paramMonth, 10) : currentMonth;
+  const [selectedMonth, setSelectedMonth] = useState(initialMonth);
 
   /* Loading */
   if (loading) {
@@ -270,7 +276,7 @@ export default function BookletPage() {
                     title="Consultas Pré-Natal"
                     sub={`${doneConsults} realizada${doneConsults !== 1 ? 's' : ''} de ${monthConsults.length}`}
                     count={monthConsults.length}
-                    defaultOpen={false}
+                    defaultOpen={paramExpand === 'consultas'}
                   >
                     {monthConsults.length === 0 ? (
                       <div className="bklt-empty">
@@ -338,7 +344,7 @@ export default function BookletPage() {
                     title="Exames Laboratoriais"
                     sub={`${doneLabExams} realizado${doneLabExams !== 1 ? 's' : ''} de ${monthLabExams.length}`}
                     count={monthLabExams.length}
-                    defaultOpen={false}
+                    defaultOpen={paramExpand === 'exames'}
                   >
                     {monthLabExams.length === 0 ? (
                       <div className="bklt-empty">
@@ -397,7 +403,7 @@ export default function BookletPage() {
                     title="Exames de Imagem"
                     sub={`${monthImgExams.length} ultrassom(ns) registrado(s)`}
                     count={monthImgExams.length}
-                    defaultOpen={false}
+                    defaultOpen={paramExpand === 'imagem'}
                   >
                     {monthImgExams.length === 0 ? (
                       <div className="bklt-empty">

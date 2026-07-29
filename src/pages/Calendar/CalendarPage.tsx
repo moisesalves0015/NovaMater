@@ -22,11 +22,13 @@ import {
   CalendarDays,
   FileBox
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import '../Appointments/Appointments.css';
 import './CalendarPage.css';
 
 export default function CalendarPage() {
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
   const { pregnancy, consultations, exams, ultrasounds } = usePregnancy(
     currentUser?.email || null,
     currentUser?.uid || null
@@ -122,20 +124,20 @@ export default function CalendarPage() {
     // Consultations
     consultations.forEach((c: Consultation) => {
       if (c.scheduledDate && isSameDay(toDate(c.scheduledDate), d)) {
-        evts.push({ type: 'consulta', title: `${c.consultationNumber}ª Consulta`, status: c.status, time: (c as any).time || '' });
+        evts.push({ type: 'consulta', title: `${c.consultationNumber}ª Consulta`, status: c.status, time: (c as any).time || '', month: c.gestationMonth });
       }
     });
     // Exams
     exams.forEach((e: Exam) => {
       const eDate = e.scheduledDate || (e as any).requestedAt;
       if (eDate && isSameDay(toDate(eDate), d)) {
-        evts.push({ type: 'exame', title: e.type, status: e.status });
+        evts.push({ type: 'exame', title: e.type, status: e.status, month: e.gestationMonth });
       }
     });
     // Ultrasounds
     ultrasounds.forEach((u: any) => {
       if (u.date && isSameDay(toDate(u.date), d)) {
-        evts.push({ type: 'usg', title: u.type || 'Ultrassom', status: u.status });
+        evts.push({ type: 'usg', title: u.type || 'Ultrassom', status: u.status, month: u.gestationMonth });
       }
     });
     return evts;
@@ -217,7 +219,21 @@ export default function CalendarPage() {
           ) : (
             <div className="events-list">
               {selectedEvents.map((ev, idx) => (
-                <div key={idx} className="event-doc-card">
+                <div 
+                  key={idx} 
+                  className="event-doc-card"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => {
+                    let expand = 'consultas';
+                    if (ev.type === 'exame') expand = 'exames';
+                    if (ev.type === 'usg') expand = 'imagem';
+                    if (ev.month) {
+                      navigate(`/caderneta?month=${ev.month}&expand=${expand}`);
+                    } else {
+                      navigate('/caderneta');
+                    }
+                  }}
+                >
                   <div className={`event-doc-icon-wrap ${ev.type}`}>
                     {ev.type === 'consulta' ? <Stethoscope size={24} strokeWidth={1.5} /> : 
                      ev.type === 'usg' ? <ImageIcon size={24} strokeWidth={1.5} /> : 
