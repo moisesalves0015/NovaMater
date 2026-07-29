@@ -140,7 +140,7 @@
   border: 1px solid transparent;
 }
 
-.cal-cell:hover:not(.empty) {
+.cal-cell:hover:not(.empty):not(.selected) {
   background: #f8fafc;
   border-color: #e2e8f0;
 }
@@ -163,7 +163,7 @@
   font-weight: 800;
 }
 
-.cal-cell.today {
+.cal-cell.today:not(.selected) {
   border-color: #fbcfe8;
   background: #fdf2f8;
 }
@@ -186,9 +186,10 @@
 .cal-cell.has-events.mixed::after { background: linear-gradient(90deg, #f472b6, #60a5fa); }
 
 /* Selected */
-.cal-cell.selected {
-  background: #c9195a;
-  border-color: #c9195a;
+.cal-cell.selected,
+.cal-cell.selected:hover {
+  background: #c9195a !important;
+  border-color: #c9195a !important;
   box-shadow: 0 4px 10px rgba(201, 25, 90, 0.3);
   transform: scale(1.05);
 }
