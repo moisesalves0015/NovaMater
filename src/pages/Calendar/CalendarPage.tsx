@@ -8,6 +8,20 @@ import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePregnancy, toDate } from '../../hooks/usePregnancy';
 import type { AppointmentSettings, Consultation, Exam } from '../../types';
+import { 
+  Stethoscope, 
+  Image as ImageIcon, 
+  TestTube, 
+  CalendarClock, 
+  CheckCircle2, 
+  X, 
+  AlertTriangle, 
+  ChevronLeft, 
+  ChevronRight, 
+  Plus,
+  CalendarDays,
+  FileBox
+} from 'lucide-react';
 import '../Appointments/Appointments.css';
 import './CalendarPage.css';
 
@@ -131,95 +145,108 @@ export default function CalendarPage() {
   const isConfigured = settings && (settings.daysOfWeek.length > 0 || settings.timeSlots.length > 0);
 
   return (
-    <div className="dashboard page-enter">
-      <div className="dash-body">
-        <div className="nm-container" style={{ paddingTop: 32, paddingBottom: 100 }}>
-          <div className="calendar-header">
-            <h1 className="title" style={{ fontSize: '1.8rem', marginBottom: 4 }}>
-              Meu <span className="gradient-txt">Calendário</span>
-            </h1>
-            <p className="subtitle" style={{ marginBottom: 24, fontSize: '0.9rem' }}>
-              Acompanhe suas consultas e exames agendados.
-            </p>
-          </div>
+    <div className="calendar-page page-enter">
+      {/* ===== HERO ===== */}
+      <div className="cal-hero">
+        <div className="cal-hero-content">
+          <h1 className="cal-hero-title">Meu Calendário</h1>
+          <p className="cal-hero-sub">Acompanhe suas consultas e exames agendados.</p>
+        </div>
+      </div>
 
-          {/* CALENDAR UI */}
-          <div className="nm-card">
-            <div className="nm-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <button className="cal-nav-btn" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>❮</button>
-              <h3 className="nm-card-title" style={{ textTransform: 'capitalize', margin: 0 }}>
-                {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
-              </h3>
-              <button className="cal-nav-btn" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>❯</button>
-            </div>
-            <div className="nm-card-body" style={{ padding: 12 }}>
-              <div className="cal-grid">
-                {['D','S','T','Q','Q','S','S'].map((d, i) => (
-                  <div key={i} className="cal-day-name">{d}</div>
-                ))}
-                {/* Pad empty days */}
-                {Array.from({ length: start.getDay() }).map((_, i) => (
-                  <div key={`empty-${i}`} className="cal-cell empty"></div>
-                ))}
-                {daysInMonth.map(d => {
-                  const evts = getEventsForDay(d);
-                  const isSelected = isSameDay(d, selectedDate);
-                  const isToday = isSameDay(d, new Date());
-                  return (
-                    <div 
-                      key={d.toISOString()} 
-                      className={`cal-cell ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''} ${evts.length > 0 ? 'has-events' : ''}`}
-                      onClick={() => setSelectedDate(d)}
-                    >
-                      <span className="cal-day-num">{format(d, 'd')}</span>
-                      {evts.length > 0 && <div className="cal-dots">
-                        {evts.map((e, i) => <span key={i} className={`cal-dot ${e.type}`}></span>)}
-                      </div>}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* EVENTS LIST */}
-          <div className="events-list-container" style={{ marginTop: 24 }}>
-            <h3 style={{ fontSize: '1.1rem', marginBottom: 16, color: 'var(--clr-txt)' }}>
-              Agenda de {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
+      <div className="cal-content">
+        {/* CALENDAR UI */}
+        <div className="cal-wrapper">
+          <div className="cal-header">
+            <button className="cal-nav-btn" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+              <ChevronLeft size={18} strokeWidth={2.5} />
+            </button>
+            <h3 className="cal-title">
+              {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
             </h3>
-            {selectedEvents.length === 0 ? (
-              <div className="nm-empty" style={{ padding: '32px 16px', background: 'var(--clr-surface)' }}>
-                <h4>Nenhum compromisso</h4>
-                <p>Você não tem nada marcado para este dia.</p>
-              </div>
-            ) : (
-              <div className="events-list">
-                {selectedEvents.map((ev, idx) => (
-                  <div key={idx} className="event-card">
-                    <div className={`event-icon ${ev.type}`}>
-                      {ev.type === 'consulta' ? '👩‍⚕️' : ev.type === 'usg' ? '🖼️' : '🧪'}
-                    </div>
-                    <div className="event-info">
-                      <div className="event-title">{ev.title}</div>
-                      <div className="event-meta">
-                        <span className={`nm-badge ${ev.status === 'realizada' || ev.status === 'realizado' ? 'nm-badge-green' : 'nm-badge-rose'}`}>
-                          {ev.status}
+            <button className="cal-nav-btn" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+              <ChevronRight size={18} strokeWidth={2.5} />
+            </button>
+          </div>
+          
+          <div className="cal-body">
+            <div className="cal-grid">
+              {['D','S','T','Q','Q','S','S'].map((d, i) => (
+                <div key={i} className="cal-day-name">{d}</div>
+              ))}
+              {Array.from({ length: start.getDay() }).map((_, i) => (
+                <div key={`empty-${i}`} className="cal-cell empty"></div>
+              ))}
+              {daysInMonth.map(d => {
+                const evts = getEventsForDay(d);
+                const isSelected = isSameDay(d, selectedDate);
+                const isToday = isSameDay(d, new Date());
+                
+                // Determine dominant event type for color indicator
+                let evtClass = '';
+                if (evts.length > 0) {
+                  const types = [...new Set(evts.map(e => e.type))];
+                  evtClass = types.length > 1 ? 'mixed' : types[0];
+                }
+
+                return (
+                  <div 
+                    key={d.toISOString()} 
+                    className={`cal-cell ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''} ${evts.length > 0 ? 'has-events' : ''} ${evtClass}`}
+                    onClick={() => setSelectedDate(d)}
+                  >
+                    <span className="cal-day-num">{format(d, 'd')}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* EVENTS LIST */}
+        <div className="events-list-container">
+          <h3 className="events-section-title">
+            <CalendarDays size={20} color="#c9195a" />
+            Agenda de {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
+          </h3>
+          {selectedEvents.length === 0 ? (
+            <div className="event-empty-state">
+              <FileBox size={40} color="#cbd5e1" strokeWidth={1.5} />
+              <p>Você não tem nada marcado para este dia.</p>
+            </div>
+          ) : (
+            <div className="events-list">
+              {selectedEvents.map((ev, idx) => (
+                <div key={idx} className="event-doc-card">
+                  <div className={`event-doc-icon-wrap ${ev.type}`}>
+                    {ev.type === 'consulta' ? <Stethoscope size={24} strokeWidth={1.5} /> : 
+                     ev.type === 'usg' ? <ImageIcon size={24} strokeWidth={1.5} /> : 
+                     <TestTube size={24} strokeWidth={1.5} />}
+                  </div>
+                  <div className="event-doc-info">
+                    <div className="event-doc-title">{ev.title}</div>
+                    <div className="event-doc-meta">
+                      <span className={`event-doc-status ${ev.status === 'realizada' || ev.status === 'realizado' ? 'status-realizada' : ev.status === 'cancelada' || ev.status === 'cancelado' ? 'status-cancelada' : 'status-pendente'}`}>
+                        {ev.status}
+                      </span>
+                      {ev.time && (
+                        <span className="event-doc-meta-item">
+                          <CalendarClock size={14} /> {ev.time}
                         </span>
-                        {ev.time && <span style={{ marginLeft: 8 }}>⏰ {ev.time}</span>}
-                      </div>
+                      )}
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
       {/* FLOATING ACTION BUTTON */}
       <div className="fab-container">
         <button className="fab-btn" onClick={() => setShowModal(true)}>
-          <span>+</span> Solicitar Agendamento
+          <Plus size={18} strokeWidth={2.5} /> Solicitar Agendamento
         </button>
       </div>
 
@@ -233,21 +260,25 @@ export default function CalendarPage() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 50, scale: 0.95 }}
             >
-              <button className="modal-close" onClick={() => setShowModal(false)}>✕</button>
+              <button className="modal-close" onClick={() => setShowModal(false)}>
+                <X size={18} strokeWidth={2} />
+              </button>
               
               <div className="appointments-header" style={{ marginBottom: 20 }}>
                 <h2 className="title" style={{ fontSize: '1.5rem' }}>Agendar <span className="gradient-txt">Consulta</span></h2>
               </div>
 
               {success ? (
-                <div className="glass-box success-box" style={{ background: 'var(--clr-surface)', border: 'none' }}>
-                  <div className="success-icon">✅</div>
-                  <h3>Agendamento Solicitado!</h3>
-                  <p>Sua solicitação de consulta foi enviada com sucesso.</p>
+                <div className="glass-box success-box" style={{ background: 'var(--clr-surface, #fff)', border: 'none' }}>
+                  <div className="success-icon" style={{ color: '#15803d', display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+                    <CheckCircle2 size={48} strokeWidth={1.5} />
+                  </div>
+                  <h3 style={{ textAlign: 'center', color: '#1e293b' }}>Agendamento Solicitado!</h3>
+                  <p style={{ textAlign: 'center', color: '#64748b' }}>Sua solicitação de consulta foi enviada com sucesso.</p>
                   <button 
                     className="btn-modern btn-modern-primary" 
                     onClick={() => { setSuccess(false); setNick(''); setReason(''); setDate(''); setTime(''); setShowModal(false); }}
-                    style={{ marginTop: 24, padding: '12px 32px' }}
+                    style={{ marginTop: 24, padding: '12px 32px', width: '100%' }}
                   >
                     Fechar
                   </button>
@@ -255,8 +286,9 @@ export default function CalendarPage() {
               ) : (
                 <div className="appointments-form-wrapper">
                   {!isConfigured && settings !== null && (
-                    <div className="warning-banner" style={{ background: 'rgba(255, 170, 0, 0.1)', border: '1px solid #ffaa00', padding: 12, borderRadius: 8, marginBottom: 16 }}>
-                      <p style={{ fontSize: '0.85rem', color: '#b37700', margin: 0 }}>⚠️ O Doutor ainda não configurou os dias de atendimento.</p>
+                    <div className="warning-banner" style={{ background: 'rgba(255, 170, 0, 0.1)', border: '1px solid #ffaa00', padding: 12, borderRadius: 8, marginBottom: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <AlertTriangle size={18} color="#b37700" style={{ flexShrink: 0 }} />
+                      <p style={{ fontSize: '0.85rem', color: '#b37700', margin: 0 }}>O Doutor ainda não configurou os dias de atendimento.</p>
                     </div>
                   )}
                   <form className="modern-form" onSubmit={handleSubmit}>
