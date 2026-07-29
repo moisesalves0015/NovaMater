@@ -72,6 +72,7 @@ export interface Consultation {
   doctorId?: string;
   doctorName?: string;
   specialty?: string;
+  time?: string;
   status: 'agendada' | 'realizada' | 'cancelada' | 'remarcada' | 'faltou';
 }
 
@@ -325,5 +326,7 @@ export interface Appointment {
   date: string; // YYYY-MM-DD
   time: string; // HH:mm
   status: 'pending' | 'accepted' | 'rejected';
+  doctorId?: string;
+  doctorName?: string;
   createdAt: any;
 }

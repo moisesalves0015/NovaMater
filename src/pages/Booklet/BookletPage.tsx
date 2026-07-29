@@ -322,9 +322,7 @@ export default function BookletPage() {
                               <div className="bklt-entry-date">
                                 <CalendarDays size={11} strokeWidth={2} />
                                 {c.scheduledDate
-                                  ? format(toDate(c.scheduledDate), "dd 'de' MMMM 'de' yyyy", {
-                                      locale: ptBR,
-                                    })
+                                  ? `Data e Hora: ${format(toDate(c.scheduledDate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}${c.time ? ` às ${c.time}` : ''}`
                                   : 'Data pendente'}
                               </div>
                               {c.doctorNotes && (

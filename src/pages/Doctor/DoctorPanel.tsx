@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import UltrasoundGenerator from '../../components/Tools/UltrasoundGenerator';
 import {
-  collection, addDoc, getDocs, getDoc, query, updateDoc, doc, serverTimestamp, where
+  collection, addDoc, getDocs, getDoc, query, updateDoc, doc, serverTimestamp, where, deleteDoc
 } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
 import { initializeApp, getApp, getApps } from 'firebase/app';
@@ -456,13 +456,25 @@ function UsersTab() {
 
   useEffect(() => { loadUsers(); }, []);
 
-  const changeRole = async (uid: string, newRole: string, name: string, email: string) => {
-    if (!window.confirm(`Tem certeza que deseja mudar o papel deste usuário para ${newRole}?`)) return;
+  const toggleRole = async (uid: string, currentRoles: string[], roleToToggle: string, name: string, email: string) => {
+    let newRoles: string[];
+    if (currentRoles.includes(roleToToggle)) {
+      if (currentRoles.length === 1) {
+        alert('O usuário deve possuir pelo menos um papel.');
+        return;
+      }
+      newRoles = currentRoles.filter(r => r !== roleToToggle);
+    } else {
+      newRoles = [...currentRoles, roleToToggle];
+    }
+
+    if (!window.confirm(`Tem certeza que deseja atualizar os papéis deste usuário?`)) return;
+
     try {
-      await updateDoc(doc(db, 'users', uid), { role: newRole });
+      await updateDoc(doc(db, 'users', uid), { role: newRoles });
       
       // Se mudou para mother, garante que ela tem prontuário pendente
-      if (newRole === 'mother') {
+      if (newRoles.includes('mother')) {
         const q = query(collection(db, 'pregnancies'), where('motherId', '==', uid));
         const snap = await getDocs(q);
         if (snap.empty) {
@@ -579,22 +591,43 @@ function UsersTab() {
                 <td><strong>{u.name}</strong></td>
                 <td>{u.email}</td>
                 <td>
-                  <span className={`badge badge-${u.role === 'admin' || u.role === 'doctor' ? 'gold' : u.role === 'mother' ? 'neutral' : 'light'}`}>
-                    {u.role === 'mother' ? 'Gestante' : u.role === 'father' ? 'Pai' : u.role === 'doctor' ? 'Doutor' : u.role === 'admin' ? 'Admin' : 'Visitante'}
-                  </span>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {(Array.isArray(u.role) ? u.role : [u.role || 'guest']).map((r: string) => {
+                      const badgeClass = r === 'admin' || r === 'doctor' ? 'gold' : r === 'nurse' || r === 'receptionist' ? 'blue' : r === 'mother' ? 'neutral' : 'light';
+                      const label = r === 'mother' ? 'Gestante' : r === 'father' ? 'Pai' : r === 'doctor' ? 'Doutor' : r === 'admin' ? 'Admin' : r === 'nurse' ? 'Enfermeiro' : r === 'receptionist' ? 'Recepcionista' : 'Visitante';
+                      return (
+                        <span key={r} className={`badge badge-${badgeClass}`}>
+                          {label}
+                        </span>
+                      );
+                    })}
+                  </div>
                 </td>
                 <td>
-                  <select 
-                    className="admin-select"
-                    value={u.role}
-                    onChange={(e) => changeRole(u.uid, e.target.value, u.name, u.email)}
-                  >
-                    <option value="guest">Visitante (guest)</option>
-                    <option value="mother">Mãe / Gestante (mother)</option>
-                    <option value="father">Pai (father)</option>
-                    <option value="doctor">Doutor (doctor)</option>
-                    <option value="admin">Administrador (admin)</option>
-                  </select>
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                    {[
+                      { val: 'admin', label: 'Admin' },
+                      { val: 'doctor', label: 'Doutor' },
+                      { val: 'nurse', label: 'Enfermeiro' },
+                      { val: 'receptionist', label: 'Recepcionista' },
+                      { val: 'mother', label: 'Gestante' },
+                      { val: 'father', label: 'Pai' },
+                      { val: 'guest', label: 'Visitante' },
+                    ].map(({ val, label }) => {
+                      const currentRoles = Array.isArray(u.role) ? u.role : [u.role || 'guest'];
+                      const isChecked = currentRoles.includes(val);
+                      return (
+                        <label key={val} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: '0.85rem', color: '#1e293b' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={isChecked}
+                            onChange={() => toggleRole(u.uid, currentRoles, val, u.name, u.email)}
+                          />
+                          {label}
+                        </label>
+                      );
+                    })}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -610,13 +643,7 @@ function AppointmentsTab() {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // For settings form
-  const [tempDays, setTempDays] = useState<number[]>([]);
-  const [timeInput, setTimeInput] = useState('');
-  const [tempTimes, setTempTimes] = useState<string[]>([]);
-  const [savingSettings, setSavingSettings] = useState(false);
 
-  const DAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
   useEffect(() => {
     loadData();
@@ -626,6 +653,93 @@ function AppointmentsTab() {
   const [editingAppId, setEditingAppId] = useState<string | null>(null);
   const [editDate, setEditDate] = useState('');
   const [editTime, setEditTime] = useState('');
+
+  // Intelligent scheduling states for confirmation
+  const [professionals, setProfessionals] = useState<any[]>([]);
+  const [selectedProfessional, setSelectedProfessional] = useState<string>('');
+  const [selectedProfessionalName, setSelectedProfessionalName] = useState<string>('');
+  const [availableDates, setAvailableDates] = useState<string[]>([]);
+  const [fetchingDates, setFetchingDates] = useState(false);
+  const [availableTimes, setAvailableTimes] = useState<string[]>([]);
+  const [fetchingSlots, setFetchingSlots] = useState(false);
+
+  // Fetch professionals when editing starts
+  useEffect(() => {
+    if (!editingAppId) return;
+    const fetchProfessionals = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'users'));
+        const list = snap.docs
+          .map(d => ({ uid: d.id, ...d.data() } as any))
+          .filter(u => {
+            const roles = Array.isArray(u.role) ? u.role : [u.role || ''];
+            return roles.some((r: any) => ['doctor', 'admin', 'nurse', 'receptionist'].includes(r));
+          });
+        setProfessionals(list);
+      } catch (err) {
+        console.error('Error fetching professionals:', err);
+      }
+    };
+    fetchProfessionals();
+  }, [editingAppId]);
+
+  // Fetch dates when professional is selected
+  useEffect(() => {
+    if (!selectedProfessional) {
+      setAvailableDates([]);
+      setEditDate('');
+      setAvailableTimes([]);
+      setEditTime('');
+      return;
+    }
+    const fetchDates = async () => {
+      setFetchingDates(true);
+      try {
+        const q = query(collection(db, 'availability'), where('doctorId', '==', selectedProfessional));
+        const snap = await getDocs(q);
+        const datesList: string[] = [];
+        snap.forEach(docSnap => {
+          const data = docSnap.data();
+          if (data.date && data.slots && data.slots.length > 0) {
+            datesList.push(data.date);
+          }
+        });
+        datesList.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+        setAvailableDates(datesList);
+      } catch (err) {
+        console.error('Error fetching dates:', err);
+      } finally {
+        setFetchingDates(false);
+      }
+    };
+    fetchDates();
+  }, [selectedProfessional]);
+
+  // Fetch slots when date is selected
+  useEffect(() => {
+    if (!selectedProfessional || !editDate) {
+      setAvailableTimes([]);
+      setEditTime('');
+      return;
+    }
+    const fetchSlots = async () => {
+      setFetchingSlots(true);
+      try {
+        const docRef = doc(db, 'availability', `${selectedProfessional}_${editDate}`);
+        const snap = await getDoc(docRef);
+        if (snap.exists() && snap.data().slots) {
+          setAvailableTimes(snap.data().slots);
+        } else {
+          setAvailableTimes([]);
+        }
+      } catch (err) {
+        console.error('Error fetching slots:', err);
+      } finally {
+        setFetchingSlots(false);
+      }
+    };
+    fetchSlots();
+  }, [selectedProfessional, editDate]);
 
   // Fetch consultations that are pending scheduling
   const [pendingConsultations, setPendingConsultations] = useState<any[]>([]);
@@ -657,14 +771,6 @@ function AppointmentsTab() {
       });
       setAppointments(apps);
 
-      const docRef = doc(db, 'settings', 'appointments');
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setTempDays(data.daysOfWeek || []);
-        setTempTimes(data.timeSlots || []);
-      }
-
       // Fetch Firestore consultations that are 'aguardando-agendamento'
       const consultSnap = await getDocs(collection(db, 'consultations'));
       const list = consultSnap.docs
@@ -678,49 +784,16 @@ function AppointmentsTab() {
     setLoading(false);
   };
 
-  const handleToggleDay = (day: number) => {
-    setTempDays(prev => 
-      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day].sort()
-    );
-  };
 
-  const handleAddTime = () => {
-    if (!timeInput) return;
-    const timeRe = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-    if (!timeRe.test(timeInput)) {
-      alert('Formato inválido. Use HH:MM');
-      return;
-    }
-    if (!tempTimes.includes(timeInput)) {
-      setTempTimes([...tempTimes, timeInput].sort());
-    }
-    setTimeInput('');
-  };
-
-  const handleRemoveTime = (t: string) => {
-    setTempTimes(tempTimes.filter(time => time !== t));
-  };
-
-  const saveSettings = async () => {
-    setSavingSettings(true);
-    try {
-      await updateDoc(doc(db, 'settings', 'appointments'), {
-        daysOfWeek: tempDays,
-        timeSlots: tempTimes
-      });
-      alert('Configurações salvas!');
-      loadData();
-    } catch (e: any) {
-      if (e.code === 'not-found') {
-        await addDoc(collection(db, 'settings'), { daysOfWeek: tempDays, timeSlots: tempTimes });
-      }
-    }
-    setSavingSettings(false);
-  };
 
   const updateAppointmentStatus = async (id: string, status: string) => {
     try {
-      await updateDoc(doc(db, 'appointments', id), { status });
+      if (status === 'rejected') {
+        if (!window.confirm('Deseja realmente excluir/rejeitar esta solicitação?')) return;
+        await deleteDoc(doc(db, 'appointments', id));
+      } else {
+        await updateDoc(doc(db, 'appointments', id), { status });
+      }
       loadData();
     } catch (err) {
       console.error(err);
@@ -728,11 +801,10 @@ function AppointmentsTab() {
   };
 
   const handleConfirmConsultation = async (consultId: string, consultationNumber: number, pregnancyId: string) => {
-    if (!editDate || !editTime) {
-      alert('Por favor, informe a data e o horário para agendar esta consulta.');
+    if (!editDate || !editTime || !selectedProfessional) {
+      alert('Por favor, informe o profissional, data e o horário para agendar esta consulta.');
       return;
     }
-    setSavingSettings(true);
     try {
       const scheduledDateTime = new Date(`${editDate}T${editTime}:00`);
       await updateDoc(doc(db, 'consultations', consultId), {
@@ -744,7 +816,7 @@ function AppointmentsTab() {
         userId: userData?.uid || '',
         userName: userData?.name || '',
         action: 'Confirmação de Agendamento Pós-Parto (Admin)',
-        newValue: `${consultationNumber}ª Consulta agendada para ${editDate} às ${editTime}`,
+        newValue: `${consultationNumber}ª Consulta agendada para ${editDate} às ${editTime} com ${selectedProfessionalName}`,
       });
       // Registrar também no painel geral de appointments do hospital para histórico
       await addDoc(collection(db, 'appointments'), {
@@ -753,16 +825,21 @@ function AppointmentsTab() {
         date: editDate,
         time: editTime,
         status: 'accepted',
+        doctorId: selectedProfessional,
+        doctorName: selectedProfessionalName,
         createdAt: serverTimestamp(),
       });
       alert('Consulta agendada com sucesso!');
       setEditingAppId(null);
+      setSelectedProfessional('');
+      setSelectedProfessionalName('');
+      setAvailableDates([]);
+      setAvailableTimes([]);
       loadData();
     } catch (e) {
       console.error(e);
       alert('Erro ao agendar consulta.');
     }
-    setSavingSettings(false);
   };
 
   const pending = appointments.filter(a => a.status === 'pending');
@@ -774,63 +851,6 @@ function AppointmentsTab() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <div className="glass-box" style={{ padding: 24 }}>
-        <h3 className="patients-section-title" style={{ marginTop: 0, marginBottom: 16 }}>Configurar Disponibilidade</h3>
-        
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ fontWeight: 600, display: 'block', marginBottom: 8 }}>Dias da Semana de Atendimento:</label>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {DAYS.map((d, i) => (
-              <button 
-                key={i} 
-                onClick={() => handleToggleDay(i)}
-                style={{
-                  padding: '8px 12px',
-                  borderRadius: 8,
-                  border: tempDays.includes(i) ? '2px solid var(--accent-pink)' : '1px solid #ccc',
-                  background: tempDays.includes(i) ? 'rgba(201,81,144,0.1)' : '#fff',
-                  fontWeight: tempDays.includes(i) ? 700 : 400,
-                  cursor: 'pointer'
-                }}
-              >
-                {d}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ fontWeight: 600, display: 'block', marginBottom: 8 }}>Horários Disponíveis:</label>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-            <input 
-              type="time" 
-              className="form-input" 
-              style={{ width: '150px' }} 
-              value={timeInput} 
-              onChange={e => setTimeInput(e.target.value)}
-            />
-            <button className="btn-modern btn-modern-primary" onClick={handleAddTime}>+ Adicionar</button>
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {tempTimes.length === 0 && <span style={{ color: '#666' }}>Nenhum horário configurado.</span>}
-            {tempTimes.map(t => (
-              <span key={t} style={{ background: '#f1f5f9', padding: '4px 8px', borderRadius: 16, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 6 }}>
-                {t}
-                <button onClick={() => handleRemoveTime(t)} style={{ background: 'transparent', border: 'none', color: 'red', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <button 
-          className="btn-modern btn-modern-primary" 
-          onClick={saveSettings} 
-          disabled={savingSettings}
-        >
-          {savingSettings ? 'Salvando...' : '💾 Salvar Configurações'}
-        </button>
-      </div>
-
       {/* CONSULTAS AGUARDANDO AGENDAMENTO (RETORNO / PEZINHO) */}
       <div className="glass-box" style={{ padding: 24 }}>
         <h3 className="patients-section-title" style={{ marginTop: 0, marginBottom: 16 }}>Solicitações de Pré-Natal / Retorno ({pendingConsultations.length})</h3>
@@ -854,16 +874,75 @@ function AppointmentsTab() {
                 {editingAppId === c.id ? (
                   <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
                     <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '0.8rem' }}>Data</label>
-                      <input type="date" className="form-input" style={{ padding: '6px 10px' }} value={editDate} onChange={e => setEditDate(e.target.value)} />
+                      <label className="form-label" style={{ fontSize: '0.8rem' }}>Profissional</label>
+                      <select 
+                        className="form-select" 
+                        style={{ padding: '6px 10px', height: 'auto', fontSize: '0.85rem' }}
+                        value={selectedProfessional}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setSelectedProfessional(val);
+                          const prof = professionals.find(p => p.uid === val);
+                          setSelectedProfessionalName(prof ? prof.name : '');
+                        }}
+                      >
+                        <option value="">Selecione...</option>
+                        {professionals.map(p => (
+                          <option key={p.uid} value={p.uid}>
+                            {p.name} ({p.role === 'admin' ? 'Admin' : p.role === 'doctor' ? 'Médico' : p.role === 'nurse' ? 'Enfermeiro' : 'Recepcionista'})
+                          </option>
+                        ))}
+                      </select>
                     </div>
+
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: '0.8rem' }}>Data</label>
+                      <select 
+                        className="form-select" 
+                        style={{ padding: '6px 10px', height: 'auto', fontSize: '0.85rem' }}
+                        value={editDate}
+                        onChange={e => setEditDate(e.target.value)}
+                        disabled={!selectedProfessional || fetchingDates || availableDates.length === 0}
+                      >
+                        <option value="">{fetchingDates ? 'Carregando...' : !selectedProfessional ? 'Escolha o profissional...' : availableDates.length === 0 ? 'Sem datas' : 'Selecione...'}</option>
+                        {availableDates.map(dStr => {
+                          const [year, month, day] = dStr.split('-');
+                          return (
+                            <option key={dStr} value={dStr}>
+                              {`${day}/${month}/${year}`}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label" style={{ fontSize: '0.8rem' }}>Horário</label>
-                      <input type="time" className="form-input" style={{ padding: '6px 10px' }} value={editTime} onChange={e => setEditTime(e.target.value)} />
+                      <select 
+                        className="form-select" 
+                        style={{ padding: '6px 10px', height: 'auto', fontSize: '0.85rem' }}
+                        value={editTime}
+                        onChange={e => setEditTime(e.target.value)}
+                        disabled={!editDate || fetchingSlots || availableTimes.length === 0}
+                      >
+                        <option value="">{fetchingSlots ? 'Carregando...' : !editDate ? 'Escolha a data...' : availableTimes.length === 0 ? 'Sem horários' : 'Selecione...'}</option>
+                        {availableTimes.map(t => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
+                      </select>
                     </div>
+
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <button className="btn btn-secondary btn-sm" onClick={() => setEditingAppId(null)}>Cancelar</button>
-                      <button className="btn btn-primary btn-sm" onClick={() => handleConfirmConsultation(c.id, c.consultationNumber, c.pregnancyId)}>
+                      <button className="btn btn-secondary btn-sm" onClick={() => {
+                        setEditingAppId(null);
+                        setSelectedProfessional('');
+                        setSelectedProfessionalName('');
+                        setAvailableDates([]);
+                        setAvailableTimes([]);
+                      }}>Cancelar</button>
+                      <button className="btn btn-primary btn-sm" disabled={!selectedProfessional || !editDate || !editTime} onClick={() => handleConfirmConsultation(c.id, c.consultationNumber, c.pregnancyId)}>
                         Confirmar
                       </button>
                     </div>
@@ -936,7 +1015,14 @@ function AppointmentsTab() {
 
 export default function DoctorPanel() {
   const { userData } = useAuth();
-  const [tab, setTab] = useState<'patients' | 'new' | 'ultrasound' | 'users' | 'appointments'>('patients');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab') as 'patients' | 'new' | 'ultrasound' | 'users' | 'appointments' | null;
+  const tab = tabParam || 'patients';
+
+  const setTab = (newTab: 'patients' | 'new' | 'ultrasound' | 'users' | 'appointments') => {
+    setSearchParams({ tab: newTab });
+  };
+
   const [pregnancies, setPregnancies] = useState<Pregnancy[]>([]);
   const [loading, setLoading] = useState(true);
 

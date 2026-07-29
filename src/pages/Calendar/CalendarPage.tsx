@@ -3,11 +3,11 @@ import type { FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePregnancy, toDate } from '../../hooks/usePregnancy';
-import type { AppointmentSettings, Consultation, Exam } from '../../types';
+import type { Consultation, Exam } from '../../types';
 import { 
   Stethoscope, 
   Image as ImageIcon, 
@@ -15,7 +15,6 @@ import {
   CalendarClock, 
   CheckCircle2, 
   X, 
-  AlertTriangle, 
   ChevronLeft, 
   ChevronRight, 
   Plus,
@@ -27,7 +26,7 @@ import '../Appointments/Appointments.css';
 import './CalendarPage.css';
 
 export default function CalendarPage() {
-  const { currentUser } = useAuth();
+  const { currentUser, userData } = useAuth();
   const navigate = useNavigate();
   const { pregnancy, consultations, exams, ultrasounds } = usePregnancy(
     currentUser?.email || null,
@@ -41,45 +40,124 @@ export default function CalendarPage() {
   // Modal form states
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [settings, setSettings] = useState<AppointmentSettings | null>(null);
-  const [nick, setNick] = useState(currentUser?.displayName || '');
   const [reason, setReason] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Intelligent Scheduling States
+  const [professionals, setProfessionals] = useState<any[]>([]);
+  const [selectedProfessional, setSelectedProfessional] = useState<string>('');
+  const [selectedProfessionalName, setSelectedProfessionalName] = useState<string>('');
+  const [availableDates, setAvailableDates] = useState<string[]>([]);
+  const [fetchingDates, setFetchingDates] = useState(false);
+  const [availableTimes, setAvailableTimes] = useState<string[]>([]);
+  const [fetchingSlots, setFetchingSlots] = useState(false);
+
   useEffect(() => {
-    const fetchSettings = async () => {
+    if (!showModal) return;
+    const fetchProfessionals = async () => {
       try {
-        const docRef = doc(db, 'settings', 'appointments');
-        const snap = await getDoc(docRef);
-        if (snap.exists()) {
-          setSettings(snap.data() as AppointmentSettings);
-        } else {
-          setSettings({ daysOfWeek: [], timeSlots: [] });
-        }
+        const snap = await getDocs(collection(db, 'users'));
+        const list = snap.docs
+          .map(d => ({ uid: d.id, ...d.data() } as any))
+          .filter(u => {
+            const roles = Array.isArray(u.role) ? u.role : [u.role || ''];
+            return roles.some((r: any) => ['doctor', 'admin', 'nurse', 'receptionist'].includes(r));
+          });
+        setProfessionals(list);
       } catch (err) {
-        console.error(err);
+        console.error('Error fetching professionals:', err);
       }
     };
-    fetchSettings();
-  }, []);
+    fetchProfessionals();
+  }, [showModal]);
+
+  useEffect(() => {
+    if (!selectedProfessional) {
+      setAvailableDates([]);
+      setDate('');
+      setAvailableTimes([]);
+      setTime('');
+      return;
+    }
+    const fetchDates = async () => {
+      setFetchingDates(true);
+      setErrorMsg('');
+      try {
+        const q = query(collection(db, 'availability'), where('doctorId', '==', selectedProfessional));
+        const snap = await getDocs(q);
+        const datesList: string[] = [];
+        snap.forEach(docSnap => {
+          const data = docSnap.data();
+          if (data.date && data.slots && data.slots.length > 0) {
+            datesList.push(data.date);
+          }
+        });
+        datesList.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+        setAvailableDates(datesList);
+        if (datesList.length === 0) {
+          setErrorMsg('Este profissional não possui datas de atendimento cadastradas.');
+        }
+      } catch (err) {
+        console.error('Error fetching dates:', err);
+        setErrorMsg('Erro ao buscar calendário do profissional.');
+      } finally {
+        setFetchingDates(false);
+      }
+    };
+    fetchDates();
+  }, [selectedProfessional]);
+
+  useEffect(() => {
+    if (!selectedProfessional || !date) {
+      setAvailableTimes([]);
+      setTime('');
+      return;
+    }
+    const fetchSlots = async () => {
+      setFetchingSlots(true);
+      setErrorMsg('');
+      try {
+        const docRef = doc(db, 'availability', `${selectedProfessional}_${date}`);
+        const snap = await getDoc(docRef);
+        if (snap.exists() && snap.data().slots) {
+          setAvailableTimes(snap.data().slots);
+          if (snap.data().slots.length === 0) {
+            setErrorMsg('Não há horários disponíveis para este dia.');
+          }
+        } else {
+          setAvailableTimes([]);
+          setErrorMsg('Não há horários disponíveis para este dia.');
+        }
+      } catch (err) {
+        console.error('Error fetching slots:', err);
+        setErrorMsg('Erro ao buscar horários.');
+      } finally {
+        setFetchingSlots(false);
+      }
+    };
+    fetchSlots();
+  }, [selectedProfessional, date]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!nick || !reason || !date || !time) {
+    if (!reason || !date || !time || !selectedProfessional) {
       setErrorMsg('Por favor, preencha todos os campos.');
       return;
     }
     setLoading(true);
     setErrorMsg('');
     try {
+      const finalNick = userData?.name || currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Paciente';
       await addDoc(collection(db, 'appointments'), {
-        patientNick: nick,
+        patientNick: finalNick,
         reason,
         date,
         time,
         status: 'pending',
+        doctorId: selectedProfessional,
+        doctorName: selectedProfessionalName,
         createdAt: serverTimestamp(),
       });
       setSuccess(true);
@@ -88,27 +166,6 @@ export default function CalendarPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedDateStr = e.target.value;
-    if (!selectedDateStr) {
-      setDate('');
-      return;
-    }
-    const [year, month, day] = selectedDateStr.split('-');
-    const d = new Date(Number(year), Number(month) - 1, Number(day));
-    const dayOfWeek = d.getDay();
-
-    if (settings && settings.daysOfWeek.length > 0) {
-      if (!settings.daysOfWeek.includes(dayOfWeek)) {
-        setErrorMsg('Este dia da semana não está disponível para agendamentos.');
-        setDate('');
-        return;
-      }
-    }
-    setErrorMsg('');
-    setDate(selectedDateStr);
   };
 
   // Build calendar days
@@ -144,7 +201,6 @@ export default function CalendarPage() {
   };
 
   const selectedEvents = getEventsForDay(selectedDate);
-  const isConfigured = settings && (settings.daysOfWeek.length > 0 || settings.timeSlots.length > 0);
 
   return (
     <div className="calendar-page page-enter">
@@ -247,7 +303,7 @@ export default function CalendarPage() {
                       </span>
                       {ev.time && (
                         <span className="event-doc-meta-item">
-                          <CalendarClock size={14} /> {ev.time}
+                          <CalendarClock size={14} /> Data e Hora: {format(selectedDate, "dd/MM/yyyy")} às {ev.time}
                         </span>
                       )}
                     </div>
@@ -293,7 +349,7 @@ export default function CalendarPage() {
                   <p style={{ textAlign: 'center', color: '#64748b' }}>Sua solicitação de consulta foi enviada com sucesso.</p>
                   <button 
                     className="btn-modern btn-modern-primary" 
-                    onClick={() => { setSuccess(false); setNick(''); setReason(''); setDate(''); setTime(''); setShowModal(false); }}
+                    onClick={() => { setSuccess(false); setReason(''); setDate(''); setTime(''); setShowModal(false); }}
                     style={{ marginTop: 24, padding: '12px 32px', width: '100%' }}
                   >
                     Fechar
@@ -301,17 +357,7 @@ export default function CalendarPage() {
                 </div>
               ) : (
                 <div className="appointments-form-wrapper">
-                  {!isConfigured && settings !== null && (
-                    <div className="warning-banner" style={{ background: 'rgba(255, 170, 0, 0.1)', border: '1px solid #ffaa00', padding: 12, borderRadius: 8, marginBottom: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <AlertTriangle size={18} color="#b37700" style={{ flexShrink: 0 }} />
-                      <p style={{ fontSize: '0.85rem', color: '#b37700', margin: 0 }}>O Doutor ainda não configurou os dias de atendimento.</p>
-                    </div>
-                  )}
                   <form className="modern-form" onSubmit={handleSubmit}>
-                    <div className="form-group">
-                      <label className="form-label">Seu Nick (IMVU)</label>
-                      <input type="text" className="form-input" value={nick} onChange={e => setNick(e.target.value)} required />
-                    </div>
                     <div className="form-group">
                       <label className="form-label">Motivo da Consulta</label>
                       <select className="form-select" value={reason} onChange={e => setReason(e.target.value)} required>
@@ -323,22 +369,69 @@ export default function CalendarPage() {
                         <option value="Outros">Outros</option>
                       </select>
                     </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Profissional de Saúde</label>
+                      <select 
+                        className="form-select" 
+                        value={selectedProfessional} 
+                        onChange={e => {
+                          const val = e.target.value;
+                          setSelectedProfessional(val);
+                          const prof = professionals.find(p => p.uid === val);
+                          setSelectedProfessionalName(prof ? prof.name : '');
+                        }} 
+                        required
+                      >
+                        <option value="">Selecione o profissional...</option>
+                        {professionals.map(p => (
+                          <option key={p.uid} value={p.uid}>
+                            {p.name} ({p.role === 'admin' ? 'Administrador' : p.role === 'doctor' ? 'Médico' : p.role === 'nurse' ? 'Enfermeiro' : 'Recepcionista'})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
                     <div className="form-row" style={{ display: 'flex', gap: 12 }}>
                       <div className="form-group flex-1" style={{ flex: 1 }}>
-                        <label className="form-label">Data</label>
-                        <input type="date" className="form-input" value={date} onChange={handleDateChange} min={new Date().toISOString().split('T')[0]} required />
+                        <label className="form-label">Data de Atendimento</label>
+                        <select 
+                          className="form-select" 
+                          value={date} 
+                          onChange={e => setDate(e.target.value)} 
+                          required 
+                          disabled={!selectedProfessional || fetchingDates || availableDates.length === 0}
+                        >
+                          <option value="">{fetchingDates ? 'Carregando datas...' : !selectedProfessional ? 'Escolha o profissional...' : availableDates.length === 0 ? 'Sem datas disponíveis' : 'Selecione a data...'}</option>
+                          {availableDates.map(dStr => {
+                            const [year, month, day] = dStr.split('-');
+                            return (
+                              <option key={dStr} value={dStr}>
+                                {`${day}/${month}/${year}`}
+                              </option>
+                            );
+                          })}
+                        </select>
                       </div>
+
                       <div className="form-group flex-1" style={{ flex: 1 }}>
                         <label className="form-label">Horário</label>
-                        <select className="form-select" value={time} onChange={e => setTime(e.target.value)} required>
-                          <option value="">Selecione...</option>
-                          {settings?.timeSlots?.map(t => <option key={t} value={t}>{t}</option>)}
+                        <select 
+                          className="form-select" 
+                          value={time} 
+                          onChange={e => setTime(e.target.value)} 
+                          required 
+                          disabled={!date || fetchingSlots || availableTimes.length === 0}
+                        >
+                          <option value="">{fetchingSlots ? 'Carregando horários...' : !date ? 'Escolha a data...' : availableTimes.length === 0 ? 'Sem horários disponíveis' : 'Selecione o horário...'}</option>
+                          {availableTimes.map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
                       </div>
                     </div>
+
                     {errorMsg && <div className="error-msg" style={{ color: '#ef4444', fontSize: '0.85rem', marginBottom: 12 }}>{errorMsg}</div>}
-                    <button type="submit" className="btn-modern btn-modern-primary" disabled={loading || !isConfigured} style={{ width: '100%', padding: '12px', marginTop: 12 }}>
-                      {loading ? 'Enviando...' : 'Solicitar'}
+                    <button type="submit" className="btn-modern btn-modern-primary" disabled={loading || !selectedProfessional || !date || availableTimes.length === 0} style={{ width: '100%', padding: '12px', marginTop: 12 }}>
+                      {loading ? 'Enviando...' : 'Confirmar e Solicitar'}
                     </button>
                   </form>
                 </div>

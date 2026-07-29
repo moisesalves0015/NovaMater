@@ -1,13 +1,14 @@
 // src/pages/Profile/ProfilePage.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePregnancy, toDate } from '../../hooks/usePregnancy';
-import { User, Mail, Heart, Baby, Calendar, Shield, Lock } from 'lucide-react';
-import { format } from 'date-fns';
+import { User, Mail, Heart, Baby, Calendar, Shield, Lock, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
-import { auth } from '../../lib/firebase';
+import { auth, db } from '../../lib/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 export default function ProfilePage() {
   const { currentUser, userData } = useAuth();
@@ -22,6 +23,79 @@ export default function ProfilePage() {
   const [confirmPwd, setConfirmPwd] = useState('');
   const [pwdMsg, setPwdMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Settings State for Doctor/Admin
+  const userRoles = Array.isArray(userData?.role) ? userData.role : [userData?.role || ''];
+  const isDoctor = userRoles.some(r => ['doctor', 'admin', 'nurse', 'receptionist'].includes(r));
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [activeSlots, setActiveSlots] = useState<string[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [settingsMsg, setSettingsMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  const ALL_HOURS = Array.from({ length: 24 }).map((_, i) => {
+    const h = i < 10 ? `0${i}` : `${i}`;
+    return `${h}:00`;
+  });
+
+  const start = startOfMonth(currentMonth);
+  const end = endOfMonth(currentMonth);
+  const daysInMonth = eachDayOfInterval({ start, end });
+
+  useEffect(() => {
+    if (!isDoctor || !currentUser) return;
+    const loadDaySlots = async () => {
+      setLoadingSlots(true);
+      setActiveSlots([]);
+      setSettingsMsg(null);
+      try {
+        const dateStr = format(selectedDate, 'yyyy-MM-dd');
+        const docRef = doc(db, 'availability', `${currentUser.uid}_${dateStr}`);
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          setActiveSlots(snap.data().slots || []);
+        }
+      } catch (err) {
+        console.error('Error loading slots for selected day:', err);
+      } finally {
+        setLoadingSlots(false);
+      }
+    };
+    loadDaySlots();
+  }, [selectedDate, isDoctor, currentUser]);
+
+  const handleToggleSlot = (slot: string) => {
+    setActiveSlots(prev =>
+      prev.includes(slot) ? prev.filter(s => s !== slot) : [...prev, slot].sort()
+    );
+  };
+
+  const handleSaveDayAvailability = async () => {
+    if (!currentUser) return;
+    setSavingSettings(true);
+    setSettingsMsg(null);
+    try {
+      const dateStr = format(selectedDate, 'yyyy-MM-dd');
+      const docRef = doc(db, 'availability', `${currentUser.uid}_${dateStr}`);
+      await setDoc(docRef, {
+        doctorId: currentUser.uid,
+        doctorName: userData?.name || currentUser.displayName || 'Profissional',
+        date: dateStr,
+        slots: activeSlots
+      });
+      setSettingsMsg({
+        type: 'success',
+        text: `Disponibilidade para ${format(selectedDate, "dd 'de' MMMM", { locale: ptBR })} salva com sucesso!`
+      });
+    } catch (err) {
+      console.error('Error saving day availability:', err);
+      setSettingsMsg({ type: 'error', text: 'Erro ao salvar a disponibilidade.' });
+    } finally {
+      setSavingSettings(false);
+    }
+  };
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,9 +171,198 @@ export default function ProfilePage() {
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <InfoRow icon={<Mail size={16} color="#94a3b8" />} label="E-mail" value={currentUser?.email || '—'} />
-            <InfoRow icon={<Shield size={16} color="#94a3b8" />} label="Tipo de Conta" value={userData?.role === 'mother' ? 'Gestante' : userData?.role === 'father' ? 'Parceiro(a)' : 'Familiar'} />
+            <InfoRow icon={<Shield size={16} color="#94a3b8" />} label="Tipo de Conta" value={userData?.role === 'mother' ? 'Gestante' : userData?.role === 'father' ? 'Parceiro(a)' : userData?.role === 'doctor' ? 'Doutor' : userData?.role === 'admin' ? 'Administrador' : 'Familiar'} />
           </div>
         </motion.div>
+
+        {/* AVAILABILITY CARD (DOCTOR/ADMIN ONLY) */}
+        {isDoctor && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#1e293b', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Clock size={18} color="#c9195a" /> Configurar Disponibilidade
+              </h3>
+              <button
+                onClick={() => {
+                  // Toggle expand availability section
+                  const section = document.getElementById('availability-details');
+                  if (section) {
+                    section.style.display = section.style.display === 'none' ? 'block' : 'none';
+                  }
+                }}
+                style={{
+                  background: '#fdf2f8',
+                  color: '#c9195a',
+                  border: 'none', borderRadius: 8, padding: '6px 14px',
+                  fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer',
+                }}
+              >
+                Expandir / Recolher
+              </button>
+            </div>
+
+            <div id="availability-details" style={{ display: 'none' }}>
+              {settingsMsg && (
+                <div style={{
+                  padding: '10px 14px', borderRadius: 8, marginBottom: 16,
+                  background: settingsMsg.type === 'success' ? '#dcfce7' : '#fee2e2',
+                  color: settingsMsg.type === 'success' ? '#15803d' : '#dc2626',
+                  fontSize: '0.85rem', fontWeight: 600,
+                }}>
+                  {settingsMsg.text}
+                </div>
+              )}
+
+              <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: 16 }}>
+                Selecione um dia no calendário para gerenciar ou configurar seus horários de atendimento específicos.
+              </p>
+
+              {/* MONTH SELECTOR HEADER */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, background: '#f8fafc', padding: '8px 12px', borderRadius: 10, border: '1px solid #e2e8f0' }}>
+                <button
+                  type="button"
+                  onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' }}
+                >
+                  <ChevronLeft size={20} color="#64748b" />
+                </button>
+                <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 800, color: '#1e293b', textTransform: 'capitalize' }}>
+                  {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' }}
+                >
+                  <ChevronRight size={20} color="#64748b" />
+                </button>
+              </div>
+
+              {/* CALENDAR WEEKDAYS INITIALS */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, textAlign: 'center', marginBottom: 8 }}>
+                {WEEKDAYS.map(w => (
+                  <span key={w} style={{ fontSize: '0.7rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>
+                    {w}
+                  </span>
+                ))}
+              </div>
+
+              {/* CALENDAR DAYS GRID */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginBottom: 20 }}>
+                {Array.from({ length: start.getDay() }).map((_, i) => (
+                  <div key={`empty-${i}`} />
+                ))}
+                {daysInMonth.map(day => {
+                  const isSelected = isSameDay(day, selectedDate);
+                  const isToday = isSameDay(day, new Date());
+                  return (
+                    <button
+                      type="button"
+                      key={day.toISOString()}
+                      onClick={() => setSelectedDate(day)}
+                      style={{
+                        aspectRatio: '1',
+                        border: 'none',
+                        borderRadius: '50%',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        fontWeight: isSelected || isToday ? '700' : '500',
+                        background: isSelected
+                          ? 'linear-gradient(135deg, #c9195a, #e0527a)'
+                          : isToday
+                          ? '#fee2e2'
+                          : 'transparent',
+                        color: isSelected
+                          ? '#fff'
+                          : isToday
+                          ? '#be185d'
+                          : '#334155',
+                        transition: 'all 0.2s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        outline: 'none',
+                      }}
+                    >
+                      {format(day, 'd')}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* SELECTED DAY HEADER */}
+              <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 16, marginBottom: 16 }}>
+                <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1e293b', marginTop: 0, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  ⏰ Horários Disponíveis:
+                </h4>
+                <p style={{ fontSize: '0.8rem', color: '#c9195a', fontWeight: 700, margin: 0 }}>
+                  {format(selectedDate, "dd 'de' MMMM 'de' yyyy (EEEE)", { locale: ptBR })}
+                </p>
+              </div>
+
+              {/* HOUR SLOTS GRID */}
+              {loadingSlots ? (
+                <div style={{ textAlign: 'center', padding: '20px 0', fontSize: '0.85rem', color: '#64748b' }}>
+                  Carregando horários...
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 20 }}>
+                  {ALL_HOURS.map(hour => {
+                    const isChecked = activeSlots.includes(hour);
+                    return (
+                      <button
+                        type="button"
+                        key={hour}
+                        onClick={() => handleToggleSlot(hour)}
+                        style={{
+                          padding: '8px 2px',
+                          borderRadius: 8,
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          border: isChecked ? '1.5px solid #c9195a' : '1.5px solid #e2e8f0',
+                          background: isChecked ? '#fdf2f8' : '#fff',
+                          color: isChecked ? '#c9195a' : '#475569',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          textAlign: 'center',
+                          boxShadow: isChecked ? '0 2px 6px rgba(201, 25, 90, 0.12)' : 'none',
+                        }}
+                      >
+                        {hour}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleSaveDayAvailability}
+                disabled={savingSettings || loadingSlots}
+                style={{
+                  background: 'linear-gradient(135deg, #c9195a 0%, #e0527a 100%)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 10,
+                  padding: '12px',
+                  fontWeight: 700,
+                  fontSize: '0.9rem',
+                  cursor: (savingSettings || loadingSlots) ? 'not-allowed' : 'pointer',
+                  opacity: (savingSettings || loadingSlots) ? 0.7 : 1,
+                  width: '100%',
+                  boxShadow: '0 4px 12px rgba(201, 25, 90, 0.2)',
+                }}
+              >
+                {savingSettings ? 'Salvando Disponibilidade...' : '💾 Salvar Disponibilidade do Dia'}
+              </button>
+            </div>
+          </motion.div>
+        )}
 
         {/* PREGNANCY CARD */}
         {pregnancy && (

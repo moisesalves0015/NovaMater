@@ -18,6 +18,7 @@ const Packages = lazy(() => import('./pages/Packages/Packages'));
 const CalendarPage = lazy(() => import('./pages/Calendar/CalendarPage'));
 const BookletPage = lazy(() => import('./pages/Booklet/BookletPage'));
 const DocumentsPage = lazy(() => import('./pages/Documents/DocumentsPage'));
+const ProfilePage = lazy(() => import('./pages/Profile/ProfilePage'));
 
 function LoadingScreen() {
   return (
@@ -44,14 +45,20 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
   if (loading) return <LoadingScreen />;
   if (!currentUser) return <Navigate to="/login" replace />;
 
-  // Se for médico ou admin tentando acessar a rota protegida, libera o acesso
-  if (allowedRoles?.some(role => ['doctor', 'admin'].includes(role)) && (userData?.role === 'doctor' || userData?.role === 'admin' || currentUser.email === 'doutor@novamater.com')) {
+  const userRoles = Array.isArray(userData?.role) ? userData.role : [userData?.role || ''];
+  const isStaff = userRoles.some(r => ['doctor', 'admin', 'nurse', 'receptionist'].includes(r)) || currentUser.email === 'doutor@novamater.com';
+
+  if (isStaff && allowedRoles?.some(role => ['doctor', 'admin', 'nurse', 'receptionist'].includes(role))) {
     return <>{children}</>;
   }
 
-  // Se a rota for restrita a gestantes e o usuário for médico/admin, leva para o painel administrativo
-  if ((userData?.role === 'doctor' || userData?.role === 'admin') && !allowedRoles?.some(role => ['doctor', 'admin'].includes(role))) {
+  if (isStaff && !allowedRoles?.some(role => ['doctor', 'admin', 'nurse', 'receptionist'].includes(role))) {
     return <Navigate to="/admin" replace />;
+  }
+
+  const hasAccess = !allowedRoles || allowedRoles.some(role => userRoles.includes(role));
+  if (!hasAccess) {
+    return <Navigate to={isStaff ? "/admin" : "/dashboard"} replace />;
   }
 
   return <>{children}</>;
@@ -59,7 +66,8 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
 
 function AppRoutes() {
   const { userData, currentUser } = useAuth();
-  const isAdminFlow = userData?.role === 'doctor' || userData?.role === 'admin';
+  const userRoles = Array.isArray(userData?.role) ? userData.role : [userData?.role || ''];
+  const isAdminFlow = userRoles.some((r: any) => ['doctor', 'admin', 'nurse', 'receptionist'].includes(r));
   const isAuth = !!currentUser;
 
   return (
@@ -99,15 +107,21 @@ function AppRoutes() {
             </ProtectedRoute>
           } />
 
+          <Route path="/perfil" element={
+            <ProtectedRoute allowedRoles={['mother', 'father', 'guest', 'doctor', 'admin', 'nurse', 'receptionist']}>
+              <ProfilePage />
+            </ProtectedRoute>
+          } />
+
           {/* Rota Exclusiva do Administrador do Hospital */}
           <Route path="/admin" element={
-            <ProtectedRoute allowedRoles={['doctor', 'admin']}>
+            <ProtectedRoute allowedRoles={['doctor', 'admin', 'nurse', 'receptionist']}>
               <DoctorPanel />
             </ProtectedRoute>
           } />
 
           <Route path="/prontuario/:id" element={
-            <ProtectedRoute allowedRoles={['doctor', 'admin']}>
+            <ProtectedRoute allowedRoles={['doctor', 'admin', 'nurse', 'receptionist']}>
               <MedicalRecord />
             </ProtectedRoute>
           } />
@@ -118,7 +132,7 @@ function AppRoutes() {
           } />
         </Routes>
       </Suspense>
-      {isAuth && !isAdminFlow && <BottomNav />}
+      {isAuth && <BottomNav />}
     </>
   );
 }

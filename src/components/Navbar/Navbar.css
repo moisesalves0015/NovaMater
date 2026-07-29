@@ -133,7 +133,7 @@
 
 .profile-popover {
   position: absolute;
-  top: calc(100% + 12px);
+  top: calc(100% + 4px);
   right: 0;
   min-width: 200px;
   padding: 8px;
