@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   doc, updateDoc, collection, query,
   where, onSnapshot, addDoc, serverTimestamp,
-  deleteDoc
+  deleteDoc, getDocs
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -13,12 +13,13 @@ import DocViewerModal from '../../components/Documents/DocViewerModal';
 import type { PDFData } from '../../components/Documents/DocViewerModal';
 import type {
   Pregnancy, Consultation, Exam, Ultrasound,
-  Medication, MedDocument, DocumentType, AuditLog
+  Medication, MedDocument, DocumentType, AuditLog, Vaccine
 } from '../../types';
 import {
   EXAM_LABELS, PRESET_PLANS,
   MONTHLY_PROTOCOL, COMMON_MEDICATIONS,
-  currentGestationMonth,
+  currentGestationMonth, VACCINE_LABELS,
+  getReleaseHours, getAutoLabResult,
 } from '../../lib/gestationUtils';
 import type { ExamType } from '../../types';
 import { format } from 'date-fns';
@@ -57,6 +58,9 @@ function StatusBadge({ status }: { status: string }) {
     cancelado:  { label: 'Cancelado',  cls: 'status-cancelada' },
     'pendente-resultado': { label: 'Resultado Pendente', cls: 'status-remarcada' },
     'aguardando-agendamento': { label: 'Aguardando Agendamento', cls: 'status-agendada' },
+    'aguardando-coleta': { label: 'Aguardando Coleta', cls: 'status-agendada' },
+    'coleta-agendada': { label: 'Coleta Agendada', cls: 'status-remarcada' },
+    'em-analise': { label: 'Em Análise', cls: 'status-faltou' },
     ativa:      { label: 'Ativa',      cls: 'status-realizada' },
     vencida:    { label: 'Vencida',    cls: 'status-cancelada' },
   };
@@ -86,8 +90,269 @@ function SmartAssistant({
   const [adding, setAdding] = useState<string | null>(null);
   const [open, setOpen] = useState(true);
 
-  const currentMonth = currentGestationMonth(toDate(pregnancy.startDate), pregnancy.gestationPlan);
-  const protocol = MONTHLY_PROTOCOL[currentMonth];
+  const currentMonth = pregnancy.currentStatus === 'parto'
+    ? 10
+    : currentGestationMonth(toDate(pregnancy.startDate), pregnancy.gestationPlan);
+  const [selectedMonth, setSelectedMonth] = useState<number>(currentMonth);
+
+  useEffect(() => {
+    setSelectedMonth(currentMonth);
+  }, [currentMonth]);
+
+  const [vaccines, setVaccines] = useState<Vaccine[]>([]);
+  useEffect(() => {
+    if (!pregnancy.id) return;
+    const q = query(collection(db, 'vaccines'), where('pregnancyId', '==', pregnancy.id));
+    const unsub = onSnapshot(q, snap => {
+      setVaccines(snap.docs.map(d => ({ id: d.id, ...d.data() } as Vaccine)));
+    });
+    return unsub;
+  }, [pregnancy.id]);
+
+  const handleApplyVaccine = async (vacCode: string) => {
+    setAdding(`vaccine-${vacCode}`);
+    try {
+      const name = VACCINE_LABELS[vacCode] || vacCode;
+      await addDoc(collection(db, 'vaccines'), {
+        pregnancyId: pregnancy.id,
+        name: vacCode,
+        status: 'aplicada',
+        appliedAt: serverTimestamp(),
+        appliedBy: userData?.name || 'Profissional de Saúde'
+      });
+
+      await createTimelineEvent(
+        pregnancy.id!,
+        'sistema',
+        `Vacina Aplicada: ${name}`,
+        `Paciente recebeu a vacina ${name}, registrada por ${userData?.name || 'médico'}.`,
+        'Shield',
+        '#be185d',
+        userData?.uid || '',
+        userData?.name || 'Sistema'
+      );
+
+      await addAuditLog({
+        pregnancyId: pregnancy.id!,
+        userId: userData?.uid || '',
+        userName: userData?.name || 'Sistema',
+        action: 'Aplicação de Vacina (Assistente)',
+        newValue: name
+      });
+
+      await createNotification(pregnancy.motherId, pregnancy.id!, 'sistema',
+        '💉 Vacina Registrada!',
+        `A vacina ${name} foi registrada no seu prontuário por ${userData?.name || 'seu médico'}.`,
+      );
+
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setAdding(null);
+    }
+  };
+
+  const handleEmitEmergencyPrescription = async (symptomName: string, medicateText: string) => {
+    setAdding(`sos-med-${symptomName}`);
+    try {
+      const verificationCode = `NM-${Date.now().toString(36).toUpperCase()}`;
+      const shortSymptom = symptomName.replace(/[^\w\s\/\-À-ú]/g, '').trim();
+      const content = `RECEITUÁRIO DE CONDUTA DE EMERGÊNCIA (SOS OBSTÉTRICO)\n\nPaciente: ${pregnancy.motherName}\nQuadro Clínico: ${shortSymptom}\n\nPrescrição Emergencial:\n- ${medicateText}\n\nUso sob supervisão médica ou orientação imediata.`;
+      
+      await addDoc(collection(db, 'documents'), {
+        pregnancyId: pregnancy.id,
+        type: 'receita',
+        title: `Prescricao SOS: ${shortSymptom}`,
+        content,
+        version: 1,
+        issuedBy: userData?.name || pregnancy.doctorName,
+        issuedById: userData?.uid || pregnancy.doctorId || 'unknown',
+        issuedAt: serverTimestamp(),
+        verificationCode,
+        doctorCrm: userData?.crm || '',
+        doctorSpecialty: userData?.stampText || userData?.specialty || '',
+      });
+
+      await addDoc(collection(db, 'medications'), {
+        pregnancyId: pregnancy.id,
+        name: `SOS: ${shortSymptom}`,
+        dose: 'Conforme conduta emergencial',
+        frequency: 'Uso SOS',
+        instructions: medicateText,
+        type: 'casa',
+        prescribedBy: userData?.name || pregnancy.doctorName,
+        prescribedAt: serverTimestamp(),
+        startDate: serverTimestamp(),
+        active: true,
+      });
+
+      await createTimelineEvent(
+        pregnancy.id!,
+        'receita',
+        `Prescricao Emergencial (SOS)`,
+        `Emitida receita emergencial para conduta de ${shortSymptom}.`,
+        'Pill',
+        '#dc2626',
+        userData?.uid || '',
+        userData?.name || 'Sistema'
+      );
+
+      await addAuditLog({
+        pregnancyId: pregnancy.id!,
+        userId: userData?.uid || '',
+        userName: userData?.name || 'Sistema',
+        action: 'Prescricao Emergencial SOS',
+        newValue: shortSymptom
+      });
+
+      await createNotification(pregnancy.motherId, pregnancy.id!, 'medicamento-prescrito',
+        'Prescricao de Emergencia emitida',
+        `Foi emitida a conduta emergencial para ${shortSymptom}. A receita digital esta disponivel.`,
+        'Pill'
+      );
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setAdding(null);
+    }
+  };
+
+  const handleEmitEmergencyEvaluation = async (symptomName: string, evaluateText: string) => {
+    setAdding(`sos-eval-${symptomName}`);
+    try {
+      const verificationCode = `NM-${Date.now().toString(36).toUpperCase()}`;
+      const shortSymptom = symptomName.replace(/[^\w\s\/\-À-ú]/g, '').trim();
+      const content = `FICHA DE AVALIAÇÃO CLÍNICA DE EMERGÊNCIA (SOS OBSTÉTRICO)\n\nPaciente: ${pregnancy.motherName}\nQueixa Principal: ${shortSymptom}\n\nRoteiro de Avaliação Clínico-Obstétrica:\n${evaluateText.split('. ').map(line => `- [ ] ${line}`).join('\n')}\n\nFicha emitida pelo assistente inteligente de plantão para registro clínico.`;
+
+      await addDoc(collection(db, 'documents'), {
+        pregnancyId: pregnancy.id,
+        type: 'laudo',
+        title: `Avaliacao SOS: ${shortSymptom}`,
+        content,
+        version: 1,
+        issuedBy: userData?.name || pregnancy.doctorName,
+        issuedById: userData?.uid || pregnancy.doctorId || 'unknown',
+        issuedAt: serverTimestamp(),
+        verificationCode,
+        doctorCrm: userData?.crm || '',
+        doctorSpecialty: userData?.stampText || userData?.specialty || '',
+      });
+
+      await createTimelineEvent(
+        pregnancy.id!,
+        'documento',
+        `Avaliacao Emergencial SOS`,
+        `Emitida ficha de verificacao e avaliacao para conduta de ${shortSymptom}.`,
+        'FileText',
+        '#d97706',
+        userData?.uid || '',
+        userData?.name || 'Sistema'
+      );
+
+      await addAuditLog({
+        pregnancyId: pregnancy.id!,
+        userId: userData?.uid || '',
+        userName: userData?.name || 'Sistema',
+        action: 'Ficha de Avaliacao SOS',
+        newValue: shortSymptom
+      });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setAdding(null);
+    }
+  };
+
+  const handleEmitEmergencyConduct = async (symptomName: string, conductText: string) => {
+    setAdding(`sos-conduct-${symptomName}`);
+    try {
+      const verificationCode = `NM-${Date.now().toString(36).toUpperCase()}`;
+      const shortSymptom = symptomName.replace(/[^\w\s\/\-À-ú]/g, '').trim();
+      const content = `GUIA DE CONDUTA E DIRETRIZES DE ENCAMINHAMENTO (SOS OBSTÉTRICO)\n\nPaciente: ${pregnancy.motherName}\nQuadro Clínico: ${shortSymptom}\n\nDiretrizes de Conduta / Plano de Encaminhamento:\n${conductText}\n\nInstruções de conduta emitidas pelo profissional assistente para ciência.`;
+
+      await addDoc(collection(db, 'documents'), {
+        pregnancyId: pregnancy.id,
+        type: 'declaracao-gestacional',
+        title: `Guia de Encaminhamento: ${shortSymptom}`,
+        content,
+        version: 1,
+        issuedBy: userData?.name || pregnancy.doctorName,
+        issuedById: userData?.uid || pregnancy.doctorId || 'unknown',
+        issuedAt: serverTimestamp(),
+        verificationCode,
+        doctorCrm: userData?.crm || '',
+        doctorSpecialty: userData?.stampText || userData?.specialty || '',
+      });
+
+      await createTimelineEvent(
+        pregnancy.id!,
+        'documento',
+        `Guia de Conduta SOS`,
+        `Emitida guia de conduta e encaminhamento emergencial para ${shortSymptom}.`,
+        'ShieldAlert',
+        '#059669',
+        userData?.uid || '',
+        userData?.name || 'Sistema'
+      );
+
+      await addAuditLog({
+        pregnancyId: pregnancy.id!,
+        userId: userData?.uid || '',
+        userName: userData?.name || 'Sistema',
+        action: 'Guia de Conduta SOS',
+        newValue: shortSymptom
+      });
+
+      await createNotification(pregnancy.motherId, pregnancy.id!, 'documento-disponivel',
+        'Guia de Conduta SOS emitida',
+        `Foi emitida a guia de encaminhamento para ${shortSymptom}. Veja no seu perfil.`,
+        'FileText'
+      );
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setAdding(null);
+    }
+  };
+
+  const [expandedSymptom, setExpandedSymptom] = useState<number | null>(null);
+  const [vacsOpen, setVacsOpen] = useState(false);
+  const [sosOpen, setSosOpen] = useState(false);
+
+  const EMERGENCY_PROTOCOLS = [
+    {
+      symptom: '🤢 Vômitos Excessivos / Náuseas (Hiperêmese)',
+      medicate: 'Metoclopramida 10mg IV/IM ou Ondansetrona 4mg IV/VO.',
+      evaluate: 'Verificar turgor cutâneo e mucosas (sinais de desidratação). Avaliar perda ponderal de peso.',
+      conduct: 'Se desidratada ou incapaz de reter líquidos, iniciar hidratação venosa (Soro Fisiológico 0.9% + Glicofisiológico) e monitorar eletrólitos. Orientar dieta fracionada.'
+    },
+    {
+      symptom: '⚡ Dor Abdominal / Cólicas Fortes',
+      medicate: 'Escopolamina (Buscopan) 20mg IV simples ou composto, Dipirona 1g IV/VO para dor leve.',
+      evaluate: 'Pesquisar dinâmica uterina (presença de contrações rítmicas), palpar tônus uterino, escutar batimentos fetais (BCF).',
+      conduct: 'Se houver sangramento ou perda de líquido associados, encaminhar para exame especular e toque vaginal imediato para avaliar dilatação.'
+    },
+    {
+      symptom: '🩸 Sangramento Vaginal',
+      medicate: 'Evitar medicamentos sintomáticos empíricos. Progesterona 200mg vaginal se ameaça de abortamento no primeiro trimestre.',
+      evaluate: 'Avaliar volume e aspecto do sangramento. Realizar exame especular (descartar lacerações vaginais). Medir BCF se > 12 semanas.',
+      conduct: 'Repouso absoluto. Se sangramento volumoso ou acompanhado de dor forte, encaminhar imediatamente ao centro cirúrgico/obstétrico (risco de descolamento prematuro de placenta - DPP ou abortamento).'
+    },
+    {
+      symptom: '🧠 Cefaleia Intensa / Pressão Alta (Suspeita de Pré-Eclâmpsia)',
+      medicate: 'Metildopa 250mg VO (manutenção). Em crise severa (PA ≥ 160/110 mmHg), administrar Hidralazina 5mg IV.',
+      evaluate: 'Aferir Pressão Arterial. Pesquisar sinais de iminência de eclâmpsia (escotomas cintilantes, epigastralgia em barra, cefaleia refratária).',
+      conduct: 'Internar se PA ≥ 160/110 mmHg ou na presença de sinais neurológicos. Iniciar Sulfato de Magnésio (esquema Pritchard ou Zuspan) para neuroproteção e prevenção de convulsões.'
+    },
+    {
+      symptom: '🤒 Febre / Calafrios',
+      medicate: 'Paracetamol 500mg/750mg VO (evitar anti-inflamatórios como Ibuprofeno).',
+      evaluate: 'Pesquisar focos infecciosos (sinais urinários - disúria, queixas respiratórias). Checar BCF (febre materna causa taquicardia fetal).',
+      conduct: 'Solicitar Hemograma completo, Urina Tipo 1 e Urocultura. Se suspeita de pielonefrite ou corioamnionite, iniciar antibioticoterapia IV segura (ex: Cefalotina ou Ampicilina).'
+    }
+  ];
+
+  const protocol = MONTHLY_PROTOCOL[selectedMonth];
   if (!protocol) return null;
 
   const isHighRisk = pregnancy.riskLevel === 'alto' || pregnancy.riskLevel === 'muito-alto';
@@ -99,7 +364,7 @@ function SmartAssistant({
 
   // Which exams are already in the system for this month?
   const existingExamTypes = new Set(
-    exams.filter(e => e.gestationMonth === currentMonth).map(e => e.type)
+    exams.filter(e => e.gestationMonth === selectedMonth).map(e => e.type)
   );
   const missingExams = protocol.exams.filter(e => !existingExamTypes.has(e));
   const extraHighRiskExams = isHighRisk && protocol.highRiskExams
@@ -112,31 +377,53 @@ function SmartAssistant({
 
   // Pending consultations this month
   const pendingConsults = consultations.filter(
-    c => c.gestationMonth === currentMonth && c.status !== 'realizada'
+    c => c.gestationMonth === selectedMonth && c.status !== 'realizada'
   );
 
   const handleAddExam = async (examType: ExamType) => {
     setAdding(`exam-${examType}`);
     try {
+      const examName = EXAM_LABELS[examType] || examType;
+      const isLab = ['hemograma', 'glicemia', 'urina', 'toxoplasmose', 'rubéola', 'hiv', 'sifilis', 'hepatite-b', 'curva-glicemia', 'streptococcus'].includes(examType.toLowerCase());
+      const initialStatus = isLab ? 'aguardando-coleta' : 'agendado';
+
       await addDoc(collection(db, 'exams'), {
         pregnancyId: pregnancy.id,
         type: examType,
-        gestationMonth: currentMonth,
-        status: 'agendado',
-        scheduledDate: serverTimestamp(),
+        gestationMonth: selectedMonth,
+        status: initialStatus,
+        scheduledDate: null,
         requestedBy: userData?.name || pregnancy.doctorName,
         requestedAt: serverTimestamp(),
       });
+
+      // GENERATE DOCUMENT
+      const verificationCode = `NM-${Date.now().toString(36).toUpperCase()}`;
+      const docContent = `SOLICITAÇÃO DE EXAME DIAGNÓSTICO\n\nPaciente: ${pregnancy.motherName}\nTipo de Exame: ${examName}\nMês de Gestação: ${selectedMonth === 0 ? 'Pré-Gravidez' : selectedMonth === 10 ? 'Pós-Parto' : `${selectedMonth}º Mês`}\n\nSolicitamos a realização do exame especificado acima para acompanhamento pré-natal regular.\n${isLab ? 'ATENÇÃO: Este exame laboratorial requer agendamento de coleta de sangue/material biológico com a enfermagem.' : 'ATENÇÃO: Agendar a realização deste exame de imagem na recepção.'}`;
+      await addDoc(collection(db, 'documents'), {
+        pregnancyId: pregnancy.id,
+        type: 'receita',
+        title: `Solicitação de Exame: ${examName}`,
+        content: docContent,
+        version: 1,
+        issuedBy: userData?.name || pregnancy.doctorName,
+        issuedById: userData?.uid || pregnancy.doctorId || 'unknown',
+        issuedAt: serverTimestamp(),
+        verificationCode,
+        doctorCrm: userData?.crm || '',
+        doctorSpecialty: userData?.stampText || userData?.specialty || '',
+      });
+
       await addAuditLog({
         pregnancyId: pregnancy.id,
         userId: userData?.uid || '',
         userName: userData?.name || '',
         action: 'Solicitação de Exame (Assistente)',
-        newValue: EXAM_LABELS[examType] || examType,
+        newValue: examName,
       });
       await createNotification(pregnancy.motherId, pregnancy.id!, 'exame-solicitado',
         'Novo exame solicitado',
-        `Foi solicitado o exame: ${EXAM_LABELS[examType] || examType}.`,
+        `Foi solicitado o exame: ${examName}. ${isLab ? 'Agende a coleta de sangue com a enfermagem na sua caderneta.' : 'A guia correspondente foi emitida.'}`,
         '🧪'
       );
     } catch (e) { console.error(e); }
@@ -160,6 +447,24 @@ function SmartAssistant({
         startDate: serverTimestamp(),
         active: true,
       });
+
+      // GENERATE DOCUMENT
+      const verificationCode = `NM-${Date.now().toString(36).toUpperCase()}`;
+      const docContent = `RECEITUÁRIO GERAL DE GESTANTE\n\nPaciente: ${pregnancy.motherName}\n\nPrescrição:\n- ${med.name} ${med.dose}\n  Tomar: ${med.frequency}\n  Instruções: ${med.instructions}\n\nFinalidade: Suplementação / Uso Terapêutico`;
+      await addDoc(collection(db, 'documents'), {
+        pregnancyId: pregnancy.id,
+        type: 'receita',
+        title: `Prescrição de Medicamento: ${med.name}`,
+        content: docContent,
+        version: 1,
+        issuedBy: userData?.name || pregnancy.doctorName,
+        issuedById: userData?.uid || pregnancy.doctorId || 'unknown',
+        issuedAt: serverTimestamp(),
+        verificationCode,
+        doctorCrm: userData?.crm || '',
+        doctorSpecialty: userData?.stampText || userData?.specialty || '',
+      });
+
       await addAuditLog({
         pregnancyId: pregnancy.id,
         userId: userData?.uid || '',
@@ -169,7 +474,7 @@ function SmartAssistant({
       });
       await createNotification(pregnancy.motherId, pregnancy.id!, 'medicamento-prescrito',
         'Novo medicamento prescrito',
-        `Foi prescrito: ${med.name} ${med.dose} (Uso Domiciliar).`,
+        `Foi prescrito: ${med.name} ${med.dose} (Uso Domiciliar). A receita digital foi emitida.`,
         '💊'
       );
     } catch (e) { console.error(e); }
@@ -184,20 +489,52 @@ function SmartAssistant({
   return (
     <div className="smart-assistant">
       <div className="sa-header" onClick={() => setOpen(!open)}>
-        <div className="sa-header-left">
-          <div className="sa-icon-wrap">
+        <div className="sa-header-left" style={{ width: '100%' }}>
+          <div className="sa-icon-wrap" style={{ flexShrink: 0 }}>
             <Zap size={18} color="#fff" strokeWidth={2.5} />
           </div>
-          <div>
-            <h4 className="sa-title">Assistente Obstétrico — {protocol.title}</h4>
-            <p className="sa-desc">{protocol.description}</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: 12 }}>
+            <div>
+              <h4 className="sa-title" style={{ fontSize: '1rem', fontWeight: 700 }}>Assistente Obstétrico — {protocol.title}</h4>
+              <p className="sa-desc">{protocol.description}</p>
+            </div>
+            
+            {/* Override Month Dropdown */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} onClick={e => e.stopPropagation()}>
+              <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>Visualizar Mês:</span>
+              <select
+                value={selectedMonth}
+                onChange={e => {
+                  e.stopPropagation();
+                  setSelectedMonth(Number(e.target.value));
+                }}
+                onClick={e => e.stopPropagation()}
+                style={{
+                  background: 'rgba(255,255,255,0.2)',
+                  border: '1px solid rgba(255,255,255,0.4)',
+                  color: '#fff',
+                  borderRadius: '6px',
+                  padding: '4px 10px',
+                  fontSize: '0.82rem',
+                  outline: 'none',
+                  cursor: 'pointer',
+                  fontWeight: 700
+                }}
+              >
+                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(m => (
+                  <option key={m} value={m} style={{ color: '#000' }}>
+                    {m === 0 ? 'Pré-Gravidez' : m === 10 ? 'Pós-Parto' : `${m}° Mês`} {m === currentMonth ? ' (Atual)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
-        <div className="sa-header-right">
+        <div className="sa-header-right" style={{ flexShrink: 0, marginLeft: 12 }}>
           {totalPending > 0 && (
             <span className="sa-pending-badge">{totalPending} pendentes</span>
           )}
-          {open ? <ChevronUp size={18} color="#c9195a" /> : <ChevronDown size={18} color="#c9195a" />}
+          {open ? <ChevronUp size={18} color="#fff" /> : <ChevronDown size={18} color="#fff" />}
         </div>
       </div>
 
@@ -482,10 +819,193 @@ function SmartAssistant({
                 </div>
               )}
 
+              {/* VACINAS RECOMENDADAS */}
+              {showAlertsSection && protocol.vaccines && protocol.vaccines.length > 0 && (
+                <div className="sa-section" style={{ borderLeft: '4px solid #be185d' }}>
+                  <button
+                    type="button"
+                    onClick={() => setVacsOpen(!vacsOpen)}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      width: '100%',
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                  >
+                    <h5 className="sa-section-title" style={{ color: '#be185d', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <ShieldAlert size={15} /> Vacinas Recomendadas
+                    </h5>
+                    <span style={{ fontSize: '0.8rem', color: '#be185d', fontWeight: 600 }}>
+                      {vacsOpen ? 'Recolher ▲' : 'Expandir ▼'}
+                    </span>
+                  </button>
+
+                  {vacsOpen && (
+                    <div className="sa-item-list" style={{ marginTop: 12 }}>
+                      {protocol.vaccines.map(vac => {
+                        const appliedRecord = vaccines.find(v => v.name === vac && v.status === 'aplicada');
+                        const isApplied = !!appliedRecord;
+
+                        return (
+                          <div key={vac} className="sa-item" style={{ background: isApplied ? 'rgba(240, 253, 244, 0.5)' : '#fff' }}>
+                            <div style={{ flex: 1 }}>
+                              <span className="sa-item-name" style={{ fontSize: '0.9rem', fontWeight: 700 }}>
+                                {VACCINE_LABELS[vac] || vac}
+                              </span>
+                              <span className="sa-item-sub">
+                                {isApplied ? (
+                                  <span style={{ color: '#16a34a', fontWeight: 600 }}>
+                                    ✓ Aplicada por {appliedRecord.appliedBy} em {safeFormat(appliedRecord.appliedAt, "dd/MM/yyyy 'às' HH:mm")}
+                                  </span>
+                                ) : (
+                                  <span style={{ color: '#dc2626', fontWeight: 500 }}>
+                                    Pendente de aplicação
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                            {!isApplied && (
+                              <button
+                                className="sa-add-btn"
+                                style={{ background: 'linear-gradient(135deg, #be185d, #be185d)', border: 'none', color: '#fff' }}
+                                disabled={adding === `vaccine-${vac}`}
+                                onClick={() => handleApplyVaccine(vac)}
+                              >
+                                {adding === `vaccine-${vac}` ? '...' : <><Plus size={12} strokeWidth={3} /> Aplicar</>}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* SOS OBSTÉTRICO / CONDUTAS DE EMERGÊNCIA */}
+              <div className="sa-section" style={{ borderLeft: '4px solid #dc2626', background: 'rgba(254, 242, 242, 0.4)', borderRadius: 8, padding: 12 }}>
+                <button
+                  type="button"
+                  onClick={() => setSosOpen(!sosOpen)}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    width: '100%',
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    textAlign: 'left'
+                  }}
+                >
+                  <h5 className="sa-section-title" style={{ color: '#dc2626', display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
+                    <AlertTriangle size={16} /> 🚨 SOS Obstétrico — Condutas Emergenciais
+                  </h5>
+                  <span style={{ fontSize: '0.8rem', color: '#dc2626', fontWeight: 600 }}>
+                    {sosOpen ? 'Recolher ▲' : 'Expandir ▼'}
+                  </span>
+                </button>
+
+                {sosOpen && (
+                  <div style={{ marginTop: 12 }}>
+                    <p style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: 12 }}>
+                      Selecione o sintoma relatado pela paciente para obter as diretrizes clínicas de conduta imediata:
+                    </p>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {EMERGENCY_PROTOCOLS.map((ep, idx) => {
+                        const isExpanded = expandedSymptom === idx;
+                        return (
+                          <div key={idx} style={{ background: '#fff', border: '1px solid #fee2e2', borderRadius: 8, overflow: 'hidden' }}>
+                            <button
+                              type="button"
+                              onClick={() => setExpandedSymptom(isExpanded ? null : idx)}
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                width: '100%',
+                                padding: '10px 14px',
+                                background: isExpanded ? 'rgba(254, 242, 242, 0.8)' : '#fff',
+                                border: 'none',
+                                fontWeight: 700,
+                                fontSize: '0.85rem',
+                                color: '#991b1b',
+                                textAlign: 'left',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <span>{ep.symptom}</span>
+                              <span>{isExpanded ? '▲' : '▼'}</span>
+                            </button>
+                            {isExpanded && (
+                              <div style={{ padding: 14, fontSize: '0.82rem', borderTop: '1px solid #fee2e2', display: 'flex', flexDirection: 'column', gap: 10, color: '#334155' }}>
+                                <div>
+                                  <strong style={{ color: '#be185d', display: 'block', marginBottom: 4 }}>💊 Medicar:</strong>
+                                  <span style={{ display: 'block', background: '#fdf2f8', padding: 8, borderRadius: 6, border: '1px solid #fce7f3' }}>
+                                    {ep.medicate}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className="sa-add-btn"
+                                    style={{ background: '#dc2626', color: '#fff', border: 'none', padding: '6px 12px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: 4, width: 'fit-content', marginTop: 8 }}
+                                    disabled={adding === `sos-med-${ep.symptom}`}
+                                    onClick={() => handleEmitEmergencyPrescription(ep.symptom, ep.medicate)}
+                                  >
+                                    {adding === `sos-med-${ep.symptom}` ? 'Prescrevendo...' : <><Plus size={12} strokeWidth={3} /> Emitir Receita SOS</>}
+                                  </button>
+                                </div>
+                                <div>
+                                  <strong style={{ color: '#d97706', display: 'block', marginBottom: 4 }}>🔍 Avaliar:</strong>
+                                  <span style={{ display: 'block', background: '#fffbeb', padding: 8, borderRadius: 6, border: '1px solid #fef3c7' }}>
+                                    {ep.evaluate}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className="sa-add-btn"
+                                    style={{ background: '#d97706', color: '#fff', border: 'none', padding: '6px 12px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: 4, width: 'fit-content', marginTop: 8 }}
+                                    disabled={adding === `sos-eval-${ep.symptom}`}
+                                    onClick={() => handleEmitEmergencyEvaluation(ep.symptom, ep.evaluate)}
+                                  >
+                                    {adding === `sos-eval-${ep.symptom}` ? 'Registrando...' : <><FileText size={12} /> Registrar Ficha de Avaliação</>}
+                                  </button>
+                                </div>
+                                <div>
+                                  <strong style={{ color: '#059669', display: 'block', marginBottom: 4 }}>🏥 Conduta & Encaminhamento:</strong>
+                                  <span style={{ display: 'block', background: '#ecfdf5', padding: 8, borderRadius: 6, border: '1px solid #d1fae5' }}>
+                                    {ep.conduct}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className="sa-add-btn"
+                                    style={{ background: '#059669', color: '#fff', border: 'none', padding: '6px 12px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: 4, width: 'fit-content', marginTop: 8 }}
+                                    disabled={adding === `sos-conduct-${ep.symptom}`}
+                                    onClick={() => handleEmitEmergencyConduct(ep.symptom, ep.conduct)}
+                                  >
+                                    {adding === `sos-conduct-${ep.symptom}` ? 'Emitindo...' : <><ShieldAlert size={12} /> Emitir Guia de Encaminhamento</>}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* TUDO OK */}
               {((showExamsSection && missingExams.length === 0) || !showExamsSection) &&
                ((showMedsSection && missingMeds.length === 0) || !showMedsSection) &&
-               ((showAlertsSection && pendingConsults.length === 0) || !showAlertsSection) && (
+               ((showAlertsSection && pendingConsults.length === 0) || !showAlertsSection) &&
+               ((showAlertsSection && (!protocol.vaccines || protocol.vaccines.every(v => vaccines.some(x => x.name === v && x.status === 'aplicada')))) || !showAlertsSection) && (
                 <div className="sa-all-good">
                   <CheckCircle2 size={24} color="#15803d" strokeWidth={1.5} />
                   <p>Protocolo do {currentMonth}º mês completo para esta seção!</p>
@@ -504,6 +1024,7 @@ function TabResumo({ pregnancy }: { pregnancy: Pregnancy }) {
   const { userData } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [doctors, setDoctors] = useState<any[]>([]);
   const [form, setForm] = useState({
     motherName: pregnancy.motherName || '',
     motherAvatarName: pregnancy.motherAvatarName || '',
@@ -515,6 +1036,7 @@ function TabResumo({ pregnancy }: { pregnancy: Pregnancy }) {
     riskLevel: pregnancy.riskLevel || 'baixo',
     hospitalName: pregnancy.hospitalName || '',
     doctorName: pregnancy.doctorName || '',
+    doctorId: pregnancy.doctorId || '',
     observations: pregnancy.observations || '',
     babyName: pregnancy.baby?.name || '',
     babySex: pregnancy.baby?.sex || 'não-revelado',
@@ -523,6 +1045,23 @@ function TabResumo({ pregnancy }: { pregnancy: Pregnancy }) {
     startDateStr: pregnancy.startDate ? format(toDate(pregnancy.startDate), 'yyyy-MM-dd') : '',
     expectedBirthDateStr: pregnancy.expectedBirthDate ? format(toDate(pregnancy.expectedBirthDate), 'yyyy-MM-dd') : '',
   });
+
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'users'));
+        const allUsers = snap.docs.map((d: any) => ({ uid: d.id, ...d.data() } as any));
+        const filtered = allUsers.filter((u: any) => {
+          const roles = Array.isArray(u.role) ? u.role : [u.role || ''];
+          return roles.some((r: any) => ['doctor', 'admin'].includes(r));
+        });
+        setDoctors(filtered);
+      } catch (err) {
+        console.error('Erro ao carregar médicos:', err);
+      }
+    };
+    fetchDoctors();
+  }, []);
 
   useEffect(() => {
     setForm({
@@ -536,6 +1075,7 @@ function TabResumo({ pregnancy }: { pregnancy: Pregnancy }) {
       riskLevel: pregnancy.riskLevel || 'baixo',
       hospitalName: pregnancy.hospitalName || '',
       doctorName: pregnancy.doctorName || '',
+      doctorId: pregnancy.doctorId || '',
       observations: pregnancy.observations || '',
       babyName: pregnancy.baby?.name || '',
       babySex: pregnancy.baby?.sex || 'não-revelado',
@@ -545,6 +1085,26 @@ function TabResumo({ pregnancy }: { pregnancy: Pregnancy }) {
       expectedBirthDateStr: pregnancy.expectedBirthDate ? format(toDate(pregnancy.expectedBirthDate), 'yyyy-MM-dd') : '',
     });
   }, [pregnancy]);
+
+  useEffect(() => {
+    if (!form.startDateStr || !form.gestationPlanType) return;
+    const selectedPlan = PRESET_PLANS.find(p => p.type === form.gestationPlanType);
+    if (selectedPlan) {
+      try {
+        const sDate = new Date(form.startDateStr + 'T00:00:00');
+        const eDate = new Date(sDate.getTime() + selectedPlan.totalDays * 24 * 60 * 60 * 1000);
+        const eDateStr = format(eDate, 'yyyy-MM-dd');
+        setForm(prev => {
+          if (prev.expectedBirthDateStr !== eDateStr) {
+            return { ...prev, expectedBirthDateStr: eDateStr };
+          }
+          return prev;
+        });
+      } catch (err) {
+        console.error('Erro ao calcular data prevista:', err);
+      }
+    }
+  }, [form.startDateStr, form.gestationPlanType]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -561,6 +1121,7 @@ function TabResumo({ pregnancy }: { pregnancy: Pregnancy }) {
         riskLevel: form.riskLevel,
         hospitalName: form.hospitalName,
         doctorName: form.doctorName,
+        doctorId: form.doctorId,
         observations: form.observations,
         baby: {
           ...pregnancy.baby,
@@ -755,7 +1316,24 @@ function TabResumo({ pregnancy }: { pregnancy: Pregnancy }) {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Médico Responsável</label>
-                  <input className="form-input" value={form.doctorName} onChange={e => setForm(p => ({ ...p, doctorName: e.target.value }))} />
+                  <select 
+                    className="form-select" 
+                    value={form.doctorId} 
+                    onChange={e => {
+                      const docId = e.target.value;
+                      const docObj = doctors.find(d => d.uid === docId);
+                      setForm(p => ({ 
+                        ...p, 
+                        doctorId: docId, 
+                        doctorName: docObj?.name || 'Médico Responsável' 
+                      }));
+                    }}
+                  >
+                    <option value="">Selecione um médico...</option>
+                    {doctors.map(d => (
+                      <option key={d.uid} value={d.uid}>{d.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -1227,6 +1805,46 @@ function TabConsultas({ pregnancy, consultations }: { pregnancy: Pregnancy; cons
   );
 }
 
+function ExamCountdownRenderer({ exam, pregnancy, db }: { exam: Exam; pregnancy: Pregnancy; db: any }) {
+  const [timeLeft, setTimeLeft] = useState('');
+
+  useEffect(() => {
+    if (exam.status !== 'em-analise') return;
+
+    const interval = setInterval(() => {
+      const collectedDate = toDate(exam.collectedAt);
+      const releaseHours = exam.releaseHours || 24;
+      const targetTime = collectedDate.getTime() + releaseHours * 60 * 60 * 1000;
+      const now = Date.now();
+      const diff = targetTime - now;
+
+      if (diff <= 0) {
+        clearInterval(interval);
+        setTimeLeft('Processando...');
+        const autoResolve = async () => {
+          const resultData = getAutoLabResult(exam.type, pregnancy.riskLevel || 'baixo');
+          await updateDoc(doc(db, 'exams', exam.id), {
+            status: 'realizado',
+            result: resultData.result,
+            conduct: resultData.conduct,
+            actualDate: serverTimestamp()
+          });
+        };
+        autoResolve();
+      } else {
+        const hours = Math.floor(diff / (3600 * 1000));
+        const mins = Math.floor((diff % (3600 * 1000)) / (60 * 1000));
+        const secs = Math.floor((diff % (60 * 1000)) / 1000);
+        setTimeLeft(`${hours.toString().padStart(2, '0')}h:${mins.toString().padStart(2, '0')}m:${secs.toString().padStart(2, '0')}s`);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [exam.status, exam.collectedAt, exam.releaseHours, exam.id, exam.type, pregnancy.riskLevel, db]);
+
+  return <span style={{ color: '#be185d', fontWeight: 600, fontSize: '0.8rem' }}>⏳ {timeLeft || 'Calculando...'}</span>;
+}
+
 // =================== ABA 3: EXAMES ===================
 function TabExames({ pregnancy, exams }: { pregnancy: Pregnancy; exams: Exam[] }) {
   const { userData } = useAuth();
@@ -1401,10 +2019,34 @@ function TabExames({ pregnancy, exams }: { pregnancy: Pregnancy; exams: Exam[] }
                 <div key={ex.id} className="exam-tr">
                   <span style={{ fontWeight: 700 }}>{EXAM_LABELS[ex.type] || ex.type}</span>
                   <span>Mês {ex.gestationMonth}</span>
-                  <span>{safeFormat(ex.scheduledDate, 'dd/MM/yy')}</span>
+                  <span>
+                    {ex.status === 'em-analise' ? (
+                      <ExamCountdownRenderer exam={ex} pregnancy={pregnancy} db={db} />
+                    ) : ex.scheduledDate ? (
+                      safeFormat(ex.scheduledDate, 'dd/MM/yy')
+                    ) : (
+                      '—'
+                    )}
+                  </span>
                   <StatusBadge status={ex.status} />
                   <div className="exam-tr-actions">
-                    {ex.status !== 'realizado' && (
+                    {ex.status === 'coleta-agendada' && (
+                      <button
+                        className="btn btn-sm"
+                        style={{ background: 'rgba(219,39,119,0.1)', color: '#db2777', border: '1px solid rgba(219,39,119,0.3)', marginRight: 4, display: 'inline-flex', alignItems: 'center', gap: 2 }}
+                        onClick={async () => {
+                          await updateDoc(doc(db, 'exams', ex.id), {
+                            status: 'em-analise',
+                            collectedAt: serverTimestamp(),
+                            releaseHours: getReleaseHours(ex.type)
+                          });
+                        }}
+                        title="Realizar Coleta"
+                      >
+                        💉 Coletar
+                      </button>
+                    )}
+                    {ex.status !== 'realizado' && ex.status !== 'em-analise' && (
                       <button className="btn btn-sm" style={{ background: 'rgba(52,211,153,0.1)', color: '#059669', border: '1px solid rgba(52,211,153,0.3)' }}
                         onClick={() => handleUpdateStatus(ex, 'realizado')}>✓</button>
                     )}
@@ -1794,6 +2436,8 @@ function TabDocumentos({ pregnancy, documents }: { pregnancy: Pregnancy; documen
         version: 1,
         issuedBy: userData?.name || pregnancy.doctorName,
         issuedById: userData?.uid || pregnancy.doctorId,
+        doctorCrm: userData?.crm || '',
+        doctorSpecialty: userData?.specialty || 'Médico Obstetra',
         issuedAt: serverTimestamp(),
         verificationCode,
       });
@@ -1905,6 +2549,8 @@ function TabDocumentos({ pregnancy, documents }: { pregnancy: Pregnancy; documen
                           content: d.content,
                           patientName: pregnancy.motherName,
                           doctorName: d.issuedBy,
+                          doctorCrm: d.doctorCrm || '',
+                          doctorSpecialty: d.doctorSpecialty || 'Médico Obstetra',
                           hospitalName: pregnancy.hospitalName,
                           date: toDate(d.issuedAt),
                           verificationCode: d.verificationCode,
@@ -1918,7 +2564,6 @@ function TabDocumentos({ pregnancy, documents }: { pregnancy: Pregnancy; documen
                               ? safeFormat(pregnancy.dum, 'dd/MM/yyyy')
                               : undefined,
                             baby:              pregnancy.baby,
-                            doctorSpecialty:   'Obstetra',
                           },
                         })}
                       >

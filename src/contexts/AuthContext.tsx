@@ -22,6 +22,7 @@ interface AuthContextType {
   loginWithGoogle: (defaultRole?: UserRole) => Promise<void>;
   register: (email: string, password: string, name: string, role: UserRole, avatarName?: string) => Promise<void>;
   logout: () => Promise<void>;
+  updateProfileName: (newName: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -221,8 +222,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setCurrentUser(null);
   };
 
+  const updateProfileName = async (newName: string) => {
+    if (!currentUser) throw new Error('Usuário não autenticado.');
+    const docRef = doc(db, 'users', currentUser.uid);
+    await updateDoc(docRef, { name: newName });
+    setUserData(prev => prev ? { ...prev, name: newName } : null);
+  };
+
   return (
-    <AuthContext.Provider value={{ currentUser, userData, loading, login, loginAsDoctor, loginWithGoogle, register, logout }}>
+    <AuthContext.Provider value={{ currentUser, userData, loading, login, loginAsDoctor, loginWithGoogle, register, logout, updateProfileName }}>
       {children}
     </AuthContext.Provider>
   );

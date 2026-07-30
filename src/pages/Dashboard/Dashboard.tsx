@@ -3,6 +3,8 @@ import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePregnancy, toDate } from '../../hooks/usePregnancy';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 import type { Consultation, Exam } from '../../types';
 import DocViewerModal from '../../components/Documents/DocViewerModal';
 import type { PDFData } from '../../components/Documents/DocViewerModal';
@@ -74,8 +76,8 @@ function NoPregnancy() {
 function HeroSection({ pregnancy }: { pregnancy: any }) {
   const startDate    = toDate(pregnancy.startDate);
   const expectedDate = toDate(pregnancy.expectedBirthDate);
-  const progress     = gestationProgress(startDate, pregnancy.gestationPlan);
-  const month        = currentGestationMonth(startDate, pregnancy.gestationPlan);
+  const progress     = pregnancy.currentStatus === 'parto' ? 100 : gestationProgress(startDate, pregnancy.gestationPlan);
+  const month        = pregnancy.currentStatus === 'parto' ? 10 : currentGestationMonth(startDate, pregnancy.gestationPlan);
   const daysLeft     = daysUntilBirth(expectedDate);
   const weeks        = getGestationalWeeks(startDate, pregnancy.gestationPlan);
   const trimester    = getTrimester(weeks);
@@ -129,14 +131,21 @@ function HeroSection({ pregnancy }: { pregnancy: any }) {
                   />
                 </div>
                 <div className="dpp-months">
-                  {[1,2,3,4,5,6,7,8,9].map(m => (
-                    <div
-                      key={m}
-                      className={`dpp-month-dot${m < month ? ' done' : ''}${m === month ? ' current' : ''}`}
-                    >
-                      {m}
-                    </div>
-                  ))}
+                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(m => {
+                    const isPast = m < month;
+                    const isCurrent = m === month;
+                    const label = m === 0 ? 'Pré' : m === 10 ? 'Pós' : m;
+                    return (
+                      <div
+                        key={m}
+                        className={`dpp-month-dot${isPast ? ' done' : ''}${isCurrent ? ' current' : ''}`}
+                        style={{ fontSize: (m === 0 || m === 10) ? '0.68rem' : undefined }}
+                        title={m === 0 ? 'Pré-Gravidez' : m === 10 ? 'Pós-Parto' : `${m}º Mês`}
+                      >
+                        {label}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -314,6 +323,26 @@ function GestationVideo({ month }: { month: number }) {
 
 // ==================== SIDEBAR PANEL (Baby + Doctor merged) ====================
 function SidebarPanel({ pregnancy }: { pregnancy: any }) {
+  const [doctorInfo, setDoctorInfo] = useState<any | null>(null);
+
+  useEffect(() => {
+    if (!pregnancy.doctorId) return;
+    const fetchDoc = async () => {
+      try {
+        const docSnap = await getDoc(doc(db, 'users', pregnancy.doctorId));
+        if (docSnap.exists()) {
+          setDoctorInfo(docSnap.data());
+        }
+      } catch (err) {
+        console.error('Erro ao buscar obstetra:', err);
+      }
+    };
+    fetchDoc();
+  }, [pregnancy.doctorId]);
+
+  const doctorName = doctorInfo?.name || pregnancy.doctorName || 'Dr. Médico Chefe';
+  const doctorSpecialty = doctorInfo?.specialty || 'Médico Obstetra';
+
   return (
     <div className="sidebar-panels-container">
 
@@ -349,7 +378,7 @@ function SidebarPanel({ pregnancy }: { pregnancy: any }) {
                    </div>
                    <div className="card-v2-field">
                      <label>SANGUE</label>
-                     <span>Não Inf.</span>
+                     <span>{pregnancy.bloodType || 'Não Inf.'}</span>
                    </div>
                    <div className="card-v2-field">
                      <label>DPP</label>
@@ -357,7 +386,7 @@ function SidebarPanel({ pregnancy }: { pregnancy: any }) {
                    </div>
                    <div className="card-v2-field">
                      <label>OBSTETRA</label>
-                     <span>iKalleb</span>
+                     <span style={{ fontSize: '0.75rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{doctorName}</span>
                    </div>
                  </div>
               </div>
@@ -384,10 +413,10 @@ function SidebarPanel({ pregnancy }: { pregnancy: any }) {
             </svg>
           </div>
           <div className="sd-info-signature">
-             <div className="sd-signature">{pregnancy.doctorName}</div>
+             <div className="sd-signature">{doctorName}</div>
              <div className="sd-signature-line"></div>
-             <div className="sd-name">Dr(a). {pregnancy.doctorName}</div>
-             <div className="sd-role">Médico Obstetra</div>
+             <div className="sd-name">{doctorName}</div>
+             <div className="sd-role">{doctorSpecialty}</div>
           </div>
         </div>
       </div>

@@ -11,8 +11,6 @@ import {
   Image as ImageIcon,
   Pill,
   Stethoscope,
-  CalendarDays,
-  IdCard,
   Baby,
   Search,
   X,
@@ -23,50 +21,97 @@ import {
   FileBox,
   FileBadge2,
   CalendarClock,
-  UserRound
+  UserRound,
+  History,
+  HeartPulse,
+  Ambulance,
+  BookOpen,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePregnancy, toDate } from '../../hooks/usePregnancy';
 import DocViewerModal from '../../components/Documents/DocViewerModal';
 import type { PDFData } from '../../components/Documents/DocViewerModal';
-import type { MedDocument, Medication, Exam, Ultrasound } from '../../types';
+import type { MedDocument, Medication, Exam, Ultrasound, TimelineEvent } from '../../types';
 import './DocumentsPage.css';
+
+// ===== HELPERS =====
+function safeFormat(val: any, fmt: string): string {
+  try { return format(toDate(val), fmt, { locale: ptBR }); } catch { return '—'; }
+}
 
 // ===== TYPE MAPS =====
 function docStatusLabel(type: string): string {
-  const map: Record<string, string> = {
-    atestado:                  'Emitido',
-    'declaracao-comparecimento':'Emitido',
-    'declaracao-gestacional':  'Emitido',
-    'solicitacao-exame':       'Emitido',
-    receita:                   'Emitido',
-    prescricao:                'Emitido',
-    laudo:                     'Emitido',
-    encaminhamento:            'Emitido',
-    'alta-hospitalar':         'Emitido',
-    'registro-parto':          'Assinado',
-  };
-  return map[type] || 'Emitido';
+  if (type === 'registro-parto') return 'Assinado';
+  return 'Emitido';
 }
 
 // ===== CATEGORY DEFINITION =====
 interface DocCategory {
   id: string;
+  emoji: string;
   icon: React.FC<any>;
   name: string;
   desc: string;
+  color: string;
 }
 
 const CATEGORIES: DocCategory[] = [
-  { id: 'certificados',  icon: FileBadge2,    name: 'Certificados',          desc: 'Certidões, Altas e Registros Oficiais' },
-  { id: 'declaracoes',   icon: ClipboardList, name: 'Declarações',           desc: 'Declarações médicas e comparecimentos' },
-  { id: 'lab',           icon: TestTube,      name: 'Exames Laboratoriais',  desc: 'Hemograma, Sorologia, Urina e demais exames' },
-  { id: 'imagem',        icon: ImageIcon,     name: 'Exames de Imagem',      desc: 'Ultrassom, Radiografia e Ressonância' },
-  { id: 'prescricoes',   icon: Pill,          name: 'Prescrições Médicas',   desc: 'Receitas, Medicamentos e Solicitações' },
-  { id: 'relatorios',    icon: Stethoscope,   name: 'Relatórios Médicos',    desc: 'Evolução clínica e Laudos' },
-  { id: 'solicitacoes',  icon: CalendarDays,  name: 'Solicitações',          desc: 'Encaminhamento e Internação' },
-  { id: 'paciente',      icon: IdCard,        name: 'Documentos da Paciente',desc: 'Carteirinha, QR Code e Identificação' },
-  { id: 'bebe',          icon: Baby,          name: 'Documentos do Bebê',    desc: 'Certidão, Registro Neonatal e Vacinação' },
+  {
+    id: 'prescricoes',
+    emoji: '💊',
+    icon: Pill,
+    name: 'Receitas e Prescrições',
+    desc: 'Receita Médica, Prescrição, Receituário Geral, Receita SOS',
+    color: '#be185d',
+  },
+  {
+    id: 'exames',
+    emoji: '🧪',
+    icon: TestTube,
+    name: 'Exames',
+    desc: 'Solicitações de Exames, Resultados Laboratoriais, Ultrassonografias',
+    color: '#0891b2',
+  },
+  {
+    id: 'acompanhamento',
+    emoji: '🤰',
+    icon: HeartPulse,
+    name: 'Acompanhamento Obstétrico',
+    desc: 'Declaração Gestacional, Registro Obstétrico, Guia de Amamentação, Guia de Sinais de Alerta, Confirmação de Parto',
+    color: '#7c3aed',
+  },
+  {
+    id: 'internacao',
+    emoji: '🏥',
+    icon: Ambulance,
+    name: 'Internação e Parto',
+    desc: 'Guia de Internação, Registro de Parto, Alta Hospitalar',
+    color: '#0f766e',
+  },
+  {
+    id: 'declaracoes',
+    emoji: '📋',
+    icon: ClipboardList,
+    name: 'Declarações',
+    desc: 'Atestado Médico, Declaração de Comparecimento, Outras Declarações',
+    color: '#b45309',
+  },
+  {
+    id: 'laudos',
+    emoji: '👨‍⚕️',
+    icon: Stethoscope,
+    name: 'Laudos e Relatórios',
+    desc: 'Laudo Médico, Encaminhamento, Ficha Clínica SOS, Relatórios Médicos',
+    color: '#475569',
+  },
+  {
+    id: 'historico',
+    emoji: '📚',
+    icon: History,
+    name: 'Histórico Clínico',
+    desc: 'Timeline cronológica com todos os eventos e documentos emitidos',
+    color: '#64748b',
+  },
 ];
 
 // ===== UNIFIED DOCUMENT ITEM =====
@@ -80,69 +125,161 @@ interface UnifiedDoc {
   status: string;
   statusClass: string;
   category: string;
-  raw?: MedDocument; // for viewer
-  examRaw?: Exam | Ultrasound; // for exams
+  raw?: MedDocument;
+  examRaw?: Exam | Ultrasound;
 }
 
-// ===== HELPER: derive category id from DocumentType =====
-function getCatForDocType(type: string): string {
+// ===== HELPER: derive category id from DocumentType and title =====
+function getCatForDoc(type: string, title: string): string {
+  const t = type.toLowerCase();
+  const ti = (title || '').toLowerCase();
+
+  // Internação e Parto
+  if (t === 'alta-hospitalar' || t === 'registro-parto') return 'internacao';
+  if (ti.includes('internação') || ti.includes('internacao')) return 'internacao';
+
+  // Acompanhamento Obstétrico
+  if (t === 'declaracao-gestacional') return 'acompanhamento';
+  if (
+    ti.includes('amamentação') || ti.includes('amamentacao') ||
+    ti.includes('sinais de alerta') ||
+    ti.includes('confirmação de parto') || ti.includes('confirmacao de parto') ||
+    ti.includes('registro obstétrico') || ti.includes('pré-natal') ||
+    ti.includes('sos') && (ti.includes('conduta') || ti.includes('encaminhamento'))
+  ) return 'acompanhamento';
+
+  // Declarações
+  if (t === 'atestado' || t === 'declaracao-comparecimento') return 'declaracoes';
+
+  // Laudos e Relatórios
+  if (t === 'laudo') return 'laudos';
+  if (t === 'encaminhamento') return 'laudos';
+  if (ti.includes('avaliação sos') || ti.includes('avaliacao sos') || ti.includes('ficha de avaliação')) return 'laudos';
+
+  // Prescrições
+  if (t === 'receita' || t === 'prescricao') return 'prescricoes';
+
+  // Fallback
+  return 'laudos';
+}
+
+function getIconForDocType(type: string, title: string): React.FC<any> {
+  const t = type.toLowerCase();
+  const ti = (title || '').toLowerCase();
+  if (t === 'receita' || t === 'prescricao') return Pill;
+  if (t === 'laudo') return Stethoscope;
+  if (t === 'encaminhamento') return ClipboardList;
+  if (t === 'alta-hospitalar') return FileBadge2;
+  if (t === 'registro-parto') return Baby;
+  if (t === 'atestado') return FileText;
+  if (ti.includes('sos')) return HeartPulse;
+  return FileText;
+}
+
+// ===== EXAM HELPERS =====
+function examStatusLabel(status: string): string {
   const map: Record<string, string> = {
-    'alta-hospitalar':          'certificados',
-    'registro-parto':           'certificados',
-    'atestado':                 'declaracoes',
-    'declaracao-comparecimento':'declaracoes',
-    'declaracao-gestacional':   'declaracoes',
-    'receita':                  'prescricoes',
-    'prescricao':               'prescricoes',
-    'laudo':                    'relatorios',
-    'encaminhamento':           'solicitacoes',
-    'internacao':               'solicitacoes',
-    'solicitacao-internacao':   'solicitacoes',
+    'realizado':          'Realizado',
+    'cancelado':          'Cancelado',
+    'pendente-resultado': 'Em análise',
+    'em-analise':         'Em análise',
+    'agendado':           'Agendado',
+    'coleta-agendada':    'Coleta Agendada',
+    'aguardando-coleta':  'Aguardando Coleta',
   };
-  return map[type] || 'relatorios';
+  return map[status] || 'Pendente';
 }
 
-function getIconForDocType(type: string): React.FC<any> {
-  const map: Record<string, React.FC<any>> = {
-    'receita': Pill,
-    'laudo': Stethoscope,
-    'encaminhamento': ClipboardList,
-    'alta-hospitalar': FileBadge2,
-    'registro-parto': Baby,
+function examStatusClass(status: string): string {
+  const map: Record<string, string> = {
+    'realizado':          'doc-status-emitido',
+    'cancelado':          'doc-status-cancelado',
+    'pendente-resultado': 'doc-status-analise',
+    'em-analise':         'doc-status-analise',
+    'coleta-agendada':    'doc-status-pendente',
+    'aguardando-coleta':  'doc-status-pendente',
   };
-  return map[type] || FileText;
+  return map[status] || 'doc-status-pendente';
 }
 
-// ===== EXAM ICONS =====
-function examIcon(type: string): React.FC<any> {
-  if (type?.includes('ultrassom')) return ImageIcon;
-  return TestTube;
-}
+// ===== TIMELINE ITEM =====
+function TimelineItem({ ev, isLast }: { ev: TimelineEvent; isLast: boolean }) {
+  const iconMap: Record<string, string> = {
+    consulta: '🩺',
+    documento: '📄',
+    exame: '🧪',
+    medicamento: '💊',
+    vacina: '💉',
+    ultrassom: '🖥️',
+    parto: '🍼',
+    alerta: '⚠️',
+    nota: '📝',
+  };
+  const colorMap: Record<string, string> = {
+    consulta:    '#7c3aed',
+    documento:   '#d4af37',
+    exame:       '#0891b2',
+    medicamento: '#be185d',
+    vacina:      '#0f766e',
+    ultrassom:   '#475569',
+    parto:       '#b45309',
+    alerta:      '#dc2626',
+    nota:        '#64748b',
+  };
+  const icon = ev.icon || iconMap[ev.type] || '🌸';
+  const color = ev.color || colorMap[ev.type] || '#be185d';
 
-function examCatId(category?: string, type?: string): string {
-  if (category === 'imagem') return 'imagem';
-  if (type === 'ultrassom' || type?.includes('ultrassom')) return 'imagem';
-  return 'lab';
+  return (
+    <div style={{ display: 'flex', gap: 14, position: 'relative' }}>
+      {/* Line + dot column */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, width: 32 }}>
+        <div style={{
+          width: 32, height: 32, borderRadius: '50%',
+          background: `${color}18`, border: `2px solid ${color}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 14, zIndex: 1, flexShrink: 0,
+        }}>
+          {icon}
+        </div>
+        {!isLast && (
+          <div style={{ width: 2, flex: 1, minHeight: 20, background: '#e2e8f0', marginTop: 4 }} />
+        )}
+      </div>
+      {/* Content */}
+      <div style={{ paddingBottom: isLast ? 0 : 20, flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#1e293b', marginBottom: 2 }}>
+          {ev.title}
+        </div>
+        {ev.description && (
+          <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: 4, lineHeight: 1.4 }}>
+            {ev.description}
+          </div>
+        )}
+        <div style={{ fontSize: '0.74rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <CalendarClock size={11} />
+          {safeFormat(ev.date, "dd 'de' MMMM 'de' yyyy 'às' HH:mm")}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function DocumentsPage() {
   const { currentUser } = useAuth();
-  const { pregnancy, documents, medications, exams, ultrasounds, loading } = usePregnancy(
+  const { pregnancy, documents, medications, exams, ultrasounds, timelineEvents, loading } = usePregnancy(
     currentUser?.email || null,
     currentUser?.uid || null
   );
 
-  const [search, setSearch]       = useState('');
-  const [openCats, setOpenCats]   = useState<Record<string, boolean>>({
-    certificados: false,
-    declaracoes:  false,
-    lab:          false,
-    imagem:       false,
-    prescricoes:  false,
-    relatorios:   false,
-    solicitacoes: false,
-    paciente:     false,
-    bebe:         false,
+  const [search, setSearch] = useState('');
+  const [openCats, setOpenCats] = useState<Record<string, boolean>>({
+    prescricoes:   false,
+    exames:        false,
+    acompanhamento:false,
+    internacao:    false,
+    declaracoes:   false,
+    laudos:        false,
+    historico:     false,
   });
   const [pdfData, setPdfData] = useState<PDFData | null>(null);
 
@@ -154,46 +291,40 @@ export default function DocumentsPage() {
     if (!pregnancy) return [];
     const result: UnifiedDoc[] = [];
 
-    // 1. MedDocuments
+    // 1. MedDocuments — include all, categorise properly
     documents.forEach((d: MedDocument) => {
-      if (d.type === 'solicitacao-exame') return;
       result.push({
         id:          d.id,
-        icon:        getIconForDocType(d.type),
+        icon:        getIconForDocType(d.type, d.title),
         title:       d.title,
         number:      d.verificationCode,
         date:        toDate(d.issuedAt),
         doctor:      d.issuedBy,
         status:      docStatusLabel(d.type),
         statusClass: 'doc-status-emitido',
-        category:    getCatForDocType(d.type),
+        category:    getCatForDoc(d.type, d.title),
         raw:         d,
       });
     });
 
-    // 2. Exams
+    // 2. Lab Exams → exames
     exams.forEach((e: Exam) => {
-      const catId = examCatId(e.category, e.type);
-      const statusClassMap: Record<string, string> = {
-        'agendado':          'doc-status-pendente',
-        'realizado':         'doc-status-emitido',
-        'cancelado':         'doc-status-cancelado',
-        'pendente-resultado':'doc-status-analise',
-      };
+      const isUltrassom = e.type === 'ultrassom' || e.type?.includes('ultrassom') || (e as any).category === 'imagem';
+      if (isUltrassom) return; // handled below
       result.push({
         id:          e.id,
-        icon:        examIcon(e.type),
+        icon:        TestTube,
         title:       e.type.charAt(0).toUpperCase() + e.type.slice(1).replace(/-/g, ' '),
         date:        toDate(e.scheduledDate || e.requestedAt || new Date()),
         doctor:      e.requestedBy || pregnancy.doctorName,
-        status:      e.status === 'realizado' ? 'Realizado' : e.status === 'cancelado' ? 'Cancelado' : e.status === 'pendente-resultado' ? 'Em análise' : 'Agendado',
-        statusClass: statusClassMap[e.status] || 'doc-status-pendente',
-        category:    catId,
+        status:      examStatusLabel(e.status),
+        statusClass: examStatusClass(e.status),
+        category:    'exames',
         examRaw:     e,
       });
     });
 
-    // 3. Ultrasounds → imagem
+    // 3. Ultrasounds → exames
     ultrasounds.forEach((u: Ultrasound) => {
       result.push({
         id:          u.id,
@@ -203,7 +334,7 @@ export default function DocumentsPage() {
         doctor:      u.performedBy || pregnancy.doctorName,
         status:      'Realizado',
         statusClass: 'doc-status-emitido',
-        category:    'imagem',
+        category:    'exames',
         examRaw:     u as any,
       });
     });
@@ -222,24 +353,37 @@ export default function DocumentsPage() {
       });
     });
 
-    // Sort
+    // Sort newest-first
     result.sort((a, b) => b.date.getTime() - a.date.getTime());
-
     return result;
   }, [documents, exams, ultrasounds, medications, pregnancy]);
 
   // ===== FILTER LOGIC =====
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-
     return allDocs.filter(d => {
       if (!q) return true;
-      return d.title.toLowerCase().includes(q) ||
+      return (
+        d.title.toLowerCase().includes(q) ||
         (d.doctor || '').toLowerCase().includes(q) ||
         (d.number || '').toLowerCase().includes(q) ||
-        format(d.date, 'dd/MM/yyyy').includes(q);
+        format(d.date, 'dd/MM/yyyy').includes(q)
+      );
     });
   }, [allDocs, search]);
+
+  const sortedTimeline = useMemo(() => {
+    return [...timelineEvents].sort((a, b) => toDate(b.date).getTime() - toDate(a.date).getTime());
+  }, [timelineEvents]);
+
+  const filteredTimeline = useMemo(() => {
+    const q = search.toLowerCase();
+    if (!q) return sortedTimeline;
+    return sortedTimeline.filter(e =>
+      (e.title || '').toLowerCase().includes(q) ||
+      (e.description || '').toLowerCase().includes(q)
+    );
+  }, [sortedTimeline, search]);
 
   const docsForCat = (catId: string) => filtered.filter(d => d.category === catId);
 
@@ -251,14 +395,12 @@ export default function DocumentsPage() {
       content:          doc.raw.content,
       patientName:      pregnancy.motherName,
       doctorName:       doc.raw.issuedBy,
+      doctorCrm:        doc.raw.doctorCrm || '',
+      doctorSpecialty:  doc.raw.doctorSpecialty || 'Médico Obstetra',
       hospitalName:     pregnancy.hospitalName,
       date:             toDate(doc.raw.issuedAt),
       verificationCode: doc.raw.verificationCode,
     });
-  };
-
-  const handlePrint = (doc: UnifiedDoc) => {
-    handleView(doc);
   };
 
   const handleShare = (doc: UnifiedDoc) => {
@@ -266,18 +408,6 @@ export default function DocumentsPage() {
       navigator.share({ title: doc.title, text: `Documento: ${doc.title} — Nova Mater` }).catch(() => {});
     } else {
       navigator.clipboard.writeText(doc.title).then(() => alert('Nome copiado para a área de transferência!'));
-    }
-  };
-
-  const handleExamAction = (doc: UnifiedDoc, action: 'pedido' | 'resultado') => {
-    if (action === 'pedido') {
-      alert(`Visualizando pedido médico de: ${doc.title}`);
-    } else {
-      if (doc.status !== 'Realizado') {
-        alert('O resultado deste exame ainda não está disponível.');
-        return;
-      }
-      alert(`Visualizando laudo/resultado de: ${doc.title}`);
     }
   };
 
@@ -341,7 +471,7 @@ export default function DocumentsPage() {
 
       {/* ===== CONTENT ===== */}
       <div className="docs-content">
-        {filtered.length === 0 && search ? (
+        {filtered.length === 0 && filteredTimeline.length === 0 && search ? (
           <div className="docs-global-empty">
             <div className="docs-global-empty-icon"><Search size={48} strokeWidth={1.5} /></div>
             <h3>Nenhum resultado</h3>
@@ -349,9 +479,12 @@ export default function DocumentsPage() {
           </div>
         ) : (
           CATEGORIES.map(cat => {
-            const catDocs = docsForCat(cat.id);
+            const isHistorico = cat.id === 'historico';
+            const catDocs = isHistorico ? [] : docsForCat(cat.id);
+            const itemCount = isHistorico ? filteredTimeline.length : catDocs.length;
+
             // When filtering, hide empty categories
-            if (search && catDocs.length === 0) return null;
+            if (search && itemCount === 0) return null;
 
             return (
               <motion.div
@@ -367,10 +500,14 @@ export default function DocumentsPage() {
                   onClick={() => toggleCat(cat.id)}
                   role="button"
                   aria-expanded={openCats[cat.id]}
+                  style={{ borderLeft: `3px solid ${cat.color}` }}
                 >
                   <div className="docs-category-header-left">
-                    <div className="docs-category-icon-wrap">
-                      <cat.icon size={24} strokeWidth={1.5} />
+                    <div
+                      className="docs-category-icon-wrap"
+                      style={{ background: `${cat.color}18`, color: cat.color }}
+                    >
+                      <span style={{ fontSize: 20 }}>{cat.emoji}</span>
                     </div>
                     <div className="docs-category-info">
                       <p className="docs-category-name">{cat.name}</p>
@@ -378,8 +515,11 @@ export default function DocumentsPage() {
                     </div>
                   </div>
                   <div className="docs-category-header-right">
-                    <span className={`docs-category-count${catDocs.length === 0 ? ' empty' : ''}`}>
-                      {catDocs.length}
+                    <span
+                      className={`docs-category-count${itemCount === 0 ? ' empty' : ''}`}
+                      style={itemCount > 0 ? { background: cat.color, color: '#fff' } : undefined}
+                    >
+                      {itemCount}
                     </span>
                     <span className={`docs-category-chevron${openCats[cat.id] ? ' open' : ''}`}>
                       <ChevronDown size={20} strokeWidth={2} />
@@ -399,110 +539,118 @@ export default function DocumentsPage() {
                       style={{ overflow: 'hidden' }}
                     >
                       <div className="docs-category-body">
-                        {catDocs.length === 0 ? (
-                          <div className="docs-cat-empty">
-                            <div className="docs-cat-empty-icon"><FileBox size={40} strokeWidth={1.5} /></div>
-                            <p>Nenhum documento disponível ainda.</p>
-                          </div>
+                        {/* ===== HISTORICO: Timeline Renderer ===== */}
+                        {isHistorico ? (
+                          filteredTimeline.length === 0 ? (
+                            <div className="docs-cat-empty">
+                              <div className="docs-cat-empty-icon"><BookOpen size={40} strokeWidth={1.5} /></div>
+                              <p>Nenhum evento clínico registrado ainda.</p>
+                            </div>
+                          ) : (
+                            <div style={{ padding: '16px 20px' }}>
+                              {filteredTimeline.map((ev, i) => (
+                                <motion.div
+                                  key={ev.id || i}
+                                  initial={{ opacity: 0, x: -8 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{ delay: Math.min(i * 0.03, 0.4) }}
+                                >
+                                  <TimelineItem ev={ev} isLast={i === filteredTimeline.length - 1} />
+                                </motion.div>
+                              ))}
+                            </div>
+                          )
                         ) : (
-                          catDocs.map((doc, idx) => (
-                            <motion.div
-                              key={doc.id}
-                              className="doc-card"
-                              initial={{ opacity: 0, x: -8 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: Math.min(idx * 0.04, 0.4) }}
-                            >
-                              {(doc.category === 'imagem' && (doc.examRaw as any)) && (
-                                <img 
-                                  src={(doc.examRaw as any).imageUrl || '/ultrasound-cover.png'} 
-                                  alt={doc.title} 
-                                  className="doc-card-image" 
-                                />
-                              )}
-                              <div className="doc-card-header">
-                                <div className="doc-card-title-area">
-                                  <div className="doc-card-title">{doc.title}</div>
-                                  <span className={`doc-status ${doc.statusClass}`}>{doc.status}</span>
-                                </div>
-                              </div>
-                              
-                              <div className="doc-card-meta">
-                                {doc.number && (
-                                  <div className="doc-card-meta-item">
-                                    <span className="doc-card-meta-icon">#</span> {doc.number}
-                                  </div>
+                          /* ===== REGULAR DOCS ===== */
+                          catDocs.length === 0 ? (
+                            <div className="docs-cat-empty">
+                              <div className="docs-cat-empty-icon"><FileBox size={40} strokeWidth={1.5} /></div>
+                              <p>Nenhum documento disponível ainda.</p>
+                            </div>
+                          ) : (
+                            catDocs.map((doc, idx) => (
+                              <motion.div
+                                key={doc.id}
+                                className="doc-card"
+                                initial={{ opacity: 0, x: -8 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: Math.min(idx * 0.04, 0.4) }}
+                              >
+                                {/* Ultrasound thumbnail */}
+                                {(doc.category === 'exames' && (doc.examRaw as any)?.imageUrl) && (
+                                  <img
+                                    src={(doc.examRaw as any).imageUrl}
+                                    alt={doc.title}
+                                    className="doc-card-image"
+                                  />
                                 )}
-                                <div className="doc-card-meta-item">
-                                  <CalendarClock size={13} className="doc-card-meta-icon" /> 
-                                  {format(doc.date, "dd/MM/yyyy", { locale: ptBR })}
-                                </div>
-                                <div className="doc-card-meta-item">
-                                  <UserRound size={13} className="doc-card-meta-icon" /> 
-                                  Dr(a). {doc.doctor}
-                                </div>
-                              </div>
 
-                              {/* Standard Doc Actions */}
-                              {doc.raw && (
-                                <div className="doc-card-actions">
-                                  <button
-                                    className="doc-action-btn doc-action-btn-primary"
-                                    onClick={(e) => { e.stopPropagation(); handleView(doc); }}
-                                    title="Visualizar documento"
-                                  >
-                                    <Eye size={14} />
-                                  </button>
-                                  <button
-                                    className="doc-action-btn"
-                                    onClick={(e) => { e.stopPropagation(); handlePrint(doc); }}
-                                    title="Imprimir / PDF"
-                                  >
-                                    <Printer size={14} />
-                                  </button>
-                                  <button
-                                    className="doc-action-btn"
-                                    onClick={(e) => { e.stopPropagation(); handleShare(doc); }}
-                                    title="Compartilhar"
-                                  >
-                                    <Share2 size={14} />
-                                  </button>
-                                </div>
-                              )}
-                              
-                              {/* Exam Dual Actions */}
-                              {doc.examRaw && (
-                                <div className="doc-exam-actions">
-                                  <div className="doc-exam-actions-row">
-                                    <span className="doc-exam-actions-label">Pedido</span>
-                                    <button 
-                                      className="doc-action-btn"
-                                      onClick={(e) => { e.stopPropagation(); handleExamAction(doc, 'pedido'); }}
-                                      title="Ver Solicitação"
-                                      style={{ padding: '4px 8px', flex: 'none' }}
-                                    >
-                                      <FileText size={14} />
-                                    </button>
+                                <div className="doc-card-header">
+                                  <div className="doc-card-title-area">
+                                    <div className="doc-card-title">{doc.title}</div>
+                                    <span className={`doc-status ${doc.statusClass}`}>{doc.status}</span>
                                   </div>
-                                  <div className="doc-exam-actions-row">
-                                    <span className="doc-exam-actions-label">Resultado</span>
-                                    <button 
-                                      className={`doc-action-btn ${doc.status === 'Realizado' ? 'doc-action-btn-primary' : ''}`}
-                                      disabled={doc.status !== 'Realizado'}
-                                      onClick={(e) => { 
-                                        e.stopPropagation(); 
-                                        if (doc.status === 'Realizado') handleExamAction(doc, 'resultado');
-                                      }}
-                                      title={doc.status === 'Realizado' ? 'Ver Resultado' : 'Pendente'}
-                                      style={{ padding: '4px 8px', flex: 'none' }}
+                                </div>
+
+                                <div className="doc-card-meta">
+                                  {doc.number && (
+                                    <div className="doc-card-meta-item">
+                                      <span className="doc-card-meta-icon">#</span> {doc.number}
+                                    </div>
+                                  )}
+                                  <div className="doc-card-meta-item">
+                                    <CalendarClock size={13} className="doc-card-meta-icon" />
+                                    {safeFormat(doc.date, 'dd/MM/yyyy')}
+                                  </div>
+                                  <div className="doc-card-meta-item">
+                                    <UserRound size={13} className="doc-card-meta-icon" />
+                                    Dr(a). {doc.doctor}
+                                  </div>
+                                </div>
+
+                                {/* Standard Doc Actions */}
+                                {doc.raw && (
+                                  <div className="doc-card-actions">
+                                    <button
+                                      className="doc-action-btn doc-action-btn-primary"
+                                      onClick={(e) => { e.stopPropagation(); handleView(doc); }}
+                                      title="Visualizar documento"
                                     >
                                       <Eye size={14} />
                                     </button>
+                                    <button
+                                      className="doc-action-btn"
+                                      onClick={(e) => { e.stopPropagation(); handleView(doc); }}
+                                      title="Imprimir / PDF"
+                                    >
+                                      <Printer size={14} />
+                                    </button>
+                                    <button
+                                      className="doc-action-btn"
+                                      onClick={(e) => { e.stopPropagation(); handleShare(doc); }}
+                                      title="Compartilhar"
+                                    >
+                                      <Share2 size={14} />
+                                    </button>
                                   </div>
-                                </div>
-                              )}
-                            </motion.div>
-                          ))
+                                )}
+
+                                {/* Exam status info */}
+                                {doc.examRaw && !doc.raw && (
+                                  <div style={{ marginTop: 8, fontSize: '0.78rem', color: '#64748b' }}>
+                                    {(doc.examRaw as any).result && (
+                                      <div style={{ background: '#f8fafc', padding: '8px 10px', borderRadius: 6, border: '1px solid #e2e8f0', marginTop: 4 }}>
+                                        <strong>Laudo:</strong> {(doc.examRaw as any).result}
+                                        {(doc.examRaw as any).conduct && (
+                                          <div><strong>Conduta:</strong> {(doc.examRaw as any).conduct}</div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </motion.div>
+                            ))
+                          )
                         )}
                       </div>
                     </motion.div>

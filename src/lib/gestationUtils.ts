@@ -151,21 +151,21 @@ export const EXAM_LABELS: Record<ExamType, string> = {
 export const PRESET_PLANS: GestationPlan[] = [
   {
     type: 'expresso',
-    totalDays: 9,
-    label: 'Plano Expresso',
-    description: '1 dia = 1 mês gestacional (duração: 9 dias)'
+    totalDays: 31,
+    label: 'Protocolo de 31 dias',
+    description: 'Protocolo rápido (31 dias)'
   },
   {
     type: 'padrao',
-    totalDays: 27,
-    label: 'Plano Padrão',
-    description: '3 dias = 1 mês gestacional (duração: 27 dias)'
+    totalDays: 61,
+    label: 'Protocolo de 61 dias',
+    description: 'Protocolo médio (61 dias)'
   },
   {
     type: 'realista',
-    totalDays: 63,
-    label: 'Plano Realista',
-    description: '1 semana = 1 mês gestacional (duração: 63 dias)'
+    totalDays: 91,
+    label: 'Protocolo de 91 dias',
+    description: 'Protocolo longo (91 dias)'
   },
 ];
 
@@ -214,7 +214,16 @@ export interface MonthlyProtocolEntry {
   medications: MonthlyMedication[];
   alerts: string[];
   highRiskExams?: ExamType[];
+  vaccines?: string[];
 }
+
+export const VACCINE_LABELS: Record<string, string> = {
+  'hepatite-b': 'Hepatite B (Gestante)',
+  'influenza': 'Influenza (Gripe)',
+  'dtpa': 'dTpa (Tríplice Bacteriana Acelular)',
+  'bcg': 'BCG (Recém-nascido)',
+  'hepatite-b-rn': 'Hepatite B (Recém-nascido)'
+};
 
 /**
  * Protocolo clínico recomendado por mês gestacional.
@@ -223,6 +232,29 @@ export interface MonthlyProtocolEntry {
  * voltadas para a dinâmica de simulação/RPG.
  */
 export const MONTHLY_PROTOCOL: Record<number, MonthlyProtocolEntry> = {
+  0: {
+    title: 'Pré-Gravidez — Planejamento e Exames',
+    description: 'Fase de planejamento familiar ou suspeita de gravidez ainda não confirmada oficialmente. É essencial examinar e realizar exames laboratoriais básicos.',
+    exams: ['hemograma', 'urina', 'glicemia'],
+    medications: [
+      {
+        name: 'Ácido Fólico',
+        dose: '5mg',
+        frequency: '1x ao dia',
+        instructions: 'Tomar diariamente sob orientação antes da confirmação ou no início das tentativas.',
+        purpose: 'Suplementação preventiva contra malformações do tubo neural do embrião.',
+        whyNeeded: 'Os níveis adequados de ácido fólico reduzem drasticamente defeitos congênitos precoces.',
+        expectedBenefit: 'Prevenção de anencefalia e espinha bífida logo no início da gestação.'
+      }
+    ],
+    alerts: [
+      'Solicitar Beta HCG quantitativo para confirmação em caso de atraso menstrual',
+      'Realizar avaliação física inicial e aferição de pressão arterial',
+      'Suspender medicamentos contraindicados na gravidez'
+    ],
+    highRiskExams: [],
+    vaccines: []
+  },
   1: {
     title: '1º Mês — Confirmação e Cadastro',
     description: 'Consulta inicial de pré-natal. Confirmar gestação, solicitar exames de 1º trimestre, iniciar suplementação.',
@@ -253,6 +285,7 @@ export const MONTHLY_PROTOCOL: Record<number, MonthlyProtocolEntry> = {
       'Verificar cartão de vacinas — atualizar se necessário',
     ],
     highRiskExams: ['urina'],
+    vaccines: ['hepatite-b', 'influenza']
   },
   2: {
     title: '2º Mês — Pré-Natal Inicial',
@@ -283,6 +316,7 @@ export const MONTHLY_PROTOCOL: Record<number, MonthlyProtocolEntry> = {
       'Discutir achados do ultrassom com a paciente',
       'Orientar sobre sintomas normais do 1º trimestre (náuseas, fadiga)',
     ],
+    vaccines: []
   },
   3: {
     title: '3º Mês — 1º Trimestre',
@@ -314,6 +348,7 @@ export const MONTHLY_PROTOCOL: Record<number, MonthlyProtocolEntry> = {
       'Orientar sobre exercícios físicos leves permitidos',
     ],
     highRiskExams: ['hemograma'],
+    vaccines: []
   },
   4: {
     title: '4º Mês — Revisão de Exames',
@@ -344,6 +379,7 @@ export const MONTHLY_PROTOCOL: Record<number, MonthlyProtocolEntry> = {
       'Orientar sobre movimentos fetais',
       'Avaliar ganho de peso gestacional',
     ],
+    vaccines: []
   },
   5: {
     title: '5º Mês — Morfológico e Revelação',
@@ -366,6 +402,7 @@ export const MONTHLY_PROTOCOL: Record<number, MonthlyProtocolEntry> = {
       'Orientar sobre posição de dormir (decúbito lateral esquerdo)',
     ],
     highRiskExams: ['ecografia-morfológica'],
+    vaccines: ['dtpa']
   },
   6: {
     title: '6º Mês — 2º Trimestre',
@@ -396,6 +433,7 @@ export const MONTHLY_PROTOCOL: Record<number, MonthlyProtocolEntry> = {
       'Verificar pressão arterial com atenção',
       'Orientar sobre sinais de pré-eclâmpsia',
     ],
+    vaccines: []
   },
   7: {
     title: '7º Mês — Preparação para o Parto',
@@ -418,10 +456,11 @@ export const MONTHLY_PROTOCOL: Record<number, MonthlyProtocolEntry> = {
       'Orientar sobre sinais de trabalho de parto prematuro',
     ],
     highRiskExams: ['curva-glicemia', 'urina'],
+    vaccines: []
   },
   8: {
     title: '8º Mês — Revisão Final',
-    description: 'Ultrassom de crescimento fetal e rastreio de Streptococcus.',
+    description: 'Ultrassom de crescimento fetal and rastreio de Streptococcus.',
     exams: ['ultrassom', 'streptococcus'],
     medications: [
       {
@@ -441,6 +480,7 @@ export const MONTHLY_PROTOCOL: Record<number, MonthlyProtocolEntry> = {
       'Verificar data prevista do parto e planejar internação',
     ],
     highRiskExams: ['streptococcus'],
+    vaccines: []
   },
   9: {
     title: '9º Mês — Agendamento do Parto',
@@ -465,6 +505,31 @@ export const MONTHLY_PROTOCOL: Record<number, MonthlyProtocolEntry> = {
       'Agendar consulta de retorno pós-parto, teste do pezinho e avaliação do bebê',
     ],
     highRiskExams: ['hemograma', 'urina'],
+    vaccines: []
+  },
+  10: {
+    title: 'Pós-Parto — Acompanhamento e Cuidados',
+    description: 'Cuidados maternos e neonatais após o nascimento do bebê. Monitoramento da recuperação da mãe e adaptação da família.',
+    exams: [],
+    medications: [
+      {
+        name: 'Polivitamínico Pós-Parto',
+        dose: '1 cápsula',
+        frequency: '1x ao dia',
+        instructions: 'Tomar com água junto à principal refeição, ideal durante todo o aleitamento.',
+        purpose: 'Suporte nutricional materno e enriquecimento do leite materno.',
+        whyNeeded: 'A lactação exige um alto gasto energético e nutricional da mãe.',
+        expectedBenefit: 'Prevenção de carências vitamínicas maternas e garantia de leite nutritivo para o bebê.'
+      }
+    ],
+    alerts: [
+      'Puérpera: agendar consulta de retorno entre 30 a 45 dias após o parto',
+      'Avaliar integridade física, cicatrização (cesárea/parto normal) e lóquios',
+      'Garantir orientações completas sobre aleitamento materno e livre demanda',
+      'Recém-Nascido: verificar aplicação da BCG e Hepatite B na maternidade'
+    ],
+    highRiskExams: [],
+    vaccines: ['bcg', 'hepatite-b-rn']
   },
 };
 
@@ -483,5 +548,109 @@ export const COMMON_MEDICATIONS: MonthlyMedication[] = [
   { name: 'Progesterona Micronizada', dose: '200mg', frequency: '1x ao dia (vaginal)', instructions: 'Conforme prescrição médica.' },
   { name: 'Heparina de Baixo Peso Molecular', dose: 'Conforme peso', frequency: '1x ao dia (subcutânea)', instructions: 'Apenas para alto risco trombótico. Aplicação supervisionada.' },
 ];
+
+export function getReleaseHours(type: string): number {
+  const t = type.toLowerCase();
+  if (['hemograma', 'glicemia', 'hiv', 'sifilis', 'hepatite-b'].includes(t)) {
+    return 24; // 24h countdown
+  }
+  if (['urina', 'curva-glicemia', 'streptococcus', 'toxoplasmose', 'rubéola'].includes(t)) {
+    return 48; // 48h countdown
+  }
+  return 0; // immediate/ultrasounds
+}
+
+export interface AutoLabResult {
+  result: string;
+  conduct: string;
+}
+
+export function getAutoLabResult(type: string, riskLevel: string): AutoLabResult {
+  const isHigh = riskLevel === 'alto' || riskLevel === 'muito-alto';
+  const t = type.toLowerCase();
+  
+  if (t === 'hemograma') {
+    if (isHigh || Math.random() < 0.3) {
+      return {
+        result: 'Hemoglobina: 9.6 g/dL (Baixa) | Hematocrito: 29% (Baixo) | Leucocitos: 8.500/mm3 | Plaquetas: 210.000/mm3. Hemacias microciticas e hipocromicas.',
+        conduct: 'Diagnostico de Anemia Ferropriva Gestacional. Recomenda-se aumentar a dose de Sulfato Ferroso para 80mg-120mg de ferro elementar por dia, ingerir alimentos ricos em vitamina C e repetir exames em 30 dias.'
+      };
+    }
+    return {
+      result: 'Hemoglobina: 12.3 g/dL | Hematocrito: 37% | Leucocitos: 7.200/mm3 | Plaquetas: 245.000/mm3. Parametros dentro da normalidade.',
+      conduct: 'Parametros normais. Manter suplementacao de Sulfato Ferroso profilatico (40mg/dia).'
+    };
+  }
+  
+  if (t === 'urina') {
+    if (isHigh || Math.random() < 0.3) {
+      return {
+        result: 'Leucocitos: 180.000/mL (Elevado) | Nitrito: Positivo | Proteinas: Tracos | Hemacias: 10.000/mL. Sugestivo de Infeccao do Trato Urinario.',
+        conduct: 'Diagnostico de Infeccao Urinaria na Gestacao (ITU). Prescrever Cefalexina 500mg VO de 6h/6h por 7 dias. Aconselhar aumento significativo de ingestao hidrica e urocultura de controle em 14 dias.'
+      };
+    }
+    return {
+      result: 'Leucocitos: 5.000/mL | Nitrito: Negativo | Proteinas: Ausente | Hemacias: Ausente. Urina sem alteracoes.',
+      conduct: 'Exame de urina normal. Orientar hidratacao regular (minimo 2 litros de agua/dia).'
+    };
+  }
+  
+  if (t === 'glicemia') {
+    if (isHigh || Math.random() < 0.3) {
+      return {
+        result: 'Glicemia de Jejum: 97 mg/dL (Alterada).',
+        conduct: 'Compativel com diagnostico de Diabetes Mellitus Gestacional (DMG). Indicar acompanhamento nutricional rigoroso, controle de carboidratos de alto indice glicemico e orientar automonitoramento capilar.'
+      };
+    }
+    return {
+      result: 'Glicemia de Jejum: 81 mg/dL. Normal.',
+      conduct: 'Glicemia normal. Continuar acompanhamento nutricional regular.'
+    };
+  }
+  
+  if (t === 'curva-glicemia') {
+    if (isHigh || Math.random() < 0.3) {
+      return {
+        result: 'Glicemia de Jejum: 94 mg/dL | 1 Hora apos sobrecarga: 188 mg/dL | 2 Horas apos sobrecarga: 159 mg/dL (Alterada).',
+        conduct: 'Diagnostico confirmado de Diabetes Gestacional. Iniciar controle dietetico imediato, praticar atividades fisicas supervisionadas e aferir glicemias capilares diarias.'
+      };
+    }
+    return {
+      result: 'Glicemia de Jejum: 80 mg/dL | 1 Hora apos sobrecarga: 125 mg/dL | 2 Horas apos sobrecarga: 112 mg/dL. Normal.',
+      conduct: 'Curva glicemica normal. Sem indicacoes de diabetes gestacional.'
+    };
+  }
+  
+  if (t === 'streptococcus') {
+    if (Math.random() < 0.2) {
+      return {
+        result: 'Pesquisa de Streptococcus agalactiae (GBS) por Swab Retovaginal: POSITIVO.',
+        conduct: 'Cultura positiva para GBS. Recomenda-se realizar profilaxia antibiotica intraparto com Penicilina G Cristalina (5 milhoes UI IV ataque + 2.5 milhoes UI de 4h/4h) no inicio do trabalho de parto ou ruptura de membranas.'
+      };
+    }
+    return {
+      result: 'Pesquisa de Streptococcus agalactiae (GBS) por Swab Retovaginal: NEGATIVO.',
+      conduct: 'Cultura negativa. Sem necessidade de antibioticoprofilaxia intraparto para GBS.'
+    };
+  }
+  
+  if (['toxoplasmose', 'rubéola', 'hiv', 'sifilis', 'hepatite-b'].includes(t)) {
+    if (t === 'sifilis' && Math.random() < 0.15) {
+      return {
+        result: 'VDRL: Reativo (Titulos 1/8).',
+        conduct: 'Diagnostico de Sifilis Gestacional. Iniciar tratamento imediato da paciente e seu parceiro com Penicilina G Benzatina 2.4 milhoes UI IM (dose unica semanal por 3 semanas). Repetir VDRL mensalmente.'
+      };
+    }
+    return {
+      result: `Sorologia ${type.toUpperCase()} - IgG: Reativo (Imunidade) | IgM: Nao Reativo.`,
+      conduct: 'Resultado satisfatorio. Indica imunidade previa ou ausencia de infeccao aguda.'
+    };
+  }
+
+  return {
+    result: 'Exame processado pelo laboratorio automatico. Parametros clinicos normais.',
+    conduct: 'Sem orientacoes especiais. Continuar acompanhamento pre-natal de rotina.'
+  };
+}
 
 

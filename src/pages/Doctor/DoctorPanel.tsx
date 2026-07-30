@@ -9,7 +9,7 @@ import { createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import { useAuth } from '../../contexts/AuthContext';
 import { db, firebaseConfig } from '../../lib/firebase';
-import { addAuditLog } from '../../lib/audit';
+import { addAuditLog, createNotification } from '../../lib/audit';
 
 function createSecondaryAuth() {
   const secondaryAppName = 'SecondaryApp';
@@ -21,14 +21,29 @@ function createSecondaryAuth() {
   }
   return getAuth(secondaryApp);
 }
-import type { Pregnancy, GestationPlan, GestationPlanType, User } from '../../types';
+import type { Pregnancy, GestationPlan, GestationPlanType, User, Exam } from '../../types';
 import {
   calculateExpectedBirthDate,
   PRESET_PLANS,
+  MONTHLY_PROTOCOL,
+  EXAM_LABELS,
+  VACCINE_LABELS,
+  getReleaseHours,
 } from '../../lib/gestationUtils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import './DoctorPanel.css';
+
+function toDate(val: any): Date {
+  if (!val) return new Date();
+  if (val instanceof Date) return val;
+  if (typeof val?.toDate === 'function') return val.toDate();
+  return new Date(val);
+}
+
+function safeFormat(val: any, fmt: string): string {
+  try { return format(toDate(val), fmt, { locale: ptBR }); } catch { return '—'; }
+}
 
 function NewPregnancyForm({ onSuccess }: { onSuccess: () => void }) {
   const { userData } = useAuth();
@@ -45,15 +60,45 @@ function NewPregnancyForm({ onSuccess }: { onSuccess: () => void }) {
   const [babyName, setBabyName] = useState('');
   const [babySex, setBabySex] = useState<string>('não-revelado');
 
+  // Doctor list and choice
+  const [doctors, setDoctors] = useState<User[]>([]);
+  const [selectedDoctorId, setSelectedDoctorId] = useState('');
+  const [selectedDoctorName, setSelectedDoctorName] = useState('');
+
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'users'));
+        const allUsers = snap.docs.map(d => ({ uid: d.id, ...d.data() } as User));
+        const filtered = allUsers.filter(u => {
+          const roles = Array.isArray(u.role) ? u.role : [u.role || ''];
+          return roles.some(r => ['doctor', 'admin'].includes(r));
+        });
+        setDoctors(filtered);
+      } catch (err) {
+        console.error('Erro ao buscar médicos:', err);
+      }
+    };
+    fetchDoctors();
+  }, []);
+
+  useEffect(() => {
+    if (userData && doctors.length > 0) {
+      const userRoles = Array.isArray(userData.role) ? userData.role : [userData.role];
+      const isDoc = userRoles.some(r => ['doctor', 'admin'].includes(r));
+      if (isDoc) {
+        setSelectedDoctorId(userData.uid);
+        setSelectedDoctorName(userData.name || '');
+      }
+    }
+  }, [userData, doctors]);
+
   // Step 2 — Plan
-  const [planType, setPlanType] = useState<GestationPlanType>('personalizado');
-  const [customDays, setCustomDays] = useState(27);
+  const [planType, setPlanType] = useState<GestationPlanType>('padrao');
   const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState('');
 
-  const selectedPlan: GestationPlan = planType === 'personalizado'
-    ? { type: 'personalizado', totalDays: customDays, label: 'Plano Personalizado', description: `Duração: ${customDays} dias` }
-    : PRESET_PLANS.find(p => p.type === planType)!;
+  const selectedPlan: GestationPlan = PRESET_PLANS.find(p => p.type === planType) || PRESET_PLANS[1];
 
   const expectedBirth = calculateExpectedBirthDate(new Date(startDate), selectedPlan);
 
@@ -92,8 +137,8 @@ function NewPregnancyForm({ onSuccess }: { onSuccess: () => void }) {
         expectedBirthDate: expected,
         currentStatus: 'ativa',
         hospitalName: 'Maternidade NovaMater IMVU',
-        doctorName: userData?.name || 'Médico Responsável',
-        doctorId: userData?.uid || 'doctor_admin',
+        doctorName: selectedDoctorName || userData?.name || 'Médico Responsável',
+        doctorId: selectedDoctorId || userData?.uid || 'doctor_admin',
         baby: { name: babyName, sex: babySex },
         notes,
         createdAt: serverTimestamp(),
@@ -189,8 +234,29 @@ function NewPregnancyForm({ onSuccess }: { onSuccess: () => void }) {
             </div>
           </div>
 
+          <h3 className="npf-section-title" style={{ marginTop: 20 }}>🩺 Médico Obstetra Responsável</h3>
+          <div className="form-group-modern" style={{ marginBottom: 20 }}>
+            <label className="form-label-modern">Selecione o Médico da Gestante *</label>
+            <select
+              className="form-select-modern"
+              value={selectedDoctorId}
+              onChange={e => {
+                const docId = e.target.value;
+                setSelectedDoctorId(docId);
+                const docObj = doctors.find(d => d.uid === docId);
+                setSelectedDoctorName(docObj?.name || 'Médico Responsável');
+              }}
+              required
+            >
+              <option value="">Selecione um médico...</option>
+              {doctors.map(d => (
+                <option key={d.uid} value={d.uid}>{d.name}</option>
+              ))}
+            </select>
+          </div>
+
           <div className="npf-actions">
-            <button className="btn-modern btn-modern-primary" onClick={() => setStep(2)} disabled={!motherName || !motherEmail}>
+            <button className="btn-modern btn-modern-primary" onClick={() => setStep(2)} disabled={!motherName || !motherEmail || !selectedDoctorId}>
               Próximo: Protocolo da Gravidez →
             </button>
           </div>
@@ -205,7 +271,7 @@ function NewPregnancyForm({ onSuccess }: { onSuccess: () => void }) {
           </p>
 
           <div className="plan-selector">
-            {[...PRESET_PLANS, { type: 'personalizado' as GestationPlanType, totalDays: customDays, label: 'Personalizado', description: 'Defina os dias exatos' }]
+            {PRESET_PLANS
               .map(plan => (
                 <button
                   key={plan.type}
@@ -218,27 +284,6 @@ function NewPregnancyForm({ onSuccess }: { onSuccess: () => void }) {
                 </button>
               ))}
           </div>
-
-          {planType === 'personalizado' && (
-            <motion.div className="custom-days-area" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <label className="form-label">Duração total da gestação no jogo (em dias reais)</label>
-              <div className="days-input-row">
-                <input
-                  type="number"
-                  className="form-input"
-                  min={3}
-                  max={270}
-                  value={customDays}
-                  onChange={e => setCustomDays(Number(e.target.value))}
-                  style={{ maxWidth: 120 }}
-                />
-                <div className="days-calc glass-box">
-                  <span>1 Mês de Gestação =</span>
-                  <strong className="gradient-txt">{(customDays / 9).toFixed(1)} dias reais</strong>
-                </div>
-              </div>
-            </motion.div>
-          )}
 
           <div className="form-group" style={{ marginTop: 20 }}>
             <label className="form-label">Data de início da gestação *</label>
@@ -441,6 +486,29 @@ function UsersTab() {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Professional Details Editor State
+  const [editingUser, setEditingUser] = useState<any | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editCrm, setEditCrm] = useState('');
+  const [editSpecialty, setEditSpecialty] = useState('');
+
+  const handleSaveDetails = async () => {
+    if (!editingUser) return;
+    try {
+      await updateDoc(doc(db, 'users', editingUser.uid), {
+        name: editName,
+        crm: editCrm,
+        specialty: editSpecialty
+      });
+      alert('Informações do profissional atualizadas com sucesso!');
+      setEditingUser(null);
+      loadUsers();
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao atualizar informações.');
+    }
+  };
+
   const loadUsers = async () => {
     try {
       const snap = await getDocs(collection(db, 'users'));
@@ -582,7 +650,9 @@ function UsersTab() {
               <th>Nome (Jogo/Google)</th>
               <th>E-mail</th>
               <th>Papel Atual</th>
-              <th>Ações / Alterar Papel</th>
+              <th>Carimbo / CRM</th>
+              <th>Alterar Papel</th>
+              <th>Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -601,6 +671,13 @@ function UsersTab() {
                         </span>
                       );
                     })}
+                  </div>
+                </td>
+                <td>
+                  <div style={{ fontSize: '0.8rem', color: '#475569' }}>
+                    {u.specialty ? <div>🏷️ {u.specialty}</div> : null}
+                    {u.crm ? <div>🆔 CRM: {u.crm}</div> : null}
+                    {!u.specialty && !u.crm ? <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Não definido</span> : null}
                   </div>
                 </td>
                 <td>
@@ -629,10 +706,78 @@ function UsersTab() {
                     })}
                   </div>
                 </td>
+                <td>
+                  <button 
+                    className="btn-modern btn-modern-secondary btn-sm" 
+                    onClick={() => {
+                      setEditingUser(u);
+                      setEditName(u.name || '');
+                      setEditCrm(u.crm || '');
+                      setEditSpecialty(u.specialty || '');
+                    }}
+                    style={{ padding: '4px 10px', fontSize: '0.78rem' }}
+                  >
+                    📝 Editar
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
+      )}
+
+      {editingUser && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+        }}>
+          <div className="glass-box" style={{ background: '#fff', padding: 24, borderRadius: 16, width: '100%', maxWidth: 450, boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: '1.2rem', color: '#1e293b', fontWeight: 800 }}>Editar Informações do Profissional</h3>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#64748b', marginBottom: 4 }}>Nome</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  value={editName} 
+                  onChange={e => setEditName(e.target.value)} 
+                  style={{ width: '100%', boxSizing: 'border-box' }}
+                />
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#64748b', marginBottom: 4 }}>CRM (apenas p/ médicos)</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  value={editCrm} 
+                  onChange={e => setEditCrm(e.target.value)} 
+                  placeholder="Ex: 123456/SP"
+                  style={{ width: '100%', boxSizing: 'border-box' }}
+                />
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#64748b', marginBottom: 4 }}>Especialidade / Texto do Carimbo</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  value={editSpecialty} 
+                  onChange={e => setEditSpecialty(e.target.value)} 
+                  placeholder="Ex: Médico Obstetra, Obstetriz, Enfermeira"
+                  style={{ width: '100%', boxSizing: 'border-box' }}
+                />
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24 }}>
+              <button className="btn-modern btn-modern-secondary" onClick={() => setEditingUser(null)}>Cancelar</button>
+              <button className="btn-modern btn-modern-primary" onClick={handleSaveDetails}>Salvar Alterações</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -1013,13 +1158,247 @@ function AppointmentsTab() {
   );
 }
 
+function ProtocolsTab() {
+  const [selectedMonth, setSelectedMonth] = useState<number>(1);
+  const protocol = MONTHLY_PROTOCOL[selectedMonth];
+
+  if (!protocol) return null;
+
+  return (
+    <div className="admin-table-container glass-box" style={{ padding: 24, marginTop: 16 }}>
+      <h3 className="patients-section-title" style={{ marginTop: 0, marginBottom: 16 }}>📘 Manual de Protocolos do Assistente Obstétrico</h3>
+      <p style={{ color: '#64748b', marginBottom: 24 }}>
+        Consulte as diretrizes e recomendações clínicas cadastradas para cada um dos 9 meses da gestação.
+      </p>
+
+      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+        {/* Sidebar months list */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 200, flex: '1 0 200px' }}>
+          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(m => {
+            const isActive = selectedMonth === m;
+            return (
+              <button
+                key={m}
+                onClick={() => setSelectedMonth(m)}
+                className={`btn-modern ${isActive ? 'btn-modern-primary' : 'btn-modern-secondary'}`}
+                style={{
+                  textAlign: 'left',
+                  justifyContent: 'flex-start',
+                  padding: '12px 16px',
+                  fontWeight: isActive ? 700 : 500,
+                  background: isActive ? 'linear-gradient(135deg, var(--accent-pink), #be185d)' : '#f8fafc',
+                  border: isActive ? 'none' : '1px solid #e2e8f0',
+                  color: isActive ? '#fff' : '#334155',
+                  boxShadow: isActive ? '0 4px 12px rgba(217,75,136,0.2)' : 'none'
+                }}
+              >
+                👶 {m === 0 ? 'Pré-Gravidez (Não Conf.)' : m === 10 ? 'Pós-Parto' : `${m}° Mês Gestacional`}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Protocol Details Panel */}
+        <div style={{ flex: '3 0 450px', background: '#f8fafc', padding: 24, borderRadius: 12, border: '1px solid #e2e8f0' }}>
+          <h2 style={{ margin: '0 0 8px', color: '#1e293b', fontSize: '1.4rem', fontWeight: 800 }}>{protocol.title}</h2>
+          <p style={{ margin: '0 0 20px', color: '#475569', fontSize: '0.95rem', lineHeight: 1.5 }}>{protocol.description}</p>
+
+          {/* Clinical Alerts */}
+          <div style={{ marginBottom: 24 }}>
+            <h4 style={{ color: '#be185d', fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>⚠️ Alertas e Orientações Clínicas</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {protocol.alerts.map((alert, idx) => (
+                <div key={idx} style={{ display: 'flex', gap: 10, background: '#fff', padding: '10px 14px', borderRadius: 8, border: '1px solid #e2e8f0', borderLeft: '4px solid #fbbf24', fontSize: '0.9rem', color: '#1e293b' }}>
+                  <span>📢</span>
+                  <span>{alert}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Recommended Exams */}
+          <div style={{ marginBottom: 24 }}>
+            <h4 style={{ color: '#be185d', fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>🧪 Exames Recomendados</h4>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {protocol.exams.map(ex => (
+                <span key={ex} className="badge badge-blue" style={{ padding: '6px 12px', fontSize: '0.82rem', fontWeight: 600 }}>
+                  {EXAM_LABELS[ex] || ex}
+                </span>
+              ))}
+              {protocol.highRiskExams && protocol.highRiskExams.map(ex => (
+                <span key={`hr-${ex}`} className="badge badge-gold" style={{ padding: '6px 12px', fontSize: '0.82rem', fontWeight: 600 }}>
+                  ⚠️ {EXAM_LABELS[ex] || ex} (Alto Risco)
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Recommended Vaccines */}
+          {protocol.vaccines && protocol.vaccines.length > 0 && (
+            <div style={{ marginBottom: 24 }}>
+              <h4 style={{ color: '#be185d', fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>💉 Vacinas Recomendadas</h4>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {protocol.vaccines.map(vac => (
+                  <span key={vac} className="badge badge-neutral" style={{ padding: '6px 12px', fontSize: '0.82rem', fontWeight: 600, background: '#fdf2f8', color: '#be185d', border: '1px solid #fbcfe8' }}>
+                    {VACCINE_LABELS[vac] || vac}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Recommended Medications */}
+          <div>
+            <h4 style={{ color: '#be185d', fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>💊 Suplementação & Medicamentos Recomendados</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {protocol.medications.map((med, idx) => (
+                <div key={idx} style={{ background: '#fff', padding: 16, borderRadius: 10, border: '1px solid #e2e8f0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+                    <strong style={{ color: '#be185d', fontSize: '1.05rem' }}>{med.name} — {med.dose}</strong>
+                    <span className="badge badge-neutral" style={{ fontSize: '0.75rem', fontWeight: 600 }}>{med.frequency}</span>
+                  </div>
+                  <p style={{ margin: '0 0 10px', fontSize: '0.85rem', color: '#64748b' }}>
+                    <strong>Instruções:</strong> {med.instructions}
+                  </p>
+                  <div style={{ background: '#f8fafc', padding: 10, borderRadius: 8, fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: 4, border: '1px solid #f1f5f9' }}>
+                    <div><strong>🎯 Finalidade:</strong> {med.purpose}</div>
+                    {med.whyNeeded && <div><strong>❓ Por que é necessário:</strong> {med.whyNeeded}</div>}
+                    {med.expectedBenefit && <div><strong>✨ Benefício Esperado:</strong> {med.expectedBenefit}</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NursingTab({ pregnancies }: { pregnancies: Pregnancy[] }) {
+  const [exams, setExams] = useState<Exam[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actingId, setActingId] = useState<string | null>(null);
+
+  const loadPendingExams = async () => {
+    setLoading(true);
+    try {
+      const q = query(
+        collection(db, 'exams'),
+        where('status', '==', 'coleta-agendada')
+      );
+      const snap = await getDocs(q);
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Exam));
+      setExams(list);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPendingExams();
+  }, [pregnancies]);
+
+  const handleCollect = async (ex: Exam) => {
+    setActingId(ex.id);
+    try {
+      await updateDoc(doc(db, 'exams', ex.id), {
+        status: 'em-analise',
+        collectedAt: serverTimestamp(),
+        releaseHours: getReleaseHours(ex.type)
+      });
+      const preg = pregnancies.find(p => p.id === ex.pregnancyId);
+      await addAuditLog({
+        pregnancyId: ex.pregnancyId,
+        userId: 'nurse',
+        userName: 'Enfermagem',
+        action: 'Coleta de Material Biologico',
+        newValue: EXAM_LABELS[ex.type] || ex.type
+      });
+      if (preg) {
+        await createNotification(
+          preg.motherId,
+          preg.id!,
+          'prontuario-alterado',
+          'Coleta realizada!',
+          `A coleta para o exame ${EXAM_LABELS[ex.type] || ex.type} foi concluida. O material esta em analise no laboratorio.`,
+          'Pill'
+        );
+      }
+      await loadPendingExams();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  return (
+    <div className="admin-table-container glass-box" style={{ padding: 24, marginTop: 16 }}>
+      <h3 className="patients-section-title" style={{ marginTop: 0, marginBottom: 16 }}>💉 Sala de Coleta de Exames (Enfermagem)</h3>
+      <p style={{ color: '#64748b', marginBottom: 24 }}>
+        Lista de pacientes aguardando coleta de material biologico (sangue/urina) para exames laboratoriais.
+      </p>
+
+      {loading ? (
+        <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>Buscando exames agendados...</div>
+      ) : exams.length === 0 ? (
+        <div style={{ padding: 40, textAlign: 'center', background: '#f8fafc', borderRadius: 12, border: '1px dashed #cbd5e1', color: '#64748b' }}>
+          <h4>Nenhum paciente aguardando coleta no momento.</h4>
+        </div>
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table className="admin-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ borderBottom: '2px solid #e2e8f0', background: '#f8fafc' }}>
+                <th style={{ padding: 12 }}>Gestante</th>
+                <th style={{ padding: 12 }}>Exame Solicitado</th>
+                <th style={{ padding: 12 }}>Mes</th>
+                <th style={{ padding: 12 }}>Agendado em</th>
+                <th style={{ padding: 12 }}>Acao</th>
+              </tr>
+            </thead>
+            <tbody>
+              {exams.map(ex => {
+                const preg = pregnancies.find(p => p.id === ex.pregnancyId);
+                const patientName = preg ? preg.motherName : 'Paciente Desconhecida';
+                return (
+                  <tr key={ex.id} style={{ borderBottom: '1px solid #edf2f7' }}>
+                    <td style={{ padding: 12, fontWeight: 700 }}>{patientName}</td>
+                    <td style={{ padding: 12 }}>{EXAM_LABELS[ex.type] || ex.type}</td>
+                    <td style={{ padding: 12 }}>{ex.gestationMonth === 0 ? 'Pre' : ex.gestationMonth === 10 ? 'Pos' : `${ex.gestationMonth}o Mes`}</td>
+                    <td style={{ padding: 12 }}>{safeFormat(ex.scheduledDate, 'dd/MM/yyyy HH:mm')}</td>
+                    <td style={{ padding: 12 }}>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        style={{ background: 'linear-gradient(135deg, #be185d, #e11d48)', border: 'none' }}
+                        disabled={actingId === ex.id}
+                        onClick={() => handleCollect(ex)}
+                      >
+                        {actingId === ex.id ? 'Coletando...' : 'Coleta Feita'}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function DoctorPanel() {
   const { userData } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const tabParam = searchParams.get('tab') as 'patients' | 'new' | 'ultrasound' | 'users' | 'appointments' | null;
+  const tabParam = searchParams.get('tab') as 'patients' | 'new' | 'ultrasound' | 'users' | 'appointments' | 'protocols' | 'nursing' | null;
   const tab = tabParam || 'patients';
 
-  const setTab = (newTab: 'patients' | 'new' | 'ultrasound' | 'users' | 'appointments') => {
+  const setTab = (newTab: 'patients' | 'new' | 'ultrasound' | 'users' | 'appointments' | 'protocols' | 'nursing') => {
     setSearchParams({ tab: newTab });
   };
 
@@ -1110,6 +1489,18 @@ export default function DoctorPanel() {
           >
             📅 Agendamentos
           </button>
+          <button
+            className={`dp-tab ${tab === 'protocols' ? 'active' : ''}`}
+            onClick={() => setTab('protocols')}
+          >
+            📘 Protocolos do Assistente
+          </button>
+          <button
+            className={`dp-tab ${tab === 'nursing' ? 'active' : ''}`}
+            onClick={() => setTab('nursing')}
+          >
+            💉 Sala de Coleta
+          </button>
         </div>
 
         {/* Content */}
@@ -1119,6 +1510,14 @@ export default function DoctorPanel() {
         
         {tab === 'appointments' && (
           <AppointmentsTab />
+        )}
+
+        {tab === 'protocols' && (
+          <ProtocolsTab />
+        )}
+
+        {tab === 'nursing' && (
+          <NursingTab pregnancies={pregnancies} />
         )}
         
         {tab === 'patients' && (

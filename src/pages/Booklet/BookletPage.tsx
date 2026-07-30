@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -12,11 +12,14 @@ import {
   Lock,
   Image,
 } from 'lucide-react';
+import { collection, query, where, onSnapshot, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePregnancy, toDate } from '../../hooks/usePregnancy';
-import { currentGestationMonth, EXAM_LABELS } from '../../lib/gestationUtils';
-import type { Consultation, Exam, ExamType } from '../../types';
+import { currentGestationMonth, EXAM_LABELS, VACCINE_LABELS, MONTHLY_PROTOCOL, getAutoLabResult } from '../../lib/gestationUtils';
+import type { Consultation, Exam, ExamType, Vaccine } from '../../types';
+import { Syringe } from 'lucide-react';
 import './BookletPage.css';
 
 // ---- Accordion wrapper ------------------------------------------------
@@ -69,6 +72,46 @@ function Accordion({
   );
 }
 
+function BookletCountdown({ exam, riskLevel }: { exam: any; riskLevel: string }) {
+  const [timeLeft, setTimeLeft] = useState('');
+
+  useEffect(() => {
+    if (exam.status !== 'em-analise') return;
+
+    const interval = setInterval(() => {
+      const collectedDate = toDate(exam.collectedAt);
+      const releaseHours = exam.releaseHours || 24;
+      const targetTime = collectedDate.getTime() + releaseHours * 60 * 60 * 1000;
+      const now = Date.now();
+      const diff = targetTime - now;
+
+      if (diff <= 0) {
+        clearInterval(interval);
+        setTimeLeft('Processando...');
+        const autoResolve = async () => {
+          const resultData = getAutoLabResult(exam.type, riskLevel);
+          await updateDoc(doc(db, 'exams', exam.id), {
+            status: 'realizado',
+            result: resultData.result,
+            conduct: resultData.conduct,
+            actualDate: serverTimestamp()
+          });
+        };
+        autoResolve();
+      } else {
+        const hours = Math.floor(diff / (3600 * 1000));
+        const mins = Math.floor((diff % (3600 * 1000)) / (60 * 1000));
+        const secs = Math.floor((diff % (60 * 1000)) / 1000);
+        setTimeLeft(`${hours.toString().padStart(2, '0')}h:${mins.toString().padStart(2, '0')}m:${secs.toString().padStart(2, '0')}s`);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [exam.status, exam.collectedAt, exam.releaseHours, exam.id, exam.type, riskLevel]);
+
+  return <span style={{ color: '#be185d', fontWeight: 600, fontSize: '0.8rem' }}>⏳ Resultado em: {timeLeft || 'Calculando...'}</span>;
+}
+
 // ---- Main page --------------------------------------------------------
 export default function BookletPage() {
   const { currentUser } = useAuth();
@@ -78,7 +121,9 @@ export default function BookletPage() {
   );
 
   const currentMonth = pregnancy
-    ? currentGestationMonth(toDate(pregnancy.startDate), pregnancy.gestationPlan)
+    ? (pregnancy.currentStatus === 'parto'
+        ? 10
+        : currentGestationMonth(toDate(pregnancy.startDate), pregnancy.gestationPlan))
     : 1;
 
   const [searchParams] = useSearchParams();
@@ -87,6 +132,16 @@ export default function BookletPage() {
 
   const initialMonth = paramMonth && pregnancy ? parseInt(paramMonth, 10) : currentMonth;
   const [selectedMonth, setSelectedMonth] = useState(initialMonth);
+
+  const [vaccines, setVaccines] = useState<Vaccine[]>([]);
+  useEffect(() => {
+    if (!pregnancy?.id) return;
+    const q = query(collection(db, 'vaccines'), where('pregnancyId', '==', pregnancy.id));
+    const unsub = onSnapshot(q, snap => {
+      setVaccines(snap.docs.map(d => ({ id: d.id, ...d.data() } as Vaccine)));
+    });
+    return unsub;
+  }, [pregnancy?.id]);
 
   /* Loading */
   if (loading) {
@@ -118,7 +173,7 @@ export default function BookletPage() {
     );
   }
 
-  const months = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  const months = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
   const monthConsults = consultations.filter((c: Consultation) => c.gestationMonth === selectedMonth);
   const isImageExam = (type: string) => ['ultrassom', 'ecografia-morfológica'].includes(type);
 
@@ -158,11 +213,22 @@ export default function BookletPage() {
     return timeB - timeA;
   });
 
-  const isBlocked = selectedMonth > currentMonth;
+  const protocol = MONTHLY_PROTOCOL[selectedMonth];
+  const monthVaccines = protocol?.vaccines || [];
+
+  const isBlocked = selectedMonth === 0 
+    ? false 
+    : (selectedMonth === 10 
+        ? pregnancy.currentStatus !== 'parto' 
+        : selectedMonth > currentMonth);
   const doneConsults = monthConsults.filter((c: Consultation) => c.status === 'realizada').length;
   const doneLabExams = monthLabExams.filter((e: Exam) => e.status === 'realizado').length;
   const doneImgExams = monthImgExams.length; // ultrassons doesn't have a status, they are added when done. Let's assume done.
-  const progressPct = Math.round((selectedMonth / 9) * 100);
+  const progressPct = selectedMonth === 0
+    ? 10
+    : selectedMonth === 10
+    ? 100
+    : Math.round((selectedMonth / 9) * 100);
 
   return (
     <div className="bklt-page">
@@ -184,7 +250,12 @@ export default function BookletPage() {
           {months.map((m, idx) => {
             const isPast = m < currentMonth;
             const isCurrent = m === currentMonth;
-            const isFuture = m > currentMonth;
+            const isBlockedMonth = m === 0 
+              ? false 
+              : (m === 10 
+                  ? pregnancy.currentStatus !== 'parto' 
+                  : m > currentMonth);
+            const isFuture = isBlockedMonth;
             const isSelected = m === selectedMonth;
 
             let stateClass = 'state-future';
@@ -199,7 +270,7 @@ export default function BookletPage() {
                   className={`bklt-month-btn ${stateClass}`}
                   onClick={() => !isFuture && setSelectedMonth(m)}
                   whileTap={!isFuture ? { scale: 0.9 } : {}}
-                  title={`${m}º Mês Gestacional`}
+                  title={m === 0 ? 'Pré-Gravidez' : m === 10 ? 'Pós-Parto' : `${m}º Mês Gestacional`}
                   disabled={isFuture}
                 >
                   {isPast && !isSelected && (
@@ -207,7 +278,7 @@ export default function BookletPage() {
                       <Check size={7} strokeWidth={3.5} color="#fff" />
                     </div>
                   )}
-                  <span className="bklt-month-num">{m}º</span>
+                  <span className="bklt-month-num">{m === 0 ? 'Pré' : m === 10 ? 'Pós' : `${m}º`}</span>
                   <span className="bklt-month-lbl">
                     {isSelected ? 'ativo' : isCurrent ? 'atual' : isPast ? 'ok' : 'bloq'}
                   </span>
@@ -230,7 +301,7 @@ export default function BookletPage() {
             >
               {/* Card header */}
               <div className="bklt-card-head">
-                <div className="bklt-card-title">{selectedMonth}º Mês Gestacional</div>
+                <div className="bklt-card-title">{selectedMonth === 0 ? 'Exames Pré-Gravidez (Não Confirmada)' : selectedMonth === 10 ? 'Acompanhamento Pós-Parto' : `${selectedMonth}º Mês Gestacional`}</div>
                 <div className="bklt-prog-bar">
                   <div
                     className="bklt-prog-fill"
@@ -263,8 +334,10 @@ export default function BookletPage() {
                   </div>
                   <h4>Mês Gestacional Bloqueado</h4>
                   <p>
-                    Você está no {currentMonth}º mês. Este conteúdo será liberado quando você
-                    atingir o {selectedMonth}º mês.
+                    {selectedMonth === 10
+                      ? 'Este conteúdo será liberado após a realização do parto.'
+                      : `Você está no ${currentMonth}º mês. Este conteúdo será liberado quando você atingir o ${selectedMonth}º mês.`
+                    }
                   </p>
                 </div>
               ) : (
@@ -351,10 +424,37 @@ export default function BookletPage() {
                     ) : (
                       monthLabExams.map((item: any, idx: number) => {
                         const isDone = item.status === 'realizado';
+                        const isAwaitingColeta = item.status === 'aguardando-coleta';
+                        const isColetaAgendada = item.status === 'coleta-agendada';
+                        const isAnalyzing = item.status === 'em-analise';
                         const isSched = item.status === 'agendado';
-                        const dotClass = isDone ? 'done' : isSched ? 'sched' : 'pend';
-                        const badgeCls = isDone ? 'nm-badge-green' : isSched ? 'nm-badge-rose' : 'nm-badge-gray';
-                        const badgeTxt = isDone ? 'Realizado' : isSched ? 'Agendado' : 'Aguardando';
+
+                        let dotClass = 'pend';
+                        let badgeCls = 'nm-badge-gray';
+                        let badgeTxt = 'Pendente';
+
+                        if (isDone) {
+                          dotClass = 'done';
+                          badgeCls = 'nm-badge-green';
+                          badgeTxt = 'Realizado';
+                        } else if (isColetaAgendada) {
+                          dotClass = 'sched';
+                          badgeCls = 'nm-badge-rose';
+                          badgeTxt = 'Coleta Agendada';
+                        } else if (isAnalyzing) {
+                          dotClass = 'sched';
+                          badgeCls = 'nm-badge-rose';
+                          badgeTxt = 'Em Análise';
+                        } else if (isAwaitingColeta) {
+                          dotClass = 'pend';
+                          badgeCls = 'nm-badge-gray';
+                          badgeTxt = 'Coleta Pendente';
+                        } else if (isSched) {
+                          dotClass = 'sched';
+                          badgeCls = 'nm-badge-rose';
+                          badgeTxt = 'Agendado';
+                        }
+
                         const label = EXAM_LABELS[item.type as ExamType] || item.type || 'Exame';
                         const dateVal = item.scheduledDate || item.requestedAt;
 
@@ -364,7 +464,7 @@ export default function BookletPage() {
                               <div className={`bklt-entry-dot ${dotClass}`}>
                                 {isDone ? (
                                   <Check size={13} strokeWidth={2.5} />
-                                ) : isSched ? (
+                                ) : isSched || isColetaAgendada ? (
                                   <CalendarDays size={13} strokeWidth={2} />
                                 ) : (
                                   <Clock size={13} strokeWidth={2} />
@@ -383,10 +483,46 @@ export default function BookletPage() {
                               </div>
                               <div className="bklt-entry-date">
                                 <CalendarDays size={11} strokeWidth={2} />
-                                {dateVal
-                                  ? format(toDate(dateVal), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
-                                  : 'Data pendente'}
+                                {isAnalyzing ? (
+                                  <BookletCountdown exam={item} riskLevel={pregnancy.riskLevel || 'baixo'} />
+                                ) : dateVal ? (
+                                  format(toDate(dateVal), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })
+                                ) : (
+                                  'Aguardando agendamento da coleta'
+                                )}
                               </div>
+                              {isAwaitingColeta && (
+                                <button
+                                  type="button"
+                                  className="nm-btn-action"
+                                  style={{
+                                    marginTop: 8,
+                                    background: 'linear-gradient(135deg, #be185d, #e11d48)',
+                                    color: '#fff',
+                                    border: 'none',
+                                    padding: '6px 12px',
+                                    borderRadius: 6,
+                                    fontSize: '0.78rem',
+                                    cursor: 'pointer',
+                                    fontWeight: 600,
+                                    width: 'fit-content'
+                                  }}
+                                  onClick={async () => {
+                                    await updateDoc(doc(db, 'exams', item.id), {
+                                      status: 'coleta-agendada',
+                                      scheduledDate: serverTimestamp()
+                                    });
+                                  }}
+                                >
+                                  📅 Agendar Coleta com Enfermeira
+                                </button>
+                              )}
+                              {isDone && item.result && (
+                                <div style={{ marginTop: 6, fontSize: '0.8rem', background: '#f8fafc', padding: 8, borderRadius: 6, border: '1px solid #e2e8f0', color: '#334155' }}>
+                                  <div style={{ marginBottom: 4 }}><strong>Laudo:</strong> {item.result}</div>
+                                  {item.conduct && <div><strong>Conduta:</strong> {item.conduct}</div>}
+                                </div>
+                              )}
                             </div>
                           </div>
                         );
@@ -457,6 +593,55 @@ export default function BookletPage() {
                       })
                     )}
                   </Accordion>
+
+                  {/* VACINAS */}
+                  {monthVaccines.length > 0 && (
+                    <Accordion
+                      iconEl={<Syringe size={17} strokeWidth={2} />}
+                      iconClass="e"
+                      title="Vacinação Recomendada"
+                      sub={`${vaccines.filter(v => monthVaccines.includes(v.name) && v.status === 'aplicada').length} de ${monthVaccines.length} aplicada(s)`}
+                      count={monthVaccines.length}
+                      defaultOpen={paramExpand === 'vacinas'}
+                    >
+                      {monthVaccines.map((vacName, idx) => {
+                        const appliedRecord = vaccines.find(v => v.name === vacName && v.status === 'aplicada');
+                        const isApplied = !!appliedRecord;
+                        const label = VACCINE_LABELS[vacName] || vacName;
+
+                        return (
+                          <div key={vacName} className="bklt-entry">
+                            <div className="bklt-entry-tl">
+                              <div className={`bklt-entry-dot ${isApplied ? 'done' : 'pend'}`}>
+                                {isApplied ? (
+                                  <Check size={13} strokeWidth={2.5} />
+                                ) : (
+                                  <Clock size={13} strokeWidth={2} />
+                                )}
+                              </div>
+                              {idx < monthVaccines.length - 1 && (
+                                <div className="bklt-entry-line" />
+                              )}
+                            </div>
+                            <div className="bklt-entry-body">
+                              <div className="bklt-entry-row1">
+                                <div className="bklt-entry-title">{label}</div>
+                                <span className={`nm-badge ${isApplied ? 'nm-badge-green' : 'nm-badge-gray'}`} style={{ flexShrink: 0 }}>
+                                  {isApplied ? 'Aplicada' : 'Pendente'}
+                                </span>
+                              </div>
+                              <div className="bklt-entry-date">
+                                <Syringe size={11} strokeWidth={2} style={{ marginRight: 4 }} />
+                                {isApplied && appliedRecord.appliedAt
+                                  ? `Aplicada por ${appliedRecord.appliedBy} em ${format(toDate(appliedRecord.appliedAt), "dd/MM/yyyy 'às' HH:mm")}`
+                                  : 'Aguardando aplicação pelo médico/enfermeiro'}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </Accordion>
+                  )}
                 </div>
               )}
             </motion.div>

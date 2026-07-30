@@ -46,19 +46,22 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
   if (!currentUser) return <Navigate to="/login" replace />;
 
   const userRoles = Array.isArray(userData?.role) ? userData.role : [userData?.role || ''];
-  const isStaff = userRoles.some(r => ['doctor', 'admin', 'nurse', 'receptionist'].includes(r)) || currentUser.email === 'doutor@novamater.com';
+  // Only strict admin role (not doctor/nurse) triggers admin-only redirection
+  const isAdmin = userRoles.some(r => ['admin'].includes(r)) || currentUser.email === 'doutor@novamater.com';
+  // Staff can access admin panel but are NOT forcibly redirected away from patient routes
+  const isStaff = userRoles.some(r => ['doctor', 'admin', 'nurse', 'receptionist'].includes(r));
 
-  if (isStaff && allowedRoles?.some(role => ['doctor', 'admin', 'nurse', 'receptionist'].includes(role))) {
+  // Admin-only portal: redirect non-admins trying to reach /admin
+  if (allowedRoles?.every(role => ['doctor', 'admin', 'nurse', 'receptionist'].includes(role))) {
+    if (!isStaff) return <Navigate to="/dashboard" replace />;
     return <>{children}</>;
   }
 
-  if (isStaff && !allowedRoles?.some(role => ['doctor', 'admin', 'nurse', 'receptionist'].includes(role))) {
-    return <Navigate to="/admin" replace />;
-  }
-
+  // Patient portal: admins with no linked pregnancy get sent to /admin;
+  // doctors who are also gestantes can access patient routes
   const hasAccess = !allowedRoles || allowedRoles.some(role => userRoles.includes(role));
   if (!hasAccess) {
-    return <Navigate to={isStaff ? "/admin" : "/dashboard"} replace />;
+    return <Navigate to={isAdmin ? "/admin" : "/dashboard"} replace />;
   }
 
   return <>{children}</>;
@@ -67,7 +70,8 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
 function AppRoutes() {
   const { userData, currentUser } = useAuth();
   const userRoles = Array.isArray(userData?.role) ? userData.role : [userData?.role || ''];
-  const isAdminFlow = userRoles.some((r: any) => ['doctor', 'admin', 'nurse', 'receptionist'].includes(r));
+  // Only strict admin redirects to /admin on unknown routes
+  const isAdminFlow = userRoles.some((r: any) => ['admin'].includes(r)) || currentUser?.email === 'doutor@novamater.com';
   const isAuth = !!currentUser;
 
   return (
@@ -82,27 +86,27 @@ function AppRoutes() {
           <Route path="/memorial" element={<Memorial />} />
           <Route path="/pacotes" element={<Packages />} />
 
-          {/* Rota Exclusiva da Mãe / Gestante */}
+          {/* Rota da Gestante — também acessível a médicas gestantes */}
           <Route path="/dashboard" element={
-            <ProtectedRoute allowedRoles={['mother', 'father', 'guest']}>
+            <ProtectedRoute allowedRoles={['mother', 'father', 'guest', 'doctor']}>
               <Dashboard />
             </ProtectedRoute>
           } />
 
           <Route path="/calendario" element={
-            <ProtectedRoute allowedRoles={['mother', 'father', 'guest']}>
+            <ProtectedRoute allowedRoles={['mother', 'father', 'guest', 'doctor']}>
               <CalendarPage />
             </ProtectedRoute>
           } />
 
           <Route path="/caderneta" element={
-            <ProtectedRoute allowedRoles={['mother', 'father', 'guest']}>
+            <ProtectedRoute allowedRoles={['mother', 'father', 'guest', 'doctor']}>
               <BookletPage />
             </ProtectedRoute>
           } />
 
           <Route path="/documentos" element={
-            <ProtectedRoute allowedRoles={['mother', 'father', 'guest']}>
+            <ProtectedRoute allowedRoles={['mother', 'father', 'guest', 'doctor']}>
               <DocumentsPage />
             </ProtectedRoute>
           } />

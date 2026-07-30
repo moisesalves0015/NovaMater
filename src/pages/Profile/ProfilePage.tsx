@@ -11,7 +11,7 @@ import { auth, db } from '../../lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 export default function ProfilePage() {
-  const { currentUser, userData } = useAuth();
+  const { currentUser, userData, updateProfileName } = useAuth();
   const { pregnancy } = usePregnancy(
     currentUser?.email || null,
     currentUser?.uid || null
@@ -23,6 +23,29 @@ export default function ProfilePage() {
   const [confirmPwd, setConfirmPwd] = useState('');
   const [pwdMsg, setPwdMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Name Editing State
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [savingName, setSavingName] = useState(false);
+  const [nameMsg, setNameMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const handleSaveName = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser || !newName.trim()) return;
+    setSavingName(true);
+    setNameMsg(null);
+    try {
+      await updateProfileName(newName.trim());
+      setNameMsg({ type: 'success', text: 'Nome alterado com sucesso!' });
+      setIsEditingName(false);
+    } catch (err) {
+      console.error('Error updating name:', err);
+      setNameMsg({ type: 'error', text: 'Erro ao alterar o nome. Tente novamente.' });
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   // Settings State for Doctor/Admin
   const userRoles = Array.isArray(userData?.role) ? userData.role : [userData?.role || ''];
@@ -169,9 +192,110 @@ export default function ProfilePage() {
           <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#1e293b', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
             <User size={18} color="#c9195a" /> Informações da Conta
           </h3>
+
+          {nameMsg && (
+            <div style={{
+              padding: '10px 14px', borderRadius: 8, marginBottom: 16,
+              background: nameMsg.type === 'success' ? '#dcfce7' : '#fee2e2',
+              color: nameMsg.type === 'success' ? '#15803d' : '#dc2626',
+              fontSize: '0.85rem', fontWeight: 600,
+            }}>
+              {nameMsg.text}
+            </div>
+          )}
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {isEditingName ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 0', borderBottom: '1px solid #f8fafc' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ flexShrink: 0 }}><User size={16} color="#c9195a" /></div>
+                  <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600, minWidth: 140 }}>Nome</span>
+                </div>
+                <form onSubmit={handleSaveName} style={{ display: 'flex', gap: 8, width: '100%' }}>
+                  <input
+                    type="text"
+                    value={newName}
+                    onChange={e => setNewName(e.target.value)}
+                    required
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      border: '1.5px solid #e2e8f0',
+                      borderRadius: 8,
+                      fontSize: '0.9rem',
+                      outline: 'none',
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    disabled={savingName || !newName.trim()}
+                    style={{
+                      background: '#c9195a',
+                      color: '#fff',
+                      border: 'none', borderRadius: 8, padding: '8px 16px',
+                      fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer',
+                      opacity: (savingName || !newName.trim()) ? 0.7 : 1
+                    }}
+                  >
+                    {savingName ? 'Salvando...' : 'Salvar'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingName(false)}
+                    style={{
+                      background: '#e2e8f0',
+                      color: '#475569',
+                      border: 'none', borderRadius: 8, padding: '8px 16px',
+                      fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer',
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                </form>
+              </div>
+            ) : (
+              <InfoRow 
+                icon={<User size={16} color="#94a3b8" />} 
+                label="Nome" 
+                value={userData?.name || currentUser?.displayName || '—'} 
+                action={
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewName(userData?.name || currentUser?.displayName || '');
+                      setIsEditingName(true);
+                      setNameMsg(null);
+                    }}
+                    style={{
+                      background: '#fdf2f8',
+                      color: '#c9195a',
+                      border: 'none', borderRadius: 8, padding: '6px 12px',
+                      fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer',
+                    }}
+                  >
+                    Editar
+                  </button>
+                }
+              />
+            )}
             <InfoRow icon={<Mail size={16} color="#94a3b8" />} label="E-mail" value={currentUser?.email || '—'} />
-            <InfoRow icon={<Shield size={16} color="#94a3b8" />} label="Tipo de Conta" value={userData?.role === 'mother' ? 'Gestante' : userData?.role === 'father' ? 'Parceiro(a)' : userData?.role === 'doctor' ? 'Doutor' : userData?.role === 'admin' ? 'Administrador' : 'Familiar'} />
+            {(() => {
+              let accountTypeLabel = 'Familiar';
+              if (userRoles.includes('admin')) {
+                accountTypeLabel = 'Administrador';
+              } else if (userRoles.includes('doctor')) {
+                accountTypeLabel = 'Doutor';
+              } else if (userRoles.includes('nurse')) {
+                accountTypeLabel = 'Enfermeiro';
+              } else if (userRoles.includes('receptionist')) {
+                accountTypeLabel = 'Recepcionista';
+              } else if (userRoles.includes('mother')) {
+                accountTypeLabel = 'Gestante';
+              } else if (userRoles.includes('father')) {
+                accountTypeLabel = 'Parceiro(a)';
+              }
+              return <InfoRow icon={<Shield size={16} color="#94a3b8" />} label="Tipo de Conta" value={accountTypeLabel} />;
+            })()}
           </div>
         </motion.div>
 
@@ -475,12 +599,13 @@ export default function ProfilePage() {
   );
 }
 
-function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function InfoRow({ icon, label, value, action }: { icon: React.ReactNode; label: string; value: string; action?: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid #f8fafc' }}>
       <div style={{ flexShrink: 0 }}>{icon}</div>
       <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600, minWidth: 140 }}>{label}</span>
       <span style={{ fontSize: '0.9rem', color: '#1e293b', fontWeight: 500, flex: 1, textTransform: 'capitalize' }}>{value}</span>
+      {action && <div style={{ flexShrink: 0 }}>{action}</div>}
     </div>
   );
 }

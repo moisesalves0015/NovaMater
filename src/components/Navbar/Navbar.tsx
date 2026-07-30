@@ -122,7 +122,7 @@ const PUBLIC_NAV_LINKS = [
 ];
 
 export default function Navbar() {
-  const { userData, logout } = useAuth();
+  const { userData, logout, currentUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [scrolled, setScrolled] = useState(false);
@@ -145,7 +145,8 @@ export default function Navbar() {
     navigate('/');
   };
 
-  const isDoctor = userData?.role === 'doctor' || userData?.role === 'admin';
+  const isAdmin = userData?.role === 'admin' || currentUser?.email === 'doutor@novamater.com';
+  const isStaff = userData?.role === 'doctor' || userData?.role === 'admin' || userData?.role === 'nurse' || userData?.role === 'receptionist';
 
   return (
     <header className={`modern-navbar-wrapper ${scrolled ? 'is-scrolled' : ''}`}>
@@ -161,9 +162,9 @@ export default function Navbar() {
             </div>
           </Link>
 
-          {/* DESKTOP NAV LINKS */}
+          {/* Desktop nav links — hidden when logged in */}
           <div className="nav-menu-desktop">
-            {PUBLIC_NAV_LINKS.map(({ to, label }) => (
+            {!userData && PUBLIC_NAV_LINKS.map(({ to, label }) => (
               <Link
                 key={to}
                 to={to}
@@ -178,20 +179,20 @@ export default function Navbar() {
           <div className="nav-actions-desktop">
             {userData ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                {/* Notification Bell — only for mothers/fathers */}
-                {(userData.role === 'mother' || userData.role === 'father') && (
+                {/* Notification Bell — for mothers/fathers and doctor-gestantes */}
+                {(userData.role === 'mother' || userData.role === 'father' || userData.role === 'doctor') && (
                   <NotificationBell userId={userData.uid} />
                 )}
                 <div className="user-profile-wrapper" onClick={() => setProfileDropdown(!profileDropdown)}>
                   <div className="user-avatar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {isDoctor
+                    {isStaff
                       ? <Stethoscope size={16} color="#fff" strokeWidth={2} />
                       : <User size={16} color="#fff" strokeWidth={2} />
                     }
                   </div>
                   <div className="user-details">
                     <span className="user-name">{userData.name ? userData.name.split(' ')[0] : 'Usuário'}</span>
-                    <span className="user-badge">{isDoctor ? 'Médico' : 'Família'}</span>
+                    <span className="user-badge">{isStaff ? 'Equipe' : 'Família'}</span>
                   </div>
                   <ChevronDown size={14} color="#94a3b8" strokeWidth={2.5} />
 
@@ -203,17 +204,22 @@ export default function Navbar() {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
                       >
-                        <Link to={isDoctor ? '/admin' : '/dashboard'} className="popover-item">
-                          <LayoutDashboard size={15} /> {isDoctor ? 'Painel Hospitalar' : 'Minha Gestação'}
+                        <Link to={isAdmin ? '/admin' : '/dashboard'} className="popover-item">
+                          <LayoutDashboard size={15} /> {isAdmin ? 'Painel Hospitalar' : 'Minha Gestação'}
                         </Link>
-                        {!isDoctor && (
+                        {!isAdmin && (
                           <Link to="/perfil" className="popover-item">
                             <User size={15} /> Meu Perfil
                           </Link>
                         )}
-                        {!isDoctor && (
+                        {!isAdmin && (
                           <Link to="/perfil" className="popover-item">
                             <Lock size={15} /> Alterar Senha
+                          </Link>
+                        )}
+                        {isAdmin && (
+                          <Link to="/dashboard" className="popover-item">
+                            <User size={15} /> Minha Gestação
                           </Link>
                         )}
                         <div className="popover-divider" />
@@ -274,17 +280,23 @@ export default function Navbar() {
               </div>
 
               <div className="drawer-links">
-                {PUBLIC_NAV_LINKS.map(({ to, label, icon: Icon }) => (
+                {/* Public links only shown when not logged in */}
+                {!userData && PUBLIC_NAV_LINKS.map(({ to, label, icon: Icon }) => (
                   <Link key={to} to={to} className="drawer-item">
                     <Icon size={18} strokeWidth={2} /> {label}
                   </Link>
                 ))}
                 {userData ? (
                   <>
-                    <Link to={isDoctor ? '/admin' : '/dashboard'} className="drawer-item highlight">
-                      <LayoutDashboard size={18} strokeWidth={2} /> Meu Painel
+                    <Link to={isAdmin ? '/admin' : '/dashboard'} className="drawer-item highlight">
+                      <LayoutDashboard size={18} strokeWidth={2} /> {isAdmin ? 'Painel Hospitalar' : 'Minha Gestação'}
                     </Link>
-                    {!isDoctor && (
+                    {isAdmin && (
+                      <Link to="/dashboard" className="drawer-item">
+                        <User size={18} strokeWidth={2} /> Minha Gestação
+                      </Link>
+                    )}
+                    {!isAdmin && (
                       <Link to="/perfil" className="drawer-item">
                         <User size={18} strokeWidth={2} /> Meu Perfil
                       </Link>

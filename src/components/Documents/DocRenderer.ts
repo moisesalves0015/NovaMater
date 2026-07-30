@@ -369,9 +369,10 @@ const DOCUMENT_CSS = `
   }
 
   .doc-signature-name {
-    font-size: 10.5pt;
-    font-weight: 700;
-    color: #111827;
+    font-family: 'Great Vibes', cursive, 'Brush Script MT';
+    font-size: 2.2rem;
+    font-weight: 400;
+    color: #be185d;
   }
 
   .doc-signature-crm {
@@ -918,6 +919,9 @@ export function buildDocumentHtml(data: PDFData): string {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${esc(data.title)} — ${esc(data.patientName)} — Nova Mater</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap" rel="stylesheet">
   <style>
     :root { --accent: ${cfg.color}; }
     ${DOCUMENT_CSS}

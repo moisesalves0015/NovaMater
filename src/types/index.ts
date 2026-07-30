@@ -38,6 +38,7 @@ export interface User {
   avatarName?: string;
   crm?: string;
   specialty?: string;
+  stampText?: string;
   createdAt: any;
 }
 
@@ -90,7 +91,9 @@ export interface Exam {
   report?: string;
   requestedBy?: string;
   requestedAt?: any;
-  status: 'agendado' | 'realizado' | 'cancelado' | 'pendente-resultado';
+  status: 'agendado' | 'realizado' | 'cancelado' | 'pendente-resultado' | 'aguardando-coleta' | 'coleta-agendada' | 'em-analise';
+  collectedAt?: any;
+  releaseHours?: number;
 }
 
 export type ExamType =
@@ -190,6 +193,8 @@ export interface MedDocument {
   version: number;
   issuedBy: string;
   issuedById: string;
+  doctorCrm?: string;
+  doctorSpecialty?: string;
   issuedAt: any;
   verificationCode?: string;
 }
@@ -329,4 +334,13 @@ export interface Appointment {
   doctorId?: string;
   doctorName?: string;
   createdAt: any;
+}
+
+export interface Vaccine {
+  id?: string;
+  pregnancyId: string;
+  name: string;
+  status: 'aplicada' | 'pendente';
+  appliedAt: any;
+  appliedBy: string;
 }
