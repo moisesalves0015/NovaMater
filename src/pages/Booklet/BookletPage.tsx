@@ -219,11 +219,13 @@ export default function BookletPage() {
   }
 
   const months = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-  const monthConsults = consultations.filter((c: Consultation) => c.gestationMonth === selectedMonth);
+  const normalizeMonth = (val: string | number) => val === 'pre' ? 0 : val === 'pos' ? 10 : parseInt(String(val)) || 0;
+
+  const monthConsults = consultations.filter((c: Consultation) => normalizeMonth(c.gestationMonth) === selectedMonth);
   const isImageExam = (type: string) => ['ultrassom', 'ecografia-morfológica'].includes(type);
 
   const monthLabExams = exams
-    .filter((e: Exam) => e.gestationMonth === selectedMonth && !isImageExam(e.type))
+    .filter((e: Exam) => normalizeMonth(e.gestationMonth) === selectedMonth && !isImageExam(e.type))
     .sort((a: any, b: any) => {
       const timeA = a.scheduledDate?.toMillis?.() || a.requestedAt?.toMillis?.() || 0;
       const timeB = b.scheduledDate?.toMillis?.() || b.requestedAt?.toMillis?.() || 0;
@@ -231,7 +233,7 @@ export default function BookletPage() {
     });
 
   const legacyImgExams = exams
-    .filter((e: Exam) => e.gestationMonth === selectedMonth && isImageExam(e.type))
+    .filter((e: Exam) => normalizeMonth(e.gestationMonth) === selectedMonth && isImageExam(e.type))
     .map(e => ({
       id: e.id,
       type: EXAM_LABELS[e.type as ExamType] || e.type,
@@ -242,7 +244,7 @@ export default function BookletPage() {
     }));
 
   const standardImgExams = ultrasounds
-    .filter((u: any) => u.gestationMonth === selectedMonth)
+    .filter((u: any) => normalizeMonth(u.gestationMonth) === selectedMonth)
     .map((u: any) => ({
       id: u.id,
       type: u.type || 'Ultrassonografia',
