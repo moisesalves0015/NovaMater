@@ -143,6 +143,8 @@ function SmartAssistant({
       await createNotification(pregnancy.motherId, pregnancy.id!, 'sistema',
         '💉 Vacina Registrada!',
         `A vacina ${name} foi registrada no seu prontuário por ${userData?.name || 'seu médico'}.`,
+        'Shield',
+        '/caderneta'
       );
 
     } catch (err) {
@@ -159,7 +161,7 @@ function SmartAssistant({
       const shortSymptom = symptomName.replace(/[^\w\s\/\-À-ú]/g, '').trim();
       const content = `RECEITUÁRIO DE CONDUTA DE EMERGÊNCIA (SOS OBSTÉTRICO)\n\nPaciente: ${pregnancy.motherName}\nQuadro Clínico: ${shortSymptom}\n\nPrescrição Emergencial:\n- ${medicateText}\n\nUso sob supervisão médica ou orientação imediata.`;
       
-      await addDoc(collection(db, 'documents'), {
+      const docRef = await addDoc(collection(db, 'documents'), {
         pregnancyId: pregnancy.id,
         type: 'receita',
         title: `Prescricao SOS: ${shortSymptom}`,
@@ -208,7 +210,8 @@ function SmartAssistant({
       await createNotification(pregnancy.motherId, pregnancy.id!, 'medicamento-prescrito',
         'Prescricao de Emergencia emitida',
         `Foi emitida a conduta emergencial para ${shortSymptom}. A receita digital esta disponivel.`,
-        'Pill'
+        'Pill',
+        `/documentos?id=${docRef.id}`
       );
     } catch (err) {
       console.error(err);
@@ -400,7 +403,7 @@ function SmartAssistant({
       // GENERATE DOCUMENT
       const verificationCode = `NM-${Date.now().toString(36).toUpperCase()}`;
       const docContent = `SOLICITAÇÃO DE EXAME DIAGNÓSTICO\n\nPaciente: ${pregnancy.motherName}\nTipo de Exame: ${examName}\nMês de Gestação: ${selectedMonth === 0 ? 'Pré-Gravidez' : selectedMonth === 10 ? 'Pós-Parto' : `${selectedMonth}º Mês`}\n\nSolicitamos a realização do exame especificado acima para acompanhamento pré-natal regular.\n${isLab ? 'ATENÇÃO: Este exame laboratorial requer agendamento de coleta de sangue/material biológico com a enfermagem.' : 'ATENÇÃO: Agendar a realização deste exame de imagem na recepção.'}`;
-      await addDoc(collection(db, 'documents'), {
+      const docRef = await addDoc(collection(db, 'documents'), {
         pregnancyId: pregnancy.id,
         type: 'receita',
         title: `Solicitação de Exame: ${examName}`,
@@ -424,7 +427,8 @@ function SmartAssistant({
       await createNotification(pregnancy.motherId, pregnancy.id!, 'exame-solicitado',
         'Novo exame solicitado',
         `Foi solicitado o exame: ${examName}. ${isLab ? 'Agende a coleta de sangue com a enfermagem na sua caderneta.' : 'A guia correspondente foi emitida.'}`,
-        '🧪'
+        '🧪',
+        `/documentos?id=${docRef.id}`
       );
     } catch (e) { console.error(e); }
     setAdding(null);
@@ -451,7 +455,7 @@ function SmartAssistant({
       // GENERATE DOCUMENT
       const verificationCode = `NM-${Date.now().toString(36).toUpperCase()}`;
       const docContent = `RECEITUÁRIO GERAL DE GESTANTE\n\nPaciente: ${pregnancy.motherName}\n\nPrescrição:\n- ${med.name} ${med.dose}\n  Tomar: ${med.frequency}\n  Instruções: ${med.instructions}\n\nFinalidade: Suplementação / Uso Terapêutico`;
-      await addDoc(collection(db, 'documents'), {
+      const docRef = await addDoc(collection(db, 'documents'), {
         pregnancyId: pregnancy.id,
         type: 'receita',
         title: `Prescrição de Medicamento: ${med.name}`,
@@ -475,7 +479,8 @@ function SmartAssistant({
       await createNotification(pregnancy.motherId, pregnancy.id!, 'medicamento-prescrito',
         'Novo medicamento prescrito',
         `Foi prescrito: ${med.name} ${med.dose} (Uso Domiciliar). A receita digital foi emitida.`,
-        '💊'
+        '💊',
+        `/documentos?id=${docRef.id}`
       );
     } catch (e) { console.error(e); }
     setAdding(null);
@@ -579,7 +584,7 @@ function SmartAssistant({
                                 issuedById: userData?.uid || pregnancy.doctorId || 'unknown',
                                 issuedAt: serverTimestamp(),
                                 verificationCode,
-                              }).then(() => {
+                              }).then((docRef) => {
                                 addAuditLog({
                                   pregnancyId: pregnancy.id,
                                   userId: userData?.uid || '',
@@ -587,7 +592,7 @@ function SmartAssistant({
                                   action: 'Emissão de Documento (Assistente)',
                                   newValue: 'Confirmação de Local de Parto',
                                 });
-                                createNotification(pregnancy.motherId, pregnancy.id!, 'documento-disponivel', 'Novo documento emitido', 'O documento "Confirmação de Local de Parto" foi emitido.', '📄');
+                                createNotification(pregnancy.motherId, pregnancy.id!, 'documento-disponivel', 'Novo documento emitido', 'O documento "Confirmação de Local de Parto" foi emitido.', '📄', `/documentos?id=${docRef.id}`);
                               }).catch(e => console.error(e));
                             }}
                           >
@@ -612,7 +617,7 @@ function SmartAssistant({
                                 issuedById: userData?.uid || pregnancy.doctorId || 'unknown',
                                 issuedAt: serverTimestamp(),
                                 verificationCode,
-                              }).then(() => {
+                              }).then((docRef) => {
                                 addAuditLog({
                                   pregnancyId: pregnancy.id,
                                   userId: userData?.uid || '',
@@ -620,7 +625,7 @@ function SmartAssistant({
                                   action: 'Emissão de Documento (Assistente)',
                                   newValue: 'Orientações de Amamentação',
                                 });
-                                createNotification(pregnancy.motherId, pregnancy.id!, 'documento-disponivel', 'Novo documento emitido', 'O documento "Orientações de Amamentação" foi emitido.', '📄');
+                                createNotification(pregnancy.motherId, pregnancy.id!, 'documento-disponivel', 'Novo documento emitido', 'O documento "Orientações de Amamentação" foi emitido.', '📄', `/documentos?id=${docRef.id}`);
                               }).catch(e => console.error(e));
                             }}
                           >
@@ -645,7 +650,7 @@ function SmartAssistant({
                                 issuedById: userData?.uid || pregnancy.doctorId || 'unknown',
                                 issuedAt: serverTimestamp(),
                                 verificationCode,
-                              }).then(() => {
+                              }).then((docRef) => {
                                 addAuditLog({
                                   pregnancyId: pregnancy.id,
                                   userId: userData?.uid || '',
@@ -653,7 +658,7 @@ function SmartAssistant({
                                   action: 'Emissão de Documento (Assistente)',
                                   newValue: 'Guia de Sinais de Alerta',
                                 });
-                                createNotification(pregnancy.motherId, pregnancy.id!, 'documento-disponivel', 'Novo documento emitido', 'O documento "Guia de Sinais de Alerta" foi emitido.', '📄');
+                                createNotification(pregnancy.motherId, pregnancy.id!, 'documento-disponivel', 'Novo documento emitido', 'O documento "Guia de Sinais de Alerta" foi emitido.', '📄', `/documentos?id=${docRef.id}`);
                               }).catch(e => console.error(e));
                             }}
                           >
@@ -678,7 +683,7 @@ function SmartAssistant({
                                 issuedById: userData?.uid || pregnancy.doctorId || 'unknown',
                                 issuedAt: serverTimestamp(),
                                 verificationCode,
-                              }).then(() => {
+                              }).then((docRef) => {
                                 addAuditLog({
                                   pregnancyId: pregnancy.id,
                                   userId: userData?.uid || '',
@@ -686,7 +691,7 @@ function SmartAssistant({
                                   action: 'Emissão de Documento (Assistente)',
                                   newValue: 'Guia de Internação',
                                 });
-                                createNotification(pregnancy.motherId, pregnancy.id!, 'documento-disponivel', 'Novo documento emitido', 'O documento "Documentação para Internação" foi emitido.', '📄');
+                                createNotification(pregnancy.motherId, pregnancy.id!, 'documento-disponivel', 'Novo documento emitido', 'O documento "Documentação para Internação" foi emitido.', '📄', `/documentos?id=${docRef.id}`);
                               }).catch(e => console.error(e));
                             }}
                           >
@@ -2437,7 +2442,7 @@ function TabDocumentos({ pregnancy, documents }: { pregnancy: Pregnancy; documen
     try {
       const verificationCode = `NM-${Date.now().toString(36).toUpperCase()}`;
       const docLabel = docTypes.find(d => d.type === activeType)?.label || activeType;
-      await addDoc(collection(db, 'documents'), {
+      const docRef = await addDoc(collection(db, 'documents'), {
         pregnancyId: pregnancy.id,
         type: activeType,
         title: docLabel,
@@ -2467,7 +2472,8 @@ function TabDocumentos({ pregnancy, documents }: { pregnancy: Pregnancy; documen
         'documento-disponivel',
         'Novo documento emitido',
         `O documento "${docLabel}" foi emitido e está disponível para visualização.`,
-        '📄'
+        '📄',
+        `/documentos?id=${docRef.id}`
       );
 
       // Timeline

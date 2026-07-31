@@ -254,6 +254,19 @@
   transition: all 0.2s;
 }
 
+.doc-card.highlighted-glow {
+  background: #fdf2f8 !important;
+  border-color: var(--accent-pink) !important;
+  box-shadow: 0 0 14px rgba(217, 75, 136, 0.35) !important;
+  animation: highlightedPulse 2s ease-in-out infinite;
+}
+
+@keyframes highlightedPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+
 .doc-card:hover {
   background: #fff;
   border-color: #cbd5e1;

@@ -1,9 +1,10 @@
 // src/pages/Documents/DocumentsPage.tsx
 // Centro de Documentação Médica — Nova Mater
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useSearchParams } from 'react-router-dom';
 import {
   FileText,
   ClipboardList,
@@ -271,6 +272,9 @@ export default function DocumentsPage() {
     currentUser?.uid || null
   );
 
+  const [searchParams] = useSearchParams();
+  const highlightedId = searchParams.get('id');
+
   const [search, setSearch] = useState('');
   const [openCats, setOpenCats] = useState<Record<string, boolean>>({
     prescricoes:   false,
@@ -357,6 +361,15 @@ export default function DocumentsPage() {
     result.sort((a, b) => b.date.getTime() - a.date.getTime());
     return result;
   }, [documents, exams, ultrasounds, medications, pregnancy]);
+
+  useEffect(() => {
+    if (highlightedId && allDocs.length > 0) {
+      const targetDoc = allDocs.find(d => d.id === highlightedId);
+      if (targetDoc && targetDoc.category) {
+        setOpenCats(prev => ({ ...prev, [targetDoc.category]: true }));
+      }
+    }
+  }, [highlightedId, allDocs]);
 
   // ===== FILTER LOGIC =====
   const filtered = useMemo(() => {
@@ -607,7 +620,7 @@ export default function DocumentsPage() {
                             catDocs.map((doc, idx) => (
                               <motion.div
                                 key={doc.id}
-                                className="doc-card"
+                                className={`doc-card ${highlightedId === doc.id ? 'highlighted-glow' : ''}`}
                                 initial={{ opacity: 0, x: -8 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{ delay: Math.min(idx * 0.04, 0.4) }}
