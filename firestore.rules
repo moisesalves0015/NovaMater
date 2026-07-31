@@ -90,9 +90,10 @@ service cloud.firestore {
       allow write: if isDoctor();
     }
 
-    // Notificações — usuário lê/atualiza as próprias; médico cria para qualquer um
+    // Notificações — usuário lê/atualiza as próprias; médico cria/deleta para qualquer um
     match /notifications/{id} {
-      allow read, update, delete: if isAuth() && resource.data.userId == request.auth.uid;
+      allow read, update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow delete: if isDoctor() || (isAuth() && resource.data.userId == request.auth.uid);
       allow create: if isDoctor() || (isAuth() && request.resource.data.userId == request.auth.uid);
     }
 
@@ -102,9 +103,9 @@ service cloud.firestore {
       allow write: if isDoctor();
     }
 
-    // Logs de auditoria — médico lê, autenticado cria
+    // Logs de auditoria — médico lê/deleta, autenticado cria
     match /audit_logs/{id} {
-      allow read: if isDoctor();
+      allow read, delete: if isDoctor();
       allow create: if isAuth();
     }
 

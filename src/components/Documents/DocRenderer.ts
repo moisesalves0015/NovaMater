@@ -2,6 +2,8 @@
 // Motor de Templates HTML para Documentos Médicos — Nova Mater
 // Arquitetura: Template HTML/CSS → window.print() → PDF vetorial
 
+import { getBabySize } from '../../lib/gestationUtils';
+
 // ===================== INTERFACE =====================
 export interface PDFData {
   type: string;
@@ -644,6 +646,17 @@ function bodySolicitacaoExame(data: PDFData): string {
         .join('')
     : lines.map((l, i) => `<tr><td style="width:30px;font-weight:700;color:#6b7280;">${i + 1}</td><td>${esc(l)}</td><td>Convencional</td><td>—</td></tr>`).join('');
 
+  const weeks = data.pregnancyData?.gestationalWeeks || 0;
+  const babyInfo = weeks > 0 ? getBabySize(weeks) : null;
+  const babyPanel = babyInfo ? `
+    <div style="margin-top:14px;padding:10px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;display:flex;align-items:center;gap:12px;">
+      <span style="font-size:24px;">${babyInfo.icon}</span>
+      <div style="font-size:9pt;color:#166534;">
+        <strong>Desenvolvimento Fetal Estimado:</strong> Semana ${weeks} · Peso: ${babyInfo.weight} · Est. Tamanho: ${babyInfo.size}
+      </div>
+    </div>
+  ` : '';
+
   return `
     <div class="doc-body">
       <div class="doc-section-title">Exames Solicitados</div>
@@ -667,6 +680,7 @@ function bodySolicitacaoExame(data: PDFData): string {
         <div class="highlight-box-label">Justificativa Clínica</div>
         <div style="font-size:10pt;color:#1f2937;margin-top:4px;">Acompanhamento pré-natal de rotina — Gestação em curso.</div>
       </div>
+      ${babyPanel}
     </div>
   `;
 }
@@ -771,10 +785,22 @@ function bodyLaudo(data: PDFData): string {
       }).join('')
     : `<div>${contentToHtml(data.content)}</div>`;
 
+  const weeks = data.pregnancyData?.gestationalWeeks || 0;
+  const babyInfo = weeks > 0 ? getBabySize(weeks) : null;
+  const babyPanel = babyInfo ? `
+    <div style="margin-top:14px;padding:10px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;display:flex;align-items:center;gap:12px;">
+      <span style="font-size:24px;">${babyInfo.icon}</span>
+      <div style="font-size:9pt;color:#166534;">
+        <strong>Desenvolvimento Fetal Estimado:</strong> Semana ${weeks} · Peso: ${babyInfo.weight} · Est. Tamanho: ${babyInfo.size}
+      </div>
+    </div>
+  ` : '';
+
   return `
     <div class="doc-body">
       <div class="doc-section-title">Laudo Médico</div>
       ${rendered}
+      ${babyPanel}
     </div>
   `;
 }

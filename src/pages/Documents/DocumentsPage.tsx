@@ -32,7 +32,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { usePregnancy, toDate } from '../../hooks/usePregnancy';
 import DocViewerModal from '../../components/Documents/DocViewerModal';
 import type { PDFData } from '../../components/Documents/DocViewerModal';
-import type { MedDocument, Medication, Exam, Ultrasound, TimelineEvent } from '../../types';
+import type { MedDocument, Medication, Exam, Ultrasound, TimelineEvent, ExamType } from '../../types';
+import { EXAM_LABELS } from '../../lib/gestationUtils';
 import './DocumentsPage.css';
 
 // ===== HELPERS =====
@@ -290,6 +291,62 @@ export default function DocumentsPage() {
   const toggleCat = (id: string) =>
     setOpenCats(prev => ({ ...prev, [id]: !prev[id] }));
 
+  // Re-render tick to keep countdowns updated
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const elapsedDays = pregnancy ? (Date.now() - toDate(pregnancy.startDate).getTime()) / (1000 * 60 * 60 * 24) : 0;
+  const currentWeeks = Math.max(0, Math.floor(elapsedDays / 7));
+
+  const handleViewPedido = (item: any, isUltrasound: boolean) => {
+    const examName = isUltrasound ? (item.type || 'Ultrassonografia') : (EXAM_LABELS[item.type as ExamType] || item.type);
+    setPdfData({
+      type: 'solicitacao-exame',
+      title: `Solicitação de Exame — ${examName}`,
+      content: `Solicito a realização do seguinte exame:\n\n1. ${examName}\n\nJustificativa: Acompanhamento pré-natal de rotina.`,
+      patientName: pregnancy?.motherName || '',
+      doctorName: item.requestedBy || pregnancy?.doctorName || 'Médico Responsável',
+      doctorCrm: '',
+      doctorSpecialty: 'Médico Obstetra',
+      hospitalName: pregnancy?.hospitalName || 'Hospital Nova Mater',
+      date: toDate(item.requestedAt || item.date || new Date()),
+      verificationCode: item.verificationCode || `NM-REQ-${item.id.slice(0, 5).toUpperCase()}`,
+      pregnancyData: {
+        gestationalWeeks: currentWeeks,
+        dum: pregnancy?.dum ? format(toDate(pregnancy.dum), 'dd/MM/yyyy') : '',
+        dpp: pregnancy?.expectedBirthDate ? format(toDate(pregnancy.expectedBirthDate), 'dd/MM/yyyy') : '',
+        bloodType: pregnancy?.bloodType || '',
+        riskLevel: pregnancy?.riskLevel || 'baixo',
+      }
+    });
+  };
+
+  const handleViewResultado = (item: any, isUltrasound: boolean) => {
+    const examName = isUltrasound ? (item.type || 'Ultrassonografia') : (EXAM_LABELS[item.type as ExamType] || item.type);
+    setPdfData({
+      type: 'laudo',
+      title: `Laudo — ${examName}`,
+      content: `Laudo de Exame Clínico\n\nPaciente: ${pregnancy?.motherName || ''}\nExame: ${examName}\n\nResultado / Laudo:\n${item.result || 'Sem alterações clínicas dignas de nota.'}\n\n${item.conduct ? `Conduta Recomendada:\n${item.conduct}\n\n` : ''}Documento assinado digitalmente pelo sistema hospitalar.`,
+      patientName: pregnancy?.motherName || '',
+      doctorName: item.requestedBy || item.performedBy || pregnancy?.doctorName || 'Médico Responsável',
+      doctorCrm: '',
+      doctorSpecialty: 'Médico Obstetra',
+      hospitalName: pregnancy?.hospitalName || 'Hospital Nova Mater',
+      date: toDate(item.actualDate || item.date || new Date()),
+      verificationCode: item.verificationCode || `NM-RES-${item.id.slice(0, 5).toUpperCase()}`,
+      pregnancyData: {
+        gestationalWeeks: currentWeeks,
+        dum: pregnancy?.dum ? format(toDate(pregnancy.dum), 'dd/MM/yyyy') : '',
+        dpp: pregnancy?.expectedBirthDate ? format(toDate(pregnancy.expectedBirthDate), 'dd/MM/yyyy') : '',
+        bloodType: pregnancy?.bloodType || '',
+        riskLevel: pregnancy?.riskLevel || 'baixo',
+      }
+    });
+  };
+
   // ===== BUILD UNIFIED DOC LIST =====
   const allDocs = useMemo<UnifiedDoc[]>(() => {
     if (!pregnancy) return [];
@@ -297,6 +354,7 @@ export default function DocumentsPage() {
 
     // 1. MedDocuments — include all, categorise properly
     documents.forEach((d: MedDocument) => {
+      if (d.type === 'solicitacao-exame' || d.type === 'laudo') return;
       result.push({
         id:          d.id,
         icon:        getIconForDocType(d.type, d.title),
@@ -312,14 +370,34 @@ export default function DocumentsPage() {
     });
 
     // 2. Lab Exams → exames
-    exams.forEach((e: Exam) => {
-      const isUltrassom = e.type === 'ultrassom' || e.type?.includes('ultrassom') || (e as any).category === 'imagem';
-      if (isUltrassom) return; // handled below
+    const isImageExam = (type: string) => ['ultrassom', 'ecografia-morfológica'].includes(type);
+    const labExams = exams.filter(e => !isImageExam(e.type));
+    const legacyImgExams = exams.filter(e => isImageExam(e.type)).map(e => ({
+       id: e.id,
+       pregnancyId: e.pregnancyId,
+       type: EXAM_LABELS[e.type as ExamType] || e.type,
+       gestationalWeek: null,
+       fetalWeight: '',
+       fetalHeartRate: '',
+       observations: (e as any).notes || '',
+       result: e.result || '',
+       imageUrl: null,
+       date: e.actualDate || e.scheduledDate || (e as any).requestedAt,
+       performedBy: (e as any).requestedBy,
+       createdAt: (e as any).requestedAt,
+       _legacy: true,
+       status: e.status,
+       requestedAt: e.requestedAt,
+       releaseTime: (e as any).releaseTime,
+    }));
+    const allUltrasoundsList = [...legacyImgExams, ...ultrasounds];
+
+    labExams.forEach((e: Exam) => {
       result.push({
         id:          e.id,
         icon:        TestTube,
-        title:       e.type.charAt(0).toUpperCase() + e.type.slice(1).replace(/-/g, ' '),
-        date:        toDate(e.scheduledDate || e.requestedAt || new Date()),
+        title:       EXAM_LABELS[e.type as ExamType] || e.type.charAt(0).toUpperCase() + e.type.slice(1).replace(/-/g, ' '),
+        date:        toDate(e.requestedAt || e.scheduledDate || new Date()),
         doctor:      e.requestedBy || pregnancy.doctorName,
         status:      examStatusLabel(e.status),
         statusClass: examStatusClass(e.status),
@@ -329,17 +407,17 @@ export default function DocumentsPage() {
     });
 
     // 3. Ultrasounds → exames
-    ultrasounds.forEach((u: Ultrasound) => {
+    allUltrasoundsList.forEach((u: any) => {
       result.push({
         id:          u.id,
         icon:        ImageIcon,
         title:       u.type || 'Ultrassom',
-        date:        toDate(u.date),
-        doctor:      u.performedBy || pregnancy.doctorName,
-        status:      'Realizado',
-        statusClass: 'doc-status-emitido',
+        date:        toDate(u.date || u.requestedAt || new Date()),
+        doctor:      u.performedBy || u.requestedBy || pregnancy.doctorName,
+        status:      u._legacy ? examStatusLabel(u.status) : (u.result ? 'Realizado' : 'Pendente'),
+        statusClass: u._legacy ? examStatusClass(u.status) : (u.result ? 'doc-status-emitido' : 'doc-status-pendente'),
         category:    'exames',
-        examRaw:     u as any,
+        examRaw:     u,
       });
     });
 
@@ -360,7 +438,7 @@ export default function DocumentsPage() {
     // Sort newest-first
     result.sort((a, b) => b.date.getTime() - a.date.getTime());
     return result;
-  }, [documents, exams, ultrasounds, medications, pregnancy]);
+  }, [documents, exams, ultrasounds, medications, pregnancy, tick]);
 
   useEffect(() => {
     if (highlightedId && allDocs.length > 0) {
@@ -549,14 +627,10 @@ export default function DocumentsPage() {
                   onClick={() => toggleCat(cat.id)}
                   role="button"
                   aria-expanded={openCats[cat.id]}
-                  style={{ borderLeft: `3px solid ${cat.color}` }}
                 >
                   <div className="docs-category-header-left">
-                    <div
-                      className="docs-category-icon-wrap"
-                      style={{ background: `${cat.color}18`, color: cat.color }}
-                    >
-                      <span style={{ fontSize: 20 }}>{cat.emoji}</span>
+                    <div className="docs-category-icon-wrap">
+                      <cat.icon size={20} strokeWidth={2} />
                     </div>
                     <div className="docs-category-info">
                       <p className="docs-category-name">{cat.name}</p>
@@ -564,10 +638,7 @@ export default function DocumentsPage() {
                     </div>
                   </div>
                   <div className="docs-category-header-right">
-                    <span
-                      className={`docs-category-count${itemCount === 0 ? ' empty' : ''}`}
-                      style={itemCount > 0 ? { background: cat.color, color: '#fff' } : undefined}
-                    >
+                    <span className={`docs-category-count${itemCount === 0 ? ' empty' : ''}`}>
                       {itemCount}
                     </span>
                     <span className={`docs-category-chevron${openCats[cat.id] ? ' open' : ''}`}>
@@ -617,88 +688,161 @@ export default function DocumentsPage() {
                               <p>Nenhum documento disponível ainda.</p>
                             </div>
                           ) : (
-                            catDocs.map((doc, idx) => (
-                              <motion.div
-                                key={doc.id}
-                                className={`doc-card ${highlightedId === doc.id ? 'highlighted-glow' : ''}`}
-                                initial={{ opacity: 0, x: -8 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: Math.min(idx * 0.04, 0.4) }}
-                              >
-                                {/* Ultrasound thumbnail */}
-                                {(doc.category === 'exames' && (doc.examRaw as any)?.imageUrl) && (
-                                  <img
-                                    src={(doc.examRaw as any).imageUrl}
-                                    alt={doc.title}
-                                    className="doc-card-image"
-                                  />
-                                )}
+                            catDocs.map((doc, idx) => {
+                              const isUltrasound = doc.icon === ImageIcon;
+                              const isRealizado = (doc.examRaw as any)?.status === 'realizado' || (doc.category === 'exames' && !doc.raw && !(doc.examRaw as any).status && (doc.examRaw as any).result);
+                              
+                              let isReleased = false;
+                              let countdownText = '';
+                              if (isRealizado) {
+                                const releaseTime = (doc.examRaw as any)?.releaseTime;
+                                if (releaseTime) {
+                                  const releaseDate = toDate(releaseTime);
+                                  const diffMs = releaseDate.getTime() - Date.now();
+                                  if (diffMs > 0) {
+                                    const minsLeft = Math.ceil(diffMs / 60000);
+                                    countdownText = `Resultado em liberação: ${minsLeft} min`;
+                                  } else {
+                                    isReleased = true;
+                                  }
+                                } else {
+                                  isReleased = true;
+                                }
+                              }
 
-                                <div className="doc-card-header">
-                                  <div className="doc-card-title-area">
-                                    <div className="doc-card-title">{doc.title}</div>
-                                    <span className={`doc-status ${doc.statusClass}`}>{doc.status}</span>
-                                  </div>
-                                </div>
+                              let validityText = '';
+                              if (doc.examRaw && !isRealizado) {
+                                const requestDate = toDate((doc.examRaw as any).requestedAt || (doc.examRaw as any).date || (doc.examRaw as any).createdAt);
+                                const limit = new Date(requestDate.getTime() + 3 * 24 * 60 * 60 * 1000);
+                                const diffMs = limit.getTime() - Date.now();
+                                if (diffMs > 0) {
+                                  const hoursLeft = Math.ceil(diffMs / 3600000);
+                                  if (hoursLeft > 24) {
+                                    validityText = `Validade: restam ${Math.ceil(hoursLeft / 24)} dias`;
+                                  } else {
+                                    validityText = `⚠️ Solicitação expira em ${hoursLeft}h`;
+                                  }
+                                } else {
+                                  validityText = `❌ Solicitação expirada`;
+                                }
+                              }
 
-                                <div className="doc-card-meta">
-                                  {doc.number && (
-                                    <div className="doc-card-meta-item">
-                                      <span className="doc-card-meta-icon">#</span> {doc.number}
-                                    </div>
+                              return (
+                                <motion.div
+                                  key={doc.id}
+                                  className={`doc-card ${highlightedId === doc.id ? 'highlighted-glow' : ''}`}
+                                  initial={{ opacity: 0, x: -8 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{ delay: Math.min(idx * 0.04, 0.4) }}
+                                >
+                                  {/* Ultrasound thumbnail */}
+                                  {(doc.category === 'exames' && (doc.examRaw as any)?.imageUrl) && (
+                                    <img
+                                      src={(doc.examRaw as any).imageUrl}
+                                      alt={doc.title}
+                                      className="doc-card-image"
+                                    />
                                   )}
-                                  <div className="doc-card-meta-item">
-                                    <CalendarClock size={13} className="doc-card-meta-icon" />
-                                    {safeFormat(doc.date, 'dd/MM/yyyy')}
-                                  </div>
-                                  <div className="doc-card-meta-item">
-                                    <UserRound size={13} className="doc-card-meta-icon" />
-                                    Dr(a). {doc.doctor}
-                                  </div>
-                                </div>
 
-                                {/* Standard Doc Actions */}
-                                {doc.raw && (
-                                  <div className="doc-card-actions">
-                                    <button
-                                      className="doc-action-btn doc-action-btn-primary"
-                                      onClick={(e) => { e.stopPropagation(); handleView(doc); }}
-                                      title="Visualizar documento"
-                                    >
-                                      <Eye size={14} />
-                                    </button>
-                                    <button
-                                      className="doc-action-btn"
-                                      onClick={(e) => { e.stopPropagation(); handleView(doc); }}
-                                      title="Imprimir / PDF"
-                                    >
-                                      <Printer size={14} />
-                                    </button>
-                                    <button
-                                      className="doc-action-btn"
-                                      onClick={(e) => { e.stopPropagation(); handleShare(doc); }}
-                                      title="Compartilhar"
-                                    >
-                                      <Share2 size={14} />
-                                    </button>
+                                  <div className="doc-card-header">
+                                    <div className="doc-card-title-area">
+                                      <div className="doc-card-title">{doc.title}</div>
+                                      <span className={`doc-status ${isRealizado && !isReleased ? 'doc-status-analise' : doc.statusClass}`}>
+                                        {isRealizado && !isReleased ? 'Processando Laudo' : doc.status}
+                                      </span>
+                                    </div>
                                   </div>
-                                )}
 
-                                {/* Exam status info */}
-                                {doc.examRaw && !doc.raw && (
-                                  <div style={{ marginTop: 8, fontSize: '0.78rem', color: '#64748b' }}>
-                                    {(doc.examRaw as any).result && (
-                                      <div style={{ background: '#f8fafc', padding: '8px 10px', borderRadius: 6, border: '1px solid #e2e8f0', marginTop: 4 }}>
-                                        <strong>Laudo:</strong> {(doc.examRaw as any).result}
-                                        {(doc.examRaw as any).conduct && (
-                                          <div><strong>Conduta:</strong> {(doc.examRaw as any).conduct}</div>
-                                        )}
+                                  <div className="doc-card-meta">
+                                    {doc.number && (
+                                      <div className="doc-card-meta-item">
+                                        <span className="doc-card-meta-icon">#</span> {doc.number}
+                                      </div>
+                                    )}
+                                    <div className="doc-card-meta-item">
+                                      <CalendarClock size={13} className="doc-card-meta-icon" />
+                                      {safeFormat(doc.date, 'dd/MM/yyyy')}
+                                    </div>
+                                    <div className="doc-card-meta-item">
+                                      <UserRound size={13} className="doc-card-meta-icon" />
+                                      Dr(a). {doc.doctor}
+                                    </div>
+                                    {validityText && (
+                                      <div className="doc-card-meta-item" style={{ color: validityText.includes('expira') || validityText.includes('expirada') ? '#dc2626' : '#0f766e', fontWeight: 600 }}>
+                                        {validityText}
+                                      </div>
+                                    )}
+                                    {countdownText && (
+                                      <div className="doc-card-meta-item" style={{ color: '#0284c7', fontWeight: 600 }}>
+                                        ⏰ {countdownText}
                                       </div>
                                     )}
                                   </div>
-                                )}
-                              </motion.div>
-                            ))
+
+                                  {/* Standard Doc Actions */}
+                                  {doc.raw && (
+                                    <div className="doc-card-actions">
+                                      <button
+                                        className="doc-action-btn doc-action-btn-primary"
+                                        onClick={(e) => { e.stopPropagation(); handleView(doc); }}
+                                        title="Visualizar documento"
+                                      >
+                                        <Eye size={14} />
+                                      </button>
+                                      <button
+                                        className="doc-action-btn"
+                                        onClick={(e) => { e.stopPropagation(); handleView(doc); }}
+                                        title="Imprimir / PDF"
+                                      >
+                                        <Printer size={14} />
+                                      </button>
+                                      <button
+                                        className="doc-action-btn"
+                                        onClick={(e) => { e.stopPropagation(); handleShare(doc); }}
+                                        title="Compartilhar"
+                                      >
+                                        <Share2 size={14} />
+                                      </button>
+                                    </div>
+                                  )}
+
+                                  {/* Exam request/result combined actions */}
+                                  {doc.examRaw && (
+                                    <div className="doc-card-actions" style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                                      <button
+                                        className="doc-action-btn doc-action-btn-primary"
+                                        onClick={(e) => { e.stopPropagation(); handleViewPedido(doc.examRaw, isUltrasound); }}
+                                        title="Ver Pedido de Exame"
+                                        style={{ flex: 1, padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                                      >
+                                        📄 Pedido
+                                      </button>
+                                      <button
+                                        className="doc-action-btn doc-action-btn-primary"
+                                        disabled={!isReleased}
+                                        onClick={(e) => { e.stopPropagation(); handleViewResultado(doc.examRaw, isUltrasound); }}
+                                        title={isReleased ? "Ver Resultado" : "Resultado em processamento"}
+                                        style={{
+                                          flex: 1,
+                                          padding: '6px 12px',
+                                          fontSize: '0.78rem',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          gap: 6,
+                                          background: isReleased ? 'var(--clr-primary, #be185d)' : '#e2e8f0',
+                                          color: isReleased ? '#fff' : '#94a3b8',
+                                          border: 'none',
+                                          cursor: isReleased ? 'pointer' : 'not-allowed'
+                                        }}
+                                      >
+                                        🧪 Resultado
+                                      </button>
+                                    </div>
+                                  )}
+                                </motion.div>
+                              );
+                            })
                           )
                         )}
                       </div>

@@ -370,6 +370,37 @@ function PatientCard({ pregnancy, onUpdate }: { pregnancy: Pregnancy; onUpdate: 
     onUpdate();
   };
 
+  const handleDeletePregnancy = async () => {
+    const confirmText = window.prompt('CUIDADO: Ação destrutiva!\nIsso apagará o prontuário e todos os exames, consultas, ultrassons, receitas e documentos vinculados a ele para sempre.\n\nDigite "EXCLUIR" para confirmar:');
+    if (confirmText !== 'EXCLUIR') {
+      alert('Exclusão cancelada.');
+      return;
+    }
+    
+    try {
+      const pId = pregnancy.id!;
+      const collectionsToDelete = [
+        'consultations', 'exams', 'ultrasounds', 'medications', 
+        'prescriptions', 'documents', 'vaccines', 'timeline_events', 
+        'audit_logs', 'notifications'
+      ];
+      
+      for (const colName of collectionsToDelete) {
+        const q = query(collection(db, colName), where('pregnancyId', '==', pId));
+        const snap = await getDocs(q);
+        const deletePromises = snap.docs.map(d => deleteDoc(doc(db, colName, d.id)));
+        await Promise.all(deletePromises);
+      }
+      
+      await deleteDoc(doc(db, 'pregnancies', pId));
+      alert('Prontuário e todos os dados associados foram excluídos com sucesso.');
+      onUpdate();
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao excluir prontuário. Você tem permissão?');
+    }
+  };
+
   return (
     <motion.div
       className="preview-carteirinha"
@@ -474,6 +505,13 @@ function PatientCard({ pregnancy, onUpdate }: { pregnancy: Pregnancy; onUpdate: 
                 </button>
               )}
               <button className="btn-modern btn-modern-secondary btn-sm" style={{ border: '1px solid #e2e8f0' }}>📑 Emitir Carteirinha da Criança</button>
+              <button 
+                className="btn-modern btn-sm" 
+                onClick={handleDeletePregnancy} 
+                style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', marginTop: '8px' }}
+              >
+                🗑️ Excluir Prontuário Permanentemente
+              </button>
             </div>
           </motion.div>
         )}

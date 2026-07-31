@@ -653,4 +653,17 @@ export function getAutoLabResult(type: string, riskLevel: string): AutoLabResult
   };
 }
 
+export function getBabySize(week: number): { size: string; weight: string; icon: string } {
+  if (week <= 4)  return { size: '0.2mm', weight: '< 1g',  icon: '🌱' };
+  if (week <= 8)  return { size: '1.6cm', weight: '1g',    icon: '🫘' };
+  if (week <= 12) return { size: '5.4cm', weight: '14g',   icon: '🍓' };
+  if (week <= 16) return { size: '11.6cm', weight: '100g', icon: '🍋' };
+  if (week <= 20) return { size: '16.5cm', weight: '300g', icon: '🥭' };
+  if (week <= 24) return { size: '21cm',  weight: '600g',  icon: '🌽' };
+  if (week <= 28) return { size: '25cm',  weight: '1kg',   icon: '🍆' };
+  if (week <= 32) return { size: '30cm',  weight: '1.7kg', icon: '🥥' };
+  if (week <= 36) return { size: '35cm',  weight: '2.6kg', icon: '🍉' };
+  return { size: '38cm', weight: '3.2kg', icon: '👶' };
+}
+
 

@@ -761,3 +761,180 @@
 
 /* ===================== BIRTH BANNER ICON ===================== */
 .birth-banner-icon { width: 52px; height: 52px; border-radius: 50%; background: #dcfce7; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+/* ===================== MODAL OVERLAYS ===================== */
+.mr-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
+.mr-modal-content {
+  background: var(--bg-card);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-light);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: mrModalFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes mrModalFadeIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.mr-modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mr-modal-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--txt-dark);
+  margin: 0;
+}
+
+.mr-modal-body {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mr-modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  background: rgba(248, 250, 252, 0.5);
+}
+
+/* ===================== STANDARDIZED CARDS ===================== */
+.standard-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--r-md);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.standard-card:hover {
+  border-color: var(--accent-pink);
+  box-shadow: 0 4px 12px rgba(201, 81, 144, 0.06);
+  transform: translateY(-1px);
+}
+
+.standard-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.standard-card-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.standard-card-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.standard-card-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--txt-dark);
+  margin: 0;
+}
+
+.standard-card-subtitle {
+  font-size: 0.78rem;
+  color: var(--txt-muted);
+  margin-top: 2px;
+}
+
+.standard-card-content {
+  font-size: 0.85rem;
+  color: var(--txt-medium);
+  line-height: 1.5;
+  background: var(--bg-main);
+  border-radius: var(--r-sm);
+  padding: 10px 14px;
+  border: 1px solid var(--border-light);
+}
+
+.standard-card-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.standard-card-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.standard-card-meta-label {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: var(--txt-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.standard-card-meta-value {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--txt-dark);
+}
+
+.standard-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid var(--border-light);
+  padding-top: 12px;
+  margin-top: 4px;
+}
+
+.standard-card-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 768px) {
+  .standard-card-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   doc, updateDoc, collection, query,
   where, onSnapshot, addDoc, serverTimestamp,
-  deleteDoc, getDocs
+  deleteDoc, getDocs, increment
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -19,7 +19,7 @@ import {
   EXAM_LABELS, PRESET_PLANS,
   MONTHLY_PROTOCOL, COMMON_MEDICATIONS,
   currentGestationMonth, VACCINE_LABELS,
-  getReleaseHours, getAutoLabResult,
+  getReleaseHours, getAutoLabResult, getBabySize
 } from '../../lib/gestationUtils';
 import type { ExamType } from '../../types';
 import { format } from 'date-fns';
@@ -1484,80 +1484,96 @@ function TabResumo({ pregnancy }: { pregnancy: Pregnancy }) {
 
 // =================== ABA 2: CONSULTAS ===================
 // =================== ABA 2: CONSULTAS ===================
+// =================== ABA 2: CONSULTAS ===================
 function TabConsultas({ pregnancy, consultations }: { pregnancy: Pregnancy; consultations: Consultation[] }) {
   const { userData } = useAuth();
-  const [expanded, setExpanded] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-
-  const emptyForm = {
-    weight: '', bloodPressure: '', fetalHeartRate: '', uterineHeight: '',
-    fetalPosition: '', complaints: '', diagnosis: '', conducts: '', doctorNotes: '',
-    returnDate: '', status: 'realizada' as const,
-  };
-  const [form, setForm] = useState(emptyForm);
+  const [editingConsultation, setEditingConsultation] = useState<Consultation | null>(null);
+  const [editForm, setEditForm] = useState<any>(null);
 
   const sorted = [...consultations].sort((a, b) => a.consultationNumber - b.consultationNumber);
   const currentMonth = currentGestationMonth(toDate(pregnancy.startDate), pregnancy.gestationPlan);
 
-  const handleSaveStatus = async (c: Consultation, status: Consultation['status']) => {
-    const prevStatus = c.status;
+
+  const handleOpenEdit = (c: Consultation) => {
+    let dateStr = '';
     try {
-      await updateDoc(doc(db, 'consultations', c.id), { status });
-      // Log
-      await addAuditLog({
-        pregnancyId: pregnancy.id,
-        userId: userData?.uid || pregnancy.doctorId,
-        userName: userData?.name || pregnancy.doctorName,
-        action: 'Atualização de Status de Consulta',
-        field: 'status',
-        previousValue: prevStatus,
-        newValue: status,
-      });
-      // Notificação
-      await createNotification(
-        pregnancy.motherId,
-        pregnancy.id!,
-        `consulta-${status}`,
-        `Consulta ${status === 'realizada' ? 'realizada' : status === 'remarcada' ? 'remarcada' : 'atualizada'}`,
-        `A sua ${c.consultationNumber}ª consulta foi marcada como ${status}.`,
-        '🩺'
-      );
-      // Timeline event if realized
-      if (status === 'realizada') {
-        await createTimelineEvent(
-          pregnancy.id!,
-          'consulta',
-          `Consulta Realizada`,
-          `${c.consultationNumber}ª Consulta de pré-natal realizada com sucesso.`,
-          '🩺',
-          '#4b8df8',
-          userData?.uid || pregnancy.doctorId,
-          userData?.name || pregnancy.doctorName
-        );
+      if (c.scheduledDate) {
+        dateStr = format(toDate(c.scheduledDate), 'yyyy-MM-dd');
       }
-    } catch (e) { console.error(e); }
+    } catch (err) {
+      dateStr = format(new Date(), 'yyyy-MM-dd');
+    }
+    setEditForm({
+      consultationNumber: c.consultationNumber,
+      gestationMonth: c.gestationMonth,
+      scheduledDate: dateStr,
+      weight: c.weight || '',
+      bloodPressure: c.bloodPressure || '',
+      fetalHeartRate: c.fetalHeartRate || '',
+      uterineHeight: c.uterineHeight || '',
+      fetalPosition: c.fetalPosition || '',
+      complaints: c.complaints || '',
+      diagnosis: c.diagnosis || '',
+      conducts: c.conducts || '',
+      doctorNotes: c.doctorNotes || '',
+      status: c.status,
+    });
+    setEditingConsultation(c);
   };
 
-  const handleSaveNotes = async (c: Consultation) => {
+  const handleSaveEdit = async () => {
+    if (!editingConsultation || !editForm) return;
     setSaving(true);
     try {
-      await updateDoc(doc(db, 'consultations', c.id), {
-        ...form,
-        updatedBy: userData?.name,
+      const scheduledDateObj = editForm.scheduledDate ? new Date(editForm.scheduledDate + 'T12:00:00') : null;
+      const updatedFields: any = {
+        consultationNumber: parseInt(editForm.consultationNumber) || editingConsultation.consultationNumber,
+        gestationMonth: editForm.gestationMonth || editingConsultation.gestationMonth,
+        scheduledDate: scheduledDateObj,
+        weight: editForm.weight,
+        bloodPressure: editForm.bloodPressure,
+        fetalHeartRate: editForm.fetalHeartRate,
+        uterineHeight: editForm.uterineHeight,
+        fetalPosition: editForm.fetalPosition,
+        complaints: editForm.complaints,
+        diagnosis: editForm.diagnosis,
+        conducts: editForm.conducts,
+        doctorNotes: editForm.doctorNotes,
+        status: editForm.status,
+        updatedBy: userData?.name || 'Médico',
         updatedAt: serverTimestamp(),
-      });
+      };
+
+      await updateDoc(doc(db, 'consultations', editingConsultation.id), updatedFields);
+
       // Audit log
       await addAuditLog({
         pregnancyId: pregnancy.id,
-        userId: userData?.uid || pregnancy.doctorId,
-        userName: userData?.name || pregnancy.doctorName,
+        userId: userData?.uid || '',
+        userName: userData?.name || '',
         action: 'Edição de Consulta',
-        field: 'detalhes_consulta',
-        newValue: form,
+        newValue: `Consulta número ${updatedFields.consultationNumber}`,
       });
-      setEditId(null);
-    } catch (e) { console.error(e); }
+
+      // Notification if rescheduled
+      if (editingConsultation.status !== editForm.status && editForm.status === 'remarcada') {
+        await createNotification(
+          pregnancy.motherId,
+          pregnancy.id!,
+          'consulta-remarcada',
+          'Consulta remarcada',
+          `Sua ${updatedFields.consultationNumber}ª consulta foi remarcada para o dia ${format(scheduledDateObj!, 'dd/MM/yyyy')}.`,
+          '🩺'
+        );
+      }
+
+      setEditingConsultation(null);
+      setEditForm(null);
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao salvar consulta.');
+    }
     setSaving(false);
   };
 
@@ -1600,7 +1616,7 @@ function TabConsultas({ pregnancy, consultations }: { pregnancy: Pregnancy; cons
     setSaving(true);
     try {
       const nextNumber = sorted.length + 1;
-      const parsedMonth = parseInt(manualForm.gestationMonth);
+      const parsedMonth = manualForm.gestationMonth;
       const c = {
         pregnancyId: pregnancy.id,
         consultationNumber: nextNumber,
@@ -1649,7 +1665,7 @@ function TabConsultas({ pregnancy, consultations }: { pregnancy: Pregnancy; cons
     <div>
       <div className="mr-card">
         <div className="mr-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 className="mr-card-title">🩺 Consultas de Pré-Natal ({consultations.length})</h3>
+          <h3 className="mr-card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Stethoscope size={20} /> Consultas de Pré-Natal ({consultations.length})</h3>
           <button
             className="btn btn-primary btn-sm"
             onClick={() => {
@@ -1658,22 +1674,25 @@ function TabConsultas({ pregnancy, consultations }: { pregnancy: Pregnancy; cons
             }}
             disabled={saving}
           >
-            + Agendar Consulta Manual
+            <Plus size={16} style={{ marginRight: 4 }} /> Agendar Consulta Manual
           </button>
         </div>
 
         {/* Modal Manual de Agendamento */}
         {showManualModal && (
-          <div className="modal-backdrop" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-            <div className="mr-card" style={{ maxWidth: 500, width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
-              <div className="mr-card-header">
-                <h3 className="mr-card-title">📅 Agendar Consulta Manual</h3>
+          <div className="mr-modal-overlay">
+            <div className="mr-modal-content" style={{ maxWidth: 500 }}>
+              <div className="mr-modal-header">
+                <h3 className="mr-modal-title">📅 Agendar Consulta Manual</h3>
+                <button className="btn btn-icon btn-secondary" onClick={() => setShowManualModal(false)}>✕</button>
               </div>
-              <div className="mr-card-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div className="mr-modal-body">
                 <div className="form-group">
                   <label className="form-label">Mês da Consulta</label>
                   <select className="form-select" value={manualForm.gestationMonth} onChange={e => setManualForm(p => ({ ...p, gestationMonth: e.target.value }))}>
-                    {[1,2,3,4,5,6,7,8,9].map(m => <option key={m} value={m}>{m}º Mês</option>)}
+                    <option value="pre">Pré-concepção</option>
+                    {[1,2,3,4,5,6,7,8,9].map(m => <option key={m} value={String(m)}>{m}º Mês</option>)}
+                    <option value="pos">Pós-parto</option>
                   </select>
                 </div>
                 <div className="form-group">
@@ -1696,16 +1715,111 @@ function TabConsultas({ pregnancy, consultations }: { pregnancy: Pregnancy; cons
                   <label className="form-label">Condutas Iniciais</label>
                   <textarea className="form-textarea" placeholder="Ex: Solicitação de exames..." value={manualForm.conducts} onChange={e => setManualForm(p => ({ ...p, conducts: e.target.value }))} />
                 </div>
-                <div className="form-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
-                  <button className="btn btn-secondary btn-sm" onClick={() => setShowManualModal(false)}>Cancelar</button>
-                  <button className="btn btn-primary btn-sm" disabled={saving} onClick={handleSaveManualConsultation}>
-                    {saving ? 'Agendando...' : 'Confirmar Agendamento'}
-                  </button>
-                </div>
+              </div>
+              <div className="mr-modal-footer">
+                <button className="btn btn-secondary btn-sm" onClick={() => setShowManualModal(false)}>Cancelar</button>
+                <button className="btn btn-primary btn-sm" disabled={saving} onClick={handleSaveManualConsultation}>
+                  {saving ? 'Agendando...' : 'Confirmar Agendamento'}
+                </button>
               </div>
             </div>
           </div>
         )}
+
+        {/* Modal de Edição Geral da Consulta */}
+        {editingConsultation && editForm && (
+          <div className="mr-modal-overlay">
+            <div className="mr-modal-content" style={{ maxWidth: 600 }}>
+              <div className="mr-modal-header">
+                <h3 className="mr-modal-title">✏️ Editar Consulta ({editForm.consultationNumber}ª)</h3>
+                <button className="btn btn-icon btn-secondary" onClick={() => { setEditingConsultation(null); setEditForm(null); }}>✕</button>
+              </div>
+              <div className="mr-modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Nº Consulta</label>
+                    <input type="number" className="form-input" value={editForm.consultationNumber} onChange={e => setEditForm((p: any) => ({ ...p, consultationNumber: e.target.value }))} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Mês Gestacional</label>
+                    <select className="form-select" value={editForm.gestationMonth} onChange={e => setEditForm((p: any) => ({ ...p, gestationMonth: e.target.value }))}>
+                      <option value="pre">Pré-concepção</option>
+                      {[1,2,3,4,5,6,7,8,9].map(m => <option key={m} value={String(m)}>{m}º Mês</option>)}
+                      <option value="pos">Pós-parto</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Data Prevista (Remarcar)</label>
+                    <input type="date" className="form-input" value={editForm.scheduledDate} onChange={e => setEditForm((p: any) => ({ ...p, scheduledDate: e.target.value }))} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Status</label>
+                    <select className="form-select" value={editForm.status} onChange={e => setEditForm((p: any) => ({ ...p, status: e.target.value }))}>
+                      {Object.entries(consultStatusMap).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Peso (kg)</label>
+                    <input className="form-input" value={editForm.weight} onChange={e => setEditForm((p: any) => ({ ...p, weight: e.target.value }))} placeholder="Ex: 68.5" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Pressão</label>
+                    <input className="form-input" value={editForm.bloodPressure} onChange={e => setEditForm((p: any) => ({ ...p, bloodPressure: e.target.value }))} placeholder="Ex: 120/80" />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">BCF (bpm)</label>
+                    <input className="form-input" value={editForm.fetalHeartRate} onChange={e => setEditForm((p: any) => ({ ...p, fetalHeartRate: e.target.value }))} placeholder="Ex: 140" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">AU (Altura Uterina - cm)</label>
+                    <input className="form-input" value={editForm.uterineHeight} onChange={e => setEditForm((p: any) => ({ ...p, uterineHeight: e.target.value }))} placeholder="Ex: 24" />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Posição Fetal</label>
+                  <input className="form-input" value={editForm.fetalPosition || ''} onChange={e => setEditForm((p: any) => ({ ...p, fetalPosition: e.target.value }))} placeholder="Ex: Cefálica, Pélvica..." />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Queixas</label>
+                  <textarea className="form-textarea" value={editForm.complaints || ''} onChange={e => setEditForm((p: any) => ({ ...p, complaints: e.target.value }))} placeholder="Descreva as queixas da paciente..." />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Diagnóstico</label>
+                  <textarea className="form-textarea" value={editForm.diagnosis} onChange={e => setEditForm((p: any) => ({ ...p, diagnosis: e.target.value }))} />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Condutas</label>
+                  <textarea className="form-textarea" value={editForm.conducts} onChange={e => setEditForm((p: any) => ({ ...p, conducts: e.target.value }))} />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Observações</label>
+                  <textarea className="form-textarea" value={editForm.doctorNotes} onChange={e => setEditForm((p: any) => ({ ...p, doctorNotes: e.target.value }))} />
+                </div>
+              </div>
+              <div className="mr-modal-footer">
+                <button className="btn btn-secondary btn-sm" onClick={() => { setEditingConsultation(null); setEditForm(null); }}>Cancelar</button>
+                <button className="btn btn-primary btn-sm" disabled={saving} onClick={handleSaveEdit}>
+                  {saving ? 'Salvando...' : '💾 Salvar Alterações'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="mr-card-body">
           {sorted.length === 0 ? (
             <div className="empty-state">
@@ -1714,101 +1828,63 @@ function TabConsultas({ pregnancy, consultations }: { pregnancy: Pregnancy; cons
               <p>As consultas devem ser agendadas e registradas manualmente a cada mês.</p>
             </div>
           ) : (
-            <div className="consult-list">
+            <div className="standard-card-grid">
               {sorted.map((c) => (
-                <div key={c.id} className="consult-card">
-                  <div className="consult-card-header" onClick={() => setExpanded(expanded === c.id ? null : c.id)}>
-                    <span className="consult-num">{c.consultationNumber}ª</span>
-                    <div className="consult-info">
-                      <h4>Consulta do Mês {c.gestationMonth}</h4>
-                      <p>Prevista: {safeFormat(c.scheduledDate, 'dd/MM/yyyy')}</p>
+                <div key={c.id} className="standard-card">
+                  <div className="standard-card-header">
+                    <div className="standard-card-title-wrap">
+                      <div className="standard-card-icon" style={{ background: 'rgba(201, 81, 144, 0.08)', color: 'var(--accent-pink)' }}>🩺</div>
+                      <div>
+                        <h4 className="standard-card-title">{c.consultationNumber}ª Consulta de Pré-Natal</h4>
+                        <p className="standard-card-subtitle">
+                          Mês Ref: {c.gestationMonth === 'pre' ? 'Pré-concepção' : c.gestationMonth === 'pos' ? 'Pós-parto' : `${c.gestationMonth}º Mês`} · Prevista: {safeFormat(c.scheduledDate, 'dd/MM/yyyy')}
+                        </p>
+                      </div>
                     </div>
                     <StatusBadge status={c.status} />
-                    <span className={`consult-expand ${expanded === c.id ? 'open' : ''}`}>▼</span>
                   </div>
 
-                  <AnimatePresence>
-                    {expanded === c.id && (
-                      <motion.div
-                        className="consult-card-body"
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                      >
-                        {/* Sinais vitais */}
-                        {(c.weight || c.bloodPressure || c.fetalHeartRate || c.uterineHeight) && (
-                          <div className="vital-signs">
-                            {c.weight && <div className="vital-sign"><span className="vital-sign-val">{c.weight}</span><span className="vital-sign-key">⚖ Peso (kg)</span></div>}
-                            {c.bloodPressure && <div className="vital-sign"><span className="vital-sign-val">{c.bloodPressure}</span><span className="vital-sign-key">❤ Pressão</span></div>}
-                            {c.fetalHeartRate && <div className="vital-sign"><span className="vital-sign-val">{c.fetalHeartRate}</span><span className="vital-sign-key">👶 BCF</span></div>}
-                            {c.uterineHeight && <div className="vital-sign"><span className="vital-sign-val">{c.uterineHeight}</span><span className="vital-sign-key">📏 AU (cm)</span></div>}
-                          </div>
-                        )}
+                  <div className="standard-card-meta-grid">
+                    <div className="standard-card-meta-item">
+                      <span className="standard-card-meta-label">Peso (kg)</span>
+                      <span className="standard-card-meta-value">{c.weight || '—'}</span>
+                    </div>
+                    <div className="standard-card-meta-item">
+                      <span className="standard-card-meta-label">Pressão</span>
+                      <span className="standard-card-meta-value">{c.bloodPressure || '—'}</span>
+                    </div>
+                    <div className="standard-card-meta-item">
+                      <span className="standard-card-meta-label">BCF</span>
+                      <span className="standard-card-meta-value">{c.fetalHeartRate || '—'}</span>
+                    </div>
+                    <div className="standard-card-meta-item">
+                      <span className="standard-card-meta-label">AU (cm)</span>
+                      <span className="standard-card-meta-value">{c.uterineHeight || '—'}</span>
+                    </div>
+                  </div>
 
-                        {/* Notas */}
-                        {c.diagnosis && <div style={{ marginBottom: 8 }}><span className="info-label">Diagnóstico</span><p style={{ fontSize: '0.88rem', color: 'var(--txt-dark)', marginTop: 4 }}>{c.diagnosis}</p></div>}
-                        {c.conducts && <div style={{ marginBottom: 8 }}><span className="info-label">Condutas</span><p style={{ fontSize: '0.88rem', color: 'var(--txt-dark)', marginTop: 4 }}>{c.conducts}</p></div>}
-                        {c.doctorNotes && <div style={{ marginBottom: 8 }}><span className="info-label">Observações</span><p style={{ fontSize: '0.88rem', color: 'var(--txt-dark)', marginTop: 4 }}>{c.doctorNotes}</p></div>}
+                  {(c.diagnosis || c.conducts || c.doctorNotes || c.complaints || c.fetalPosition) && (
+                    <div className="standard-card-content" style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: '0.8rem' }}>
+                      {c.fetalPosition && <div><strong>Posição Fetal:</strong> {c.fetalPosition}</div>}
+                      {c.complaints && <div><strong>Queixas:</strong> {c.complaints}</div>}
+                      {c.diagnosis && <div><strong>Diagnóstico:</strong> {c.diagnosis}</div>}
+                      {c.conducts && <div><strong>Condutas:</strong> {c.conducts}</div>}
+                      {c.doctorNotes && <div><strong>Observações:</strong> {c.doctorNotes}</div>}
+                    </div>
+                  )}
 
-                        {/* Edição inline */}
-                        {editId === c.id ? (
-                          <div style={{ marginTop: 16 }}>
-                            <div className="form-row" style={{ marginBottom: 10 }}>
-                              {(['weight','bloodPressure','fetalHeartRate','uterineHeight'] as const).map(f => (
-                                <div className="form-group" key={f}>
-                                  <label className="form-label">{{weight:'Peso',bloodPressure:'Pressão',fetalHeartRate:'BCF',uterineHeight:'AU (cm)'}[f]}</label>
-                                  <input className="form-input" value={(form as any)[f]} onChange={e => setForm(p => ({...p, [f]: e.target.value}))} />
-                                </div>
-                              ))}
-                            </div>
-                            <div className="form-group" style={{ marginBottom: 8 }}>
-                              <label className="form-label">Diagnóstico</label>
-                              <textarea className="form-textarea" value={form.diagnosis} onChange={e => setForm(p => ({...p, diagnosis: e.target.value}))} />
-                            </div>
-                            <div className="form-group" style={{ marginBottom: 8 }}>
-                              <label className="form-label">Condutas</label>
-                              <textarea className="form-textarea" value={form.conducts} onChange={e => setForm(p => ({...p, conducts: e.target.value}))} />
-                            </div>
-                            <div className="form-group" style={{ marginBottom: 10 }}>
-                              <label className="form-label">Observações</label>
-                              <textarea className="form-textarea" value={form.doctorNotes} onChange={e => setForm(p => ({...p, doctorNotes: e.target.value}))} />
-                            </div>
-                            <div className="form-actions">
-                              <button className="btn btn-secondary btn-sm" onClick={() => setEditId(null)}>Cancelar</button>
-                              <button className="btn btn-primary btn-sm" disabled={saving} onClick={() => handleSaveNotes(c)}>
-                                {saving ? 'Salvando...' : '💾 Salvar'}
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="form-actions" style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                              <select
-                                className="form-select"
-                                style={{ maxWidth: 180, padding: '8px 12px', fontSize: '0.82rem' }}
-                                value={c.status}
-                                onChange={e => handleSaveStatus(c, e.target.value as any)}
-                              >
-                                {Object.entries(consultStatusMap).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                              </select>
-                              <button className="btn btn-secondary btn-sm" onClick={() => { setForm({ ...emptyForm, ...c, returnDate: '', status: c.status as any }); setEditId(c.id); }}>
-                                ✏️ Editar
-                              </button>
-                            </div>
-                            <button
-                              className="btn btn-secondary btn-sm"
-                              style={{ color: '#dc2626', borderColor: '#fecaca', background: '#fef2f2' }}
-                              onClick={() => handleDeleteConsultation(c.id, c.consultationNumber)}
-                              disabled={saving}
-                            >
-                              🗑️ Excluir
-                            </button>
-                          </div>
-                        )}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  <div className="standard-card-actions">
+                    <button className="btn btn-secondary btn-sm" onClick={() => handleOpenEdit(c)}>
+                      ✏️ Editar / Remarcar
+                    </button>
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={() => handleDeleteConsultation(c.id, c.consultationNumber)}
+                      disabled={saving}
+                    >
+                      🗑️ Excluir
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1862,9 +1938,12 @@ function ExamCountdownRenderer({ exam, pregnancy, db }: { exam: Exam; pregnancy:
 // =================== ABA 3: EXAMES ===================
 function TabExames({ pregnancy, exams }: { pregnancy: Pregnancy; exams: Exam[] }) {
   const { userData } = useAuth();
+  const currentMonth = currentGestationMonth(toDate(pregnancy.startDate), pregnancy.gestationPlan);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ type: 'hemograma', gestationMonth: '1', result: '', status: 'agendado', notes: '' });
+  const [form, setForm] = useState({ type: 'hemograma', gestationMonth: String(currentMonth), result: '', status: 'agendado', notes: '' });
+  const [editingExam, setEditingExam] = useState<Exam | null>(null);
+  const [editForm, setEditForm] = useState<any>(null);
 
   const handleAdd = async () => {
     setSaving(true);
@@ -1872,11 +1951,11 @@ function TabExames({ pregnancy, exams }: { pregnancy: Pregnancy; exams: Exam[] }
       await addDoc(collection(db, 'exams'), {
         pregnancyId: pregnancy.id,
         type: form.type,
-        gestationMonth: parseInt(form.gestationMonth),
+        gestationMonth: form.gestationMonth,
         result: form.result,
         status: form.status,
         scheduledDate: serverTimestamp(),
-        requestedBy: userData?.name,
+        requestedBy: userData?.name || pregnancy.doctorName,
         requestedAt: serverTimestamp(),
       });
       // Audit log
@@ -1908,14 +1987,22 @@ function TabExames({ pregnancy, exams }: { pregnancy: Pregnancy; exams: Exam[] }
         userData?.name || ''
       );
       setShowForm(false);
-      setForm({ type: 'hemograma', gestationMonth: '1', result: '', status: 'agendado', notes: '' });
+      setForm({ type: 'hemograma', gestationMonth: String(currentMonth), result: '', status: 'agendado', notes: '' });
     } catch (e) { console.error(e); }
     setSaving(false);
   };
 
   const handleUpdateStatus = async (ex: Exam, status: string, result?: string) => {
     try {
-      await updateDoc(doc(db, 'exams', ex.id), { status, ...(result ? { result, actualDate: serverTimestamp() } : {}) });
+      const fields: any = { status };
+      if (status === 'realizado') {
+        const autoRes = getAutoLabResult(ex.type, pregnancy.riskLevel || 'baixo');
+        fields.result = result || ex.result || autoRes.result || 'Resultado dentro dos limites de normalidade.';
+        fields.conduct = autoRes.conduct || '';
+        fields.actualDate = serverTimestamp();
+        fields.releaseTime = new Date(Date.now() + 60 * 60 * 1000); // 1 hour release delay
+      }
+      await updateDoc(doc(db, 'exams', ex.id), fields);
       // Log
       await addAuditLog({
         pregnancyId: pregnancy.id,
@@ -1928,12 +2015,13 @@ function TabExames({ pregnancy, exams }: { pregnancy: Pregnancy; exams: Exam[] }
       });
       // Notification if results are ready
       if (status === 'realizado') {
+        const examName = EXAM_LABELS[ex.type as ExamType] || ex.type;
         await createNotification(
           pregnancy.motherId,
           pregnancy.id!,
           'resultado-disponivel',
-          'Resultado de exame disponível',
-          `O resultado do exame ${EXAM_LABELS[ex.type] || ex.type} está disponível no seu portal.`,
+          'Exame realizado',
+          `O exame ${examName} foi realizado e o resultado estará disponível em 1 hora.`,
           '🧪'
         );
         // Timeline
@@ -1941,7 +2029,7 @@ function TabExames({ pregnancy, exams }: { pregnancy: Pregnancy; exams: Exam[] }
           pregnancy.id!,
           'exame',
           `Exame Realizado`,
-          `Resultado disponível para: ${EXAM_LABELS[ex.type] || ex.type}.`,
+          `Resultado em processamento para: ${examName}.`,
           '🧪',
           '#34d399',
           userData?.uid || '',
@@ -1951,7 +2039,97 @@ function TabExames({ pregnancy, exams }: { pregnancy: Pregnancy; exams: Exam[] }
     } catch (e) { console.error(e); }
   };
 
-  const sorted = [...exams].sort((a, b) => a.gestationMonth - b.gestationMonth);
+  const handleOpenEdit = (ex: Exam) => {
+    let dateStr = '';
+    try {
+      if (ex.scheduledDate) {
+        dateStr = format(toDate(ex.scheduledDate), 'yyyy-MM-dd');
+      }
+    } catch (err) {
+      dateStr = format(new Date(), 'yyyy-MM-dd');
+    }
+    setEditForm({
+      type: ex.type,
+      gestationMonth: ex.gestationMonth,
+      scheduledDate: dateStr,
+      status: ex.status,
+      result: ex.result || '',
+    });
+    setEditingExam(ex);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingExam || !editForm) return;
+    setSaving(true);
+    try {
+      const scheduledDateObj = editForm.scheduledDate ? new Date(editForm.scheduledDate + 'T12:00:00') : null;
+      const updatedFields: any = {
+        type: editForm.type,
+        gestationMonth: editForm.gestationMonth || editingExam.gestationMonth,
+        scheduledDate: scheduledDateObj,
+        status: editForm.status,
+        result: editForm.result,
+      };
+      if (editForm.status === 'realizado' && editingExam.status !== 'realizado') {
+        const autoRes = getAutoLabResult(editForm.type, pregnancy.riskLevel || 'baixo');
+        updatedFields.result = editForm.result || autoRes.result || 'Resultado dentro dos limites de normalidade.';
+        updatedFields.conduct = autoRes.conduct || '';
+        updatedFields.actualDate = serverTimestamp();
+        updatedFields.releaseTime = new Date(Date.now() + 60 * 60 * 1000); // 1 hour release delay
+      }
+
+      await updateDoc(doc(db, 'exams', editingExam.id), updatedFields);
+
+      await addAuditLog({
+        pregnancyId: pregnancy.id,
+        userId: userData?.uid || '',
+        userName: userData?.name || '',
+        action: 'Edição de Exame',
+        newValue: `Exame ${EXAM_LABELS[editForm.type as ExamType] || editForm.type}`,
+      });
+
+      // Notification if rescheduled
+      if (editingExam.status !== editForm.status && editForm.status === 'coleta-agendada') {
+        await createNotification(
+          pregnancy.motherId,
+          pregnancy.id!,
+          'exame-solicitado',
+          'Coleta de exame agendada',
+          `A coleta do exame ${EXAM_LABELS[editForm.type as ExamType] || editForm.type} foi agendada para ${format(scheduledDateObj!, 'dd/MM/yyyy')}.`,
+          '🧪'
+        );
+      }
+
+      setEditingExam(null);
+      setEditForm(null);
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao salvar exame.');
+    }
+    setSaving(false);
+  };
+
+  const handleDeleteExam = async (examId: string, name: string) => {
+    if (!window.confirm(`Tem certeza de que deseja excluir o exame ${name}?`)) return;
+    setSaving(true);
+    try {
+      await deleteDoc(doc(db, 'exams', examId));
+      await addAuditLog({
+        pregnancyId: pregnancy.id,
+        userId: userData?.uid || '',
+        userName: userData?.name || '',
+        action: 'Exclusão de Exame',
+        newValue: name,
+      });
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao excluir exame.');
+    }
+    setSaving(false);
+  };
+
+  const monthToNum = (m: string | number) => m === 'pre' ? 0 : m === 'pos' ? 10 : parseInt(String(m)) || 0;
+  const sorted = [...exams].sort((a, b) => monthToNum(a.gestationMonth) - monthToNum(b.gestationMonth));
 
   return (
     <div>
@@ -1973,10 +2151,10 @@ function TabExames({ pregnancy, exams }: { pregnancy: Pregnancy; exams: Exam[] }
       </div>
 
       <div className="mr-card">
-        <div className="mr-card-header">
-          <h3 className="mr-card-title">🧪 Exames ({exams.length})</h3>
-          <button className="btn btn-primary btn-sm" onClick={() => setShowForm(!showForm)}>
-            ➕ Solicitar Exame
+        <div className="mr-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 className="mr-card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><FlaskConical size={20} /> Exames Laboratoriais ({exams.length})</h3>
+          <button className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center' }} onClick={() => setShowForm(!showForm)}>
+            <Plus size={16} style={{ marginRight: 4 }} /> Solicitar Exame
           </button>
         </div>
         <div className="mr-card-body">
@@ -1992,7 +2170,9 @@ function TabExames({ pregnancy, exams }: { pregnancy: Pregnancy; exams: Exam[] }
                 <div className="form-group">
                   <label className="form-label">Mês Gestacional</label>
                   <select className="form-select" value={form.gestationMonth} onChange={e => setForm(p => ({...p, gestationMonth: e.target.value}))}>
-                    {[1,2,3,4,5,6,7,8,9].map(m => <option key={m} value={m}>Mês {m}</option>)}
+                    <option value="pre">Pré-concepção</option>
+                    {[1,2,3,4,5,6,7,8,9].map(m => <option key={m} value={String(m)}>{m}º Mês</option>)}
+                    <option value="pos">Pós-parto</option>
                   </select>
                 </div>
                 <div className="form-group">
@@ -2018,36 +2198,104 @@ function TabExames({ pregnancy, exams }: { pregnancy: Pregnancy; exams: Exam[] }
             </div>
           )}
 
+          {/* Modal de Edição Geral de Exame */}
+          {editingExam && editForm && (
+            <div className="mr-modal-overlay">
+              <div className="mr-modal-content" style={{ maxWidth: 500 }}>
+                <div className="mr-modal-header">
+                  <h3 className="mr-modal-title">✏️ Editar Exame ({EXAM_LABELS[editingExam.type] || editingExam.type})</h3>
+                  <button className="btn btn-icon btn-secondary" onClick={() => { setEditingExam(null); setEditForm(null); }}>✕</button>
+                </div>
+                <div className="mr-modal-body">
+                  <div className="form-group">
+                    <label className="form-label">Tipo de Exame</label>
+                    <select className="form-select" value={editForm.type} onChange={e => setEditForm((p: any) => ({ ...p, type: e.target.value }))}>
+                      {Object.entries(EXAM_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Mês Gestacional</label>
+                    <select className="form-select" value={editForm.gestationMonth} onChange={e => setEditForm((p: any) => ({ ...p, gestationMonth: e.target.value }))}>
+                      <option value="pre">Pré-concepção</option>
+                      {[1,2,3,4,5,6,7,8,9].map(m => <option key={m} value={String(m)}>{m}º Mês</option>)}
+                      <option value="pos">Pós-parto</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Data Agendada (Remarcar)</label>
+                    <input type="date" className="form-input" value={editForm.scheduledDate} onChange={e => setEditForm((p: any) => ({ ...p, scheduledDate: e.target.value }))} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Status</label>
+                    <select className="form-select" value={editForm.status} onChange={e => setEditForm((p: any) => ({ ...p, status: e.target.value }))}>
+                      <option value="agendado">Agendado</option>
+                      <option value="coleta-agendada">Coleta Agendada</option>
+                      <option value="em-analise">Em Análise</option>
+                      <option value="realizado">Realizado</option>
+                      <option value="cancelado">Cancelado</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Resultado / Laudo</label>
+                    <textarea className="form-textarea" value={editForm.result} onChange={e => setEditForm((p: any) => ({ ...p, result: e.target.value }))} placeholder="Insira o laudo ou resultado do exame..." />
+                  </div>
+                </div>
+                <div className="mr-modal-footer">
+                  <button className="btn btn-secondary btn-sm" onClick={() => { setEditingExam(null); setEditForm(null); }}>Cancelar</button>
+                  <button className="btn btn-primary btn-sm" disabled={saving} onClick={handleSaveEdit}>
+                    {saving ? 'Salvando...' : '💾 Salvar Alterações'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {sorted.length === 0 ? (
             <div className="empty-state"><span className="empty-state-icon">🧪</span><h4>Nenhum exame solicitado</h4></div>
           ) : (
-            <div>
-              <div className="exam-tr-header">
-                <span>Exame</span>
-                <span>Mês</span>
-                <span>Data</span>
-                <span>Status</span>
-                <span>Ações</span>
-              </div>
+            <div className="standard-card-grid">
               {sorted.map((ex) => (
-                <div key={ex.id} className="exam-tr">
-                  <span style={{ fontWeight: 700 }}>{EXAM_LABELS[ex.type] || ex.type}</span>
-                  <span>Mês {ex.gestationMonth}</span>
-                  <span>
-                    {ex.status === 'em-analise' ? (
-                      <ExamCountdownRenderer exam={ex} pregnancy={pregnancy} db={db} />
-                    ) : ex.scheduledDate ? (
-                      safeFormat(ex.scheduledDate, 'dd/MM/yy')
-                    ) : (
-                      '—'
-                    )}
-                  </span>
-                  <StatusBadge status={ex.status} />
-                  <div className="exam-tr-actions">
+                <div key={ex.id} className="standard-card">
+                  <div className="standard-card-header">
+                    <div className="standard-card-title-wrap">
+                      <div className="standard-card-icon" style={{ background: 'rgba(56, 189, 248, 0.08)', color: 'var(--accent-blue)' }}>🧪</div>
+                      <div>
+                        <h4 className="standard-card-title">{EXAM_LABELS[ex.type] || ex.type}</h4>
+                        <p className="standard-card-subtitle">
+                          Mês Ref: {ex.gestationMonth === 'pre' ? 'Pré-concepção' : ex.gestationMonth === 'pos' ? 'Pós-parto' : `${ex.gestationMonth}º Mês`} · {ex.status === 'em-analise' ? (
+                            <ExamCountdownRenderer exam={ex} pregnancy={pregnancy} db={db} />
+                          ) : ex.scheduledDate ? (
+                            safeFormat(ex.scheduledDate, 'dd/MM/yyyy')
+                          ) : (
+                            'Sem agendamento'
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <StatusBadge status={ex.status} />
+                  </div>
+
+                  <div className="standard-card-meta-grid">
+                    <div className="standard-card-meta-item">
+                      <span className="standard-card-meta-label">Solicitado Por</span>
+                      <span className="standard-card-meta-value">{ex.requestedBy || '—'}</span>
+                    </div>
+                    <div className="standard-card-meta-item">
+                      <span className="standard-card-meta-label">Solicitado Em</span>
+                      <span className="standard-card-meta-value">{safeFormat(ex.requestedAt, 'dd/MM/yyyy')}</span>
+                    </div>
+                  </div>
+
+                  {ex.result && (
+                    <div className="standard-card-content" style={{ fontSize: '0.8rem' }}>
+                      <strong>Resultado:</strong> {ex.result}
+                    </div>
+                  )}
+
+                  <div className="standard-card-actions">
                     {ex.status === 'coleta-agendada' && (
                       <button
-                        className="btn btn-sm"
-                        style={{ background: 'rgba(219,39,119,0.1)', color: '#db2777', border: '1px solid rgba(219,39,119,0.3)', marginRight: 4, display: 'inline-flex', alignItems: 'center', gap: 2 }}
+                        className="btn btn-sm btn-primary"
                         onClick={async () => {
                           await updateDoc(doc(db, 'exams', ex.id), {
                             status: 'em-analise',
@@ -2055,17 +2303,78 @@ function TabExames({ pregnancy, exams }: { pregnancy: Pregnancy; exams: Exam[] }
                             releaseHours: getReleaseHours(ex.type)
                           });
                         }}
-                        title="Realizar Coleta"
                       >
                         💉 Coletar
                       </button>
                     )}
                     {ex.status !== 'realizado' && ex.status !== 'em-analise' && (
-                      <button className="btn btn-sm" style={{ background: 'rgba(52,211,153,0.1)', color: '#059669', border: '1px solid rgba(52,211,153,0.3)' }}
-                        onClick={() => handleUpdateStatus(ex, 'realizado')}>✓</button>
+                      <button className="btn btn-sm" style={{ background: 'rgba(52,211,153,0.1)', color: '#059669', border: '1px solid rgba(52,211,153,0.3)' }} onClick={() => handleUpdateStatus(ex, 'realizado')}>✓</button>
                     )}
-                    <button className="btn btn-sm" style={{ background: 'rgba(148,130,149,0.1)', color: 'var(--txt-muted)', border: '1px solid rgba(148,130,149,0.2)' }}
-                      onClick={() => handleUpdateStatus(ex, 'cancelado')}>✕</button>
+                    {ex.status !== 'realizado' && (
+                      <button
+                        className="btn btn-sm"
+                        style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#2563eb', border: '1px solid rgba(59, 130, 246, 0.3)' }}
+                        onClick={async () => {
+                          const autoRes = getAutoLabResult(ex.type, pregnancy.riskLevel || 'baixo');
+                          const resText = autoRes.result || 'Resultado dentro dos limites de normalidade.';
+                          const conductText = autoRes.conduct || '';
+                          await updateDoc(doc(db, 'exams', ex.id), {
+                            status: 'realizado',
+                            result: resText,
+                            conduct: conductText,
+                            actualDate: serverTimestamp(),
+                            releaseTime: new Date(Date.now() + 60 * 60 * 1000), // 1 hour release delay
+                          });
+
+                          // Create Document (Laudo) in the system
+                          const verificationCode = `NM-${Date.now().toString(36).toUpperCase()}`;
+                          const examName = EXAM_LABELS[ex.type as ExamType] || ex.type;
+                          await addDoc(collection(db, 'documents'), {
+                            pregnancyId: pregnancy.id,
+                            type: 'laudo',
+                            title: `Laudo — ${examName}`,
+                            content: `Laudo de Exame Laboratorial\n\nPaciente: ${pregnancy.motherName}\nExame Realizado: ${examName}\nData da Realização: ${safeFormat(new Date(), "dd/MM/yyyy")}\n\nResultado:\n${resText}\n\nDocumento assinado digitalmente pelo sistema hospitalar.`,
+                            version: 1,
+                            issuedBy: userData?.name || pregnancy.doctorName,
+                            issuedById: userData?.uid || pregnancy.doctorId,
+                            doctorCrm: userData?.crm || '',
+                            doctorSpecialty: userData?.specialty || 'Médico Obstetra',
+                            issuedAt: serverTimestamp(),
+                            verificationCode,
+                          });
+
+                          // Timeline event
+                          await createTimelineEvent(
+                            pregnancy.id!,
+                            'exame',
+                            `Exame Liberado: ${examName}`,
+                            `Laudo disponível para consulta. Resultado: ${resText}`,
+                            '🧪',
+                            '#0891b2',
+                            userData?.uid || '',
+                            userData?.name || ''
+                          );
+
+                          // Notification
+                          await createNotification(
+                            pregnancy.motherId,
+                            pregnancy.id!,
+                            'documento-disponivel',
+                            'Resultado de exame liberado',
+                            `O resultado do exame ${examName} já está disponível no seu prontuário.`,
+                            '🧪'
+                          );
+                        }}
+                      >
+                        🔓 Liberar Resultado
+                      </button>
+                    )}
+                    <button className="btn btn-secondary btn-sm" onClick={() => handleOpenEdit(ex)}>
+                      ✏️ Editar / Remarcar
+                    </button>
+                    <button className="btn btn-danger btn-sm" onClick={() => handleDeleteExam(ex.id, EXAM_LABELS[ex.type] || ex.type)} disabled={saving}>
+                      🗑️ Excluir
+                    </button>
                   </div>
                 </div>
               ))}
@@ -2082,16 +2391,29 @@ function TabUltrassom({ pregnancy, ultrasounds }: { pregnancy: Pregnancy; ultras
   const { userData } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ type: 'Morfológico', gestationalWeek: '', result: '', fetalWeight: '', fetalHeartRate: '', observations: '' });
+  const currentMonth = currentGestationMonth(toDate(pregnancy.startDate), pregnancy.gestationPlan);
+  const elapsedDays = (Date.now() - toDate(pregnancy.startDate).getTime()) / (1000 * 60 * 60 * 24);
+  const currentWeeks = Math.max(0, Math.floor(elapsedDays / 7));
+  const autoBabyInfo = getBabySize(currentWeeks);
+
+  const [form, setForm] = useState({ type: 'Obstétrico', gestationMonth: String(currentMonth), gestationalWeek: String(currentWeeks), result: '', fetalWeight: autoBabyInfo.weight || '', fetalHeartRate: '', observations: '', imageUrl: '' });
+  const [editingUltrassom, setEditingUltrassom] = useState<Ultrasound | null>(null);
+  const [editForm, setEditForm] = useState<any>(null);
 
   const handleAdd = async () => {
     setSaving(true);
     try {
       await addDoc(collection(db, 'ultrasounds'), {
         pregnancyId: pregnancy.id,
-        ...form,
+        type: form.type,
+        gestationMonth: form.gestationMonth,
         gestationalWeek: form.gestationalWeek ? parseInt(form.gestationalWeek) : null,
-        performedBy: userData?.name,
+        fetalWeight: form.fetalWeight,
+        fetalHeartRate: form.fetalHeartRate,
+        result: form.result,
+        observations: form.observations,
+        imageUrl: form.imageUrl || `/ultrasounds/month_${currentGestationMonth(toDate(pregnancy.startDate), pregnancy.gestationPlan)}.png`,
+        performedBy: userData?.name || pregnancy.doctorName,
         date: serverTimestamp(),
         createdAt: serverTimestamp(),
       });
@@ -2124,8 +2446,101 @@ function TabUltrassom({ pregnancy, ultrasounds }: { pregnancy: Pregnancy; ultras
         userData?.name || ''
       );
       setShowForm(false);
-      setForm({ type: 'Morfológico', gestationalWeek: '', result: '', fetalWeight: '', fetalHeartRate: '', observations: '', imageUrl: '' } as any);
+      setForm({ type: 'Obstétrico', gestationMonth: String(currentMonth), gestationalWeek: String(currentWeeks), result: '', fetalWeight: autoBabyInfo.weight || '', fetalHeartRate: '', observations: '', imageUrl: '' });
     } catch (e) { console.error(e); }
+    setSaving(false);
+  };
+
+  const handleOpenEdit = (us: Ultrasound) => {
+    let dateStr = '';
+    try {
+      if (us.date) {
+        dateStr = format(toDate(us.date), 'yyyy-MM-dd');
+      }
+    } catch (err) {
+      dateStr = format(new Date(), 'yyyy-MM-dd');
+    }
+    setEditForm({
+      type: us.type,
+      gestationalWeek: us.gestationalWeek || '',
+      gestationMonth: us.gestationMonth || String(currentMonth),
+      fetalWeight: us.fetalWeight || '',
+      fetalHeartRate: us.fetalHeartRate || '',
+      result: us.result || '',
+      observations: us.observations || '',
+      imageUrl: us.imageUrl || '',
+      date: dateStr,
+    });
+    setEditingUltrassom(us);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingUltrassom || !editForm) return;
+    setSaving(true);
+    try {
+      const dateObj = editForm.date ? new Date(editForm.date + 'T12:00:00') : toDate(editingUltrassom.date);
+      const isLegacy = (editingUltrassom as any)._legacy;
+
+      if (isLegacy) {
+        await updateDoc(doc(db, 'exams', editingUltrassom.id), {
+          type: Object.keys(EXAM_LABELS).find(key => EXAM_LABELS[key as ExamType] === editForm.type) || editForm.type,
+          result: editForm.result,
+          notes: editForm.observations,
+          actualDate: dateObj,
+          scheduledDate: dateObj,
+        });
+      } else {
+        const updatedFields = {
+          type: editForm.type,
+          gestationalWeek: editForm.gestationalWeek ? parseInt(editForm.gestationalWeek) : null,
+          gestationMonth: editForm.gestationMonth,
+          fetalWeight: editForm.fetalWeight,
+          fetalHeartRate: editForm.fetalHeartRate,
+          result: editForm.result,
+          observations: editForm.observations,
+          imageUrl: editForm.imageUrl,
+          date: dateObj,
+        };
+        await updateDoc(doc(db, 'ultrasounds', editingUltrassom.id), updatedFields);
+      }
+
+      await addAuditLog({
+        pregnancyId: pregnancy.id,
+        userId: userData?.uid || '',
+        userName: userData?.name || '',
+        action: 'Edição de Ultrassom',
+        newValue: editForm.type,
+      });
+
+      setEditingUltrassom(null);
+      setEditForm(null);
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao salvar ultrassom.');
+    }
+    setSaving(false);
+  };
+
+  const handleDeleteUltrasound = async (usId: string, type: string, isLegacy?: boolean) => {
+    if (!window.confirm(`Tem certeza de que deseja excluir o ultrassom ${type}?`)) return;
+    setSaving(true);
+    try {
+      if (isLegacy) {
+        await deleteDoc(doc(db, 'exams', usId));
+      } else {
+        await deleteDoc(doc(db, 'ultrasounds', usId));
+      }
+      await addAuditLog({
+        pregnancyId: pregnancy.id,
+        userId: userData?.uid || '',
+        userName: userData?.name || '',
+        action: 'Exclusão de Ultrassom',
+        newValue: type,
+      });
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao excluir ultrassom.');
+    }
     setSaving(false);
   };
 
@@ -2149,9 +2564,11 @@ function TabUltrassom({ pregnancy, ultrasounds }: { pregnancy: Pregnancy; ultras
       </div>
 
       <div className="mr-card">
-        <div className="mr-card-header">
-          <h3 className="mr-card-title">🔬 Ultrassonografias ({ultrasounds.length})</h3>
-          <button className="btn btn-primary btn-sm" onClick={() => setShowForm(!showForm)}>➕ Registrar Ultrassom</button>
+        <div className="mr-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 className="mr-card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><ScanLine size={20} /> Exames de Imagem / Ultrassonografias ({ultrasounds.length})</h3>
+          <button className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center' }} onClick={() => setShowForm(!showForm)}>
+            <Plus size={16} style={{ marginRight: 4 }} /> Registrar Ultrassom
+          </button>
         </div>
         <div className="mr-card-body">
           {showForm && (
@@ -2160,7 +2577,15 @@ function TabUltrassom({ pregnancy, ultrasounds }: { pregnancy: Pregnancy; ultras
                 <div className="form-group">
                   <label className="form-label">Tipo</label>
                   <select className="form-select" value={form.type} onChange={e => setForm(p => ({...p, type: e.target.value}))}>
-                    {['Obstétrico Inicial', 'Morfológico 1º Trim', 'Morfológico 2º Trim', 'Obstétrico', 'Doppler', 'Transvaginal', 'Cervicometria', '3D/4D', 'Crescimento Fetal'].map(t => <option key={t}>{t}</option>)}
+                    {['Obstétrico Inicial', 'Morfológico 1º Trim', 'Morfológico 2º Trim', 'Obstétrico', 'Doppler', 'Transvaginal', 'Cervicometria', '3D/4D', 'Crescimento Fetal'].map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Mês Ref.</label>
+                  <select className="form-select" value={form.gestationMonth} onChange={e => setForm(p => ({...p, gestationMonth: e.target.value}))}>
+                    <option value="pre">Pré-concepção</option>
+                    {[1,2,3,4,5,6,7,8,9].map(m => <option key={m} value={String(m)}>{m}º Mês</option>)}
+                    <option value="pos">Pós-parto</option>
                   </select>
                 </div>
                 <div className="form-group">
@@ -2178,7 +2603,7 @@ function TabUltrassom({ pregnancy, ultrasounds }: { pregnancy: Pregnancy; ultras
               </div>
               <div className="form-group" style={{ marginBottom: 10 }}>
                 <label className="form-label">URL da Imagem (Opcional)</label>
-                <input className="form-input" value={(form as any).imageUrl || ''} onChange={e => setForm(p => ({...p, imageUrl: e.target.value}))} placeholder="Cole o link direto da imagem (Imgur, Discord, etc)" />
+                <input className="form-input" value={form.imageUrl} onChange={e => setForm(p => ({...p, imageUrl: e.target.value}))} placeholder="Cole o link direto da imagem (Imgur, Discord, etc)" />
               </div>
               <div className="form-group" style={{ marginBottom: 10 }}>
                 <label className="form-label">Resultado / Laudo</label>
@@ -2195,26 +2620,203 @@ function TabUltrassom({ pregnancy, ultrasounds }: { pregnancy: Pregnancy; ultras
             </div>
           )}
 
+          {/* Modal de Edição Geral de Ultrassom */}
+          {editingUltrassom && editForm && (
+            <div className="mr-modal-overlay">
+              <div className="mr-modal-content" style={{ maxWidth: 500 }}>
+                <div className="mr-modal-header">
+                  <h3 className="mr-modal-title">✏️ Editar Ultrassom ({editingUltrassom.type})</h3>
+                  <button className="btn btn-icon btn-secondary" onClick={() => { setEditingUltrassom(null); setEditForm(null); }}>✕</button>
+                </div>
+                <div className="mr-modal-body">
+                  <div className="form-group">
+                    <label className="form-label">Tipo de Ultrassom</label>
+                    <select className="form-select" value={editForm.type} onChange={e => setEditForm((p: any) => ({ ...p, type: e.target.value }))}>
+                      {['Obstétrico Inicial', 'Morfológico 1º Trim', 'Morfológico 2º Trim', 'Obstétrico', 'Doppler', 'Transvaginal', 'Cervicometria', '3D/4D', 'Crescimento Fetal'].map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Mês Ref.</label>
+                    <select className="form-select" value={editForm.gestationMonth} onChange={e => setEditForm((p: any) => ({ ...p, gestationMonth: e.target.value }))}>
+                      <option value="pre">Pré-concepção</option>
+                      {[1,2,3,4,5,6,7,8,9].map(m => <option key={m} value={String(m)}>{m}º Mês</option>)}
+                      <option value="pos">Pós-parto</option>
+                    </select>
+                  </div>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label className="form-label">Semana Gestacional</label>
+                      <input className="form-input" type="number" value={editForm.gestationalWeek} onChange={e => setEditForm((p: any) => ({ ...p, gestationalWeek: e.target.value }))} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Data Realização</label>
+                      <input className="form-input" type="date" value={editForm.date} onChange={e => setEditForm((p: any) => ({ ...p, date: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label className="form-label">Peso Fetal Est.</label>
+                      <input className="form-input" value={editForm.fetalWeight} onChange={e => setEditForm((p: any) => ({ ...p, fetalWeight: e.target.value }))} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">BCF Fetal</label>
+                      <input className="form-input" value={editForm.fetalHeartRate} onChange={e => setEditForm((p: any) => ({ ...p, fetalHeartRate: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">URL da Imagem</label>
+                    <input className="form-input" value={editForm.imageUrl} onChange={e => setEditForm((p: any) => ({ ...p, imageUrl: e.target.value }))} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Resultado / Laudo</label>
+                    <textarea className="form-textarea" value={editForm.result} onChange={e => setEditForm((p: any) => ({ ...p, result: e.target.value }))} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Observações</label>
+                    <textarea className="form-textarea" value={editForm.observations} onChange={e => setEditForm((p: any) => ({ ...p, observations: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="mr-modal-footer">
+                  <button className="btn btn-secondary btn-sm" onClick={() => { setEditingUltrassom(null); setEditForm(null); }}>Cancelar</button>
+                  <button className="btn btn-primary btn-sm" disabled={saving} onClick={handleSaveEdit}>
+                    {saving ? 'Salvando...' : '💾 Salvar Alterações'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {ultrasounds.length === 0 ? (
             <div className="empty-state"><span className="empty-state-icon">🔬</span><h4>Nenhum ultrassom registrado</h4></div>
           ) : (
-            <div className="ultrasound-grid">
+            <div className="standard-card-grid">
               {[...ultrasounds].sort((a,b) => toDate(b.date).getTime() - toDate(a.date).getTime()).map(us => (
-                <div key={us.id} className="ultrasound-card" style={{ display: 'flex', gap: 16 }}>
-                  {(us as any).imageUrl ? (
-                    <img src={(us as any).imageUrl} alt="Ultrassom" style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 'var(--r-md)', border: '1px solid rgba(0,0,0,0.1)' }} />
-                  ) : (
-                    <div className="us-image-area" style={{ flexShrink: 0, width: 120, height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-main)', borderRadius: 'var(--r-md)', fontSize: '2rem' }}>🔬</div>
-                  )}
-                  <div className="us-info" style={{ flex: 1 }}>
-                    <div className="us-date" style={{ fontSize: '0.8rem', color: 'var(--txt-muted)' }}>{safeFormat(us.date, "dd 'de' MMMM 'de' yyyy")}</div>
-                    <div className="us-type" style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--txt-main)', marginBottom: 8 }}>{us.type}</div>
-                    <div className="us-details" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      {us.gestationalWeek && <span className="badge badge-blue">Semana {us.gestationalWeek}</span>}
-                      {us.fetalWeight && <span className="badge badge-pink">{us.fetalWeight}</span>}
-                      {us.fetalHeartRate && <span className="badge badge-green">❤ {us.fetalHeartRate}</span>}
+                <div key={us.id} className="standard-card">
+                  <div className="standard-card-header">
+                    <div className="standard-card-title-wrap">
+                      <div className="standard-card-icon" style={{ background: 'rgba(168, 85, 247, 0.08)', color: 'var(--accent-purple)' }}>🔬</div>
+                      <div>
+                        <h4 className="standard-card-title">{us.type}</h4>
+                        <p className="standard-card-subtitle">{safeFormat(us.date, "dd 'de' MMMM 'de' yyyy")}</p>
+                      </div>
                     </div>
-                    {us.result && <p style={{ fontSize: '0.85rem', color: 'var(--txt-dark)', marginTop: 10, lineHeight: 1.5 }}>{us.result}</p>}
+                    <span className="badge badge-purple" style={{ background: 'rgba(168,85,247,0.1)', color: '#a78bfa' }}>Mês {us.gestationalWeek ? Math.floor(us.gestationalWeek / 4) + 1 : '—'}</span>
+                  </div>
+
+                  {us.imageUrl ? (
+                    <img src={us.imageUrl} alt="Ultrassom" style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 'var(--r-sm)' }} />
+                  ) : (
+                    <div className="us-image-area" style={{ height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-main)', borderRadius: 'var(--r-sm)', fontSize: '2rem' }}>🔬</div>
+                  )}
+
+                  <div className="standard-card-meta-grid">
+                    {us.gestationalWeek && (
+                      <div className="standard-card-meta-item">
+                        <span className="standard-card-meta-label">Semana</span>
+                        <span className="standard-card-meta-value">Semana {us.gestationalWeek}</span>
+                      </div>
+                    )}
+                    {us.fetalWeight && (
+                      <div className="standard-card-meta-item">
+                        <span className="standard-card-meta-label">Peso Est.</span>
+                        <span className="standard-card-meta-value">{us.fetalWeight}</span>
+                      </div>
+                    )}
+                    {us.fetalHeartRate && (
+                      <div className="standard-card-meta-item">
+                        <span className="standard-card-meta-label">BCF</span>
+                        <span className="standard-card-meta-value">❤ {us.fetalHeartRate}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {us.result && (
+                    <div className="standard-card-content" style={{ fontSize: '0.8rem' }}>
+                      <strong>Resultado/Laudo:</strong> {us.result}
+                    </div>
+                  )}
+
+                  {us.observations && (
+                    <div className="standard-card-content" style={{ fontSize: '0.8rem', background: 'rgba(251, 146, 60, 0.03)', borderColor: 'rgba(251, 146, 60, 0.1)' }}>
+                      <strong>Observações:</strong> {us.observations}
+                    </div>
+                  )}
+
+                  <div className="standard-card-actions">
+                    {!(us as any).result && (
+                      <button
+                        className="btn btn-sm"
+                        style={{ background: 'rgba(168, 85, 247, 0.1)', color: '#7c3aed', border: '1px solid rgba(168, 85, 247, 0.3)' }}
+                        onClick={async () => {
+                          const resText = "Exame de ultrassonografia realizado. Anatomia fetal preservada, batimentos cardíacos fetais normais e movimentação ativa.";
+                          const isLegacy = (us as any)._legacy;
+
+                          if (isLegacy) {
+                            await updateDoc(doc(db, 'exams', us.id), {
+                              status: 'realizado',
+                              result: resText,
+                              imageUrl: us.imageUrl || `/ultrasounds/month_${currentGestationMonth(toDate(pregnancy.startDate), pregnancy.gestationPlan)}.png`,
+                              actualDate: serverTimestamp(),
+                              releaseTime: new Date(Date.now() + 60 * 60 * 1000), // 1 hour release delay
+                            });
+                          } else {
+                            await updateDoc(doc(db, 'ultrasounds', us.id), {
+                              result: resText,
+                              date: new Date(),
+                              imageUrl: us.imageUrl || `/ultrasounds/month_${currentGestationMonth(toDate(pregnancy.startDate), pregnancy.gestationPlan)}.png`,
+                              releaseTime: new Date(Date.now() + 60 * 60 * 1000), // 1 hour release delay
+                            });
+                          }
+
+                          // Create Document (Laudo) in the system
+                          const verificationCode = `NM-${Date.now().toString(36).toUpperCase()}`;
+                          const examName = us.type || 'Ultrassonografia';
+                          await addDoc(collection(db, 'documents'), {
+                            pregnancyId: pregnancy.id,
+                            type: 'laudo',
+                            title: `Laudo — ${examName}`,
+                            content: `Laudo de Exame de Imagem\n\nPaciente: ${pregnancy.motherName}\nExame Realizado: ${examName}\nData da Realização: ${safeFormat(new Date(), "dd/MM/yyyy")}\n\nResultado / Conclusão:\n${resText}\n\nDocumento assinado digitalmente pelo sistema hospitalar.`,
+                            version: 1,
+                            issuedBy: userData?.name || pregnancy.doctorName,
+                            issuedById: userData?.uid || pregnancy.doctorId,
+                            doctorCrm: userData?.crm || '',
+                            doctorSpecialty: userData?.specialty || 'Médico Obstetra',
+                            issuedAt: serverTimestamp(),
+                            verificationCode,
+                          });
+
+                          // Timeline event
+                          await createTimelineEvent(
+                            pregnancy.id!,
+                            'ultrassom',
+                            `Ultrassom Liberado: ${examName}`,
+                            `Laudo de imagem disponível.`,
+                            '🔬',
+                            '#a78bfa',
+                            userData?.uid || '',
+                            userData?.name || ''
+                          );
+
+                          // Notification
+                          await createNotification(
+                            pregnancy.motherId,
+                            pregnancy.id!,
+                            'documento-disponivel',
+                            'Laudo de ultrassom liberado',
+                            `O laudo do exame ${examName} já está disponível no seu prontuário.`,
+                            '🔬'
+                          );
+                        }}
+                      >
+                        🔓 Liberar Resultado
+                      </button>
+                    )}
+                    <button className="btn btn-secondary btn-sm" onClick={() => handleOpenEdit(us)}>
+                      ✏️ Editar
+                    </button>
+                    <button className="btn btn-danger btn-sm" onClick={() => handleDeleteUltrasound(us.id, us.type, (us as any)._legacy)} disabled={saving}>
+                      🗑️ Excluir
+                    </button>
                   </div>
                 </div>
               ))}
@@ -2232,6 +2834,8 @@ function TabMedicamentos({ pregnancy, medications }: { pregnancy: Pregnancy; med
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: '', dose: '', frequency: '', duration: '', instructions: '', type: 'casa' });
+  const [editingMedication, setEditingMedication] = useState<Medication | null>(null);
+  const [editForm, setEditForm] = useState<any>(null);
 
   const handleAdd = async () => {
     if (!form.name || !form.dose) return;
@@ -2245,7 +2849,7 @@ function TabMedicamentos({ pregnancy, medications }: { pregnancy: Pregnancy; med
         duration: form.duration,
         instructions: form.instructions,
         type: form.type, // 'consultorio' or 'casa'
-        prescribedBy: userData?.name,
+        prescribedBy: userData?.name || pregnancy.doctorName,
         prescribedAt: serverTimestamp(),
         startDate: serverTimestamp(),
         active: true,
@@ -2257,7 +2861,7 @@ function TabMedicamentos({ pregnancy, medications }: { pregnancy: Pregnancy; med
         userId: userData?.uid || '',
         userName: userData?.name || '',
         action: 'Prescrição de Medicamento',
-        newValue: `${form.name} ${form.dose} (${form.frequency}) [Aplicar em: ${form.type === 'consultorio' ? 'Consultório' : 'Casa'}]`,
+        newValue: `${form.name} ${form.dose} (${form.frequency})`,
       });
 
       // Notification
@@ -2266,7 +2870,7 @@ function TabMedicamentos({ pregnancy, medications }: { pregnancy: Pregnancy; med
         pregnancy.id!,
         'medicamento-prescrito',
         'Novo medicamento prescrito',
-        `Foi prescrito o medicamento: ${form.name} ${form.dose} (Aplicar em: ${form.type === 'consultorio' ? 'Consultório' : 'Casa'}).`,
+        `Foi prescrito o medicamento: ${form.name} ${form.dose}.`,
         '💊'
       );
 
@@ -2275,7 +2879,7 @@ function TabMedicamentos({ pregnancy, medications }: { pregnancy: Pregnancy; med
         pregnancy.id!,
         'medicamento',
         `Medicamento Prescrito`,
-        `Prescrito: ${form.name} ${form.dose} — ${form.frequency} (Aplicar em: ${form.type === 'consultorio' ? 'Consultório' : 'Casa'}).`,
+        `Prescrito: ${form.name} ${form.dose} — ${form.frequency}.`,
         '💊',
         '#fb923c',
         userData?.uid || '',
@@ -2288,33 +2892,68 @@ function TabMedicamentos({ pregnancy, medications }: { pregnancy: Pregnancy; med
     setSaving(false);
   };
 
-  const handleToggle = async (m: Medication) => {
-    try {
-      // Exclui a medicação suspensa do banco para reaparecer no SmartAssistant
-      await deleteDoc(doc(db, 'medications', m.id));
+  const handleOpenEdit = (m: Medication) => {
+    setEditForm({
+      name: m.name,
+      dose: m.dose,
+      frequency: m.frequency,
+      duration: m.duration || '',
+      instructions: m.instructions || '',
+      type: m.type || 'casa',
+      active: m.active,
+    });
+    setEditingMedication(m);
+  };
 
-      // Audit Log
+  const handleSaveEdit = async () => {
+    if (!editingMedication || !editForm) return;
+    setSaving(true);
+    try {
+      await updateDoc(doc(db, 'medications', editingMedication.id), {
+        name: editForm.name,
+        dose: editForm.dose,
+        frequency: editForm.frequency,
+        duration: editForm.duration,
+        instructions: editForm.instructions,
+        type: editForm.type,
+        active: editForm.active,
+      });
+
       await addAuditLog({
         pregnancyId: pregnancy.id,
         userId: userData?.uid || '',
         userName: userData?.name || '',
-        action: 'Suspensão de Medicamento',
-        newValue: m.name,
+        action: 'Edição de Medicamento',
+        newValue: editForm.name,
       });
 
-      // Notification
-      await createNotification(
-        pregnancy.motherId,
-        pregnancy.id!,
-        'medicamento-status',
-        'Medicamento suspenso',
-        `O uso de ${m.name} foi suspenso/excluído pelo médico.`,
-        '💊'
-      );
-    } catch (e) { console.error(e); }
+      setEditingMedication(null);
+      setEditForm(null);
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao salvar medicamento.');
+    }
+    setSaving(false);
   };
 
-  const active = medications;
+  const handleDeleteMedication = async (medId: string, name: string) => {
+    if (!window.confirm(`Tem certeza de que deseja excluir o medicamento ${name}?`)) return;
+    setSaving(true);
+    try {
+      await deleteDoc(doc(db, 'medications', medId));
+      await addAuditLog({
+        pregnancyId: pregnancy.id,
+        userId: userData?.uid || '',
+        userName: userData?.name || '',
+        action: 'Exclusão de Medicamento',
+        newValue: name,
+      });
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao excluir medicamento.');
+    }
+    setSaving(false);
+  };
 
   return (
     <div>
@@ -2322,7 +2961,7 @@ function TabMedicamentos({ pregnancy, medications }: { pregnancy: Pregnancy; med
       <div className="glass-box" style={{ padding: 20, marginBottom: 24, borderLeft: '4px solid var(--accent-orange)', display: 'flex', gap: 16, alignItems: 'center' }}>
         <span style={{ fontSize: '2rem' }}>💡</span>
         <div style={{ flex: 1 }}>
-          <h4 style={{ color: 'var(--accent-orange)', marginBottom: 4 }}>Prescrição Inteligente</h4>
+          <h4 style={{ color: 'var(--accent-orange)', marginBottom: 4 }}>Prescrição de Medicamentos</h4>
           {medications.length === 0 ? (
             <p style={{ fontSize: '0.9rem', color: 'var(--txt-dark)' }}>
               Nenhum medicamento prescrito. <strong>Sugerido:</strong> Suplementação de Ácido Fólico e Sulfato Ferroso são indicados em quase todas as gestações.
@@ -2336,9 +2975,11 @@ function TabMedicamentos({ pregnancy, medications }: { pregnancy: Pregnancy; med
       </div>
 
       <div className="mr-card">
-        <div className="mr-card-header">
-          <h3 className="mr-card-title">💊 Medicamentos ({active.length} ativos)</h3>
-          <button className="btn btn-primary btn-sm" onClick={() => setShowForm(!showForm)}>➕ Prescrever</button>
+        <div className="mr-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 className="mr-card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Pill size={20} /> Medicamentos Prescritos ({medications.length})</h3>
+          <button className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center' }} onClick={() => setShowForm(!showForm)}>
+            <Plus size={16} style={{ marginRight: 4 }} /> Prescrever Medicamento
+          </button>
         </div>
         <div className="mr-card-body">
           {showForm && (
@@ -2366,33 +3007,110 @@ function TabMedicamentos({ pregnancy, medications }: { pregnancy: Pregnancy; med
             </div>
           )}
 
+          {/* Modal de Edição Geral de Medicamento */}
+          {editingMedication && editForm && (
+            <div className="mr-modal-overlay">
+              <div className="mr-modal-content" style={{ maxWidth: 500 }}>
+                <div className="mr-modal-header">
+                  <h3 className="mr-modal-title">✏️ Editar Prescrição ({editingMedication.name})</h3>
+                  <button className="btn btn-icon btn-secondary" onClick={() => { setEditingMedication(null); setEditForm(null); }}>✕</button>
+                </div>
+                <div className="mr-modal-body">
+                  <div className="form-group">
+                    <label className="form-label">Nome do Medicamento</label>
+                    <input className="form-input" value={editForm.name} onChange={e => setEditForm((p: any) => ({ ...p, name: e.target.value }))} />
+                  </div>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label className="form-label">Dose</label>
+                      <input className="form-input" value={editForm.dose} onChange={e => setEditForm((p: any) => ({ ...p, dose: e.target.value }))} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Frequência</label>
+                      <input className="form-input" value={editForm.frequency} onChange={e => setEditForm((p: any) => ({ ...p, frequency: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label className="form-label">Duração</label>
+                      <input className="form-input" value={editForm.duration} onChange={e => setEditForm((p: any) => ({ ...p, duration: e.target.value }))} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Local de Aplicação</label>
+                      <select className="form-select" value={editForm.type} onChange={e => setEditForm((p: any) => ({ ...p, type: e.target.value }))}>
+                        <option value="casa">Uso Domiciliar (Levar receita para Casa)</option>
+                        <option value="consultorio">Uso no Consultório (Aplicar no Hospital)</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Status</label>
+                    <select className="form-select" value={editForm.active ? 'true' : 'false'} onChange={e => setEditForm((p: any) => ({ ...p, active: e.target.value === 'true' }))}>
+                      <option value="true">Ativo</option>
+                      <option value="false">Desativado / Suspenso</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Orientações</label>
+                    <textarea className="form-textarea" value={editForm.instructions} onChange={e => setEditForm((p: any) => ({ ...p, instructions: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="mr-modal-footer">
+                  <button className="btn btn-secondary btn-sm" onClick={() => { setEditingMedication(null); setEditForm(null); }}>Cancelar</button>
+                  <button className="btn btn-primary btn-sm" disabled={saving} onClick={handleSaveEdit}>
+                    {saving ? 'Salvando...' : '💾 Salvar Alterações'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {medications.length === 0 ? (
             <div className="empty-state"><span className="empty-state-icon">💊</span><h4>Nenhum medicamento prescrito</h4></div>
           ) : (
-            <div>
-              {active.length > 0 && (
-                <>
-                  <p style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--txt-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Ativos</p>
-                  <div className="medication-list" style={{ marginBottom: 20 }}>
-                    {active.map(m => (
-                      <div key={m.id} className="medication-item">
-                        <div className="med-icon">💊</div>
-                        <div className="med-info">
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span className="med-name">{m.name}</span>
-                            <span className="badge" style={{ fontSize: '0.62rem', padding: '2px 6px', borderRadius: 4, background: m.type === 'consultorio' ? '#fee2e2' : '#dcfce7', color: m.type === 'consultorio' ? '#dc2626' : '#15803d' }}>
-                              {m.type === 'consultorio' ? 'Aplicar no Hospital' : 'Uso Domiciliar'}
-                            </span>
-                          </div>
-                          <div className="med-details">{m.dose} · {m.frequency}{m.duration ? ` · ${m.duration}` : ''}</div>
-                          {m.instructions && <div style={{ fontSize: '0.78rem', color: 'var(--txt-muted)', marginTop: 2 }}>{m.instructions}</div>}
-                        </div>
-                        <button className="btn btn-sm btn-secondary" onClick={() => handleToggle(m)}>Desativar</button>
+            <div className="standard-card-grid">
+              {medications.map(m => (
+                <div key={m.id} className="standard-card">
+                  <div className="standard-card-header">
+                    <div className="standard-card-title-wrap">
+                      <div className="standard-card-icon" style={{ background: 'rgba(249, 115, 22, 0.08)', color: 'var(--accent-orange)' }}>💊</div>
+                      <div>
+                        <h4 className="standard-card-title">{m.name}</h4>
+                        <p className="standard-card-subtitle">{m.dose} · {m.frequency}</p>
                       </div>
-                    ))}
+                    </div>
+                    <span className={`badge ${m.active ? 'badge-green' : 'badge-gray'}`}>{m.active ? 'Ativo' : 'Suspenso'}</span>
                   </div>
-                </>
-              )}
+
+                  <div className="standard-card-meta-grid">
+                    <div className="standard-card-meta-item">
+                      <span className="standard-card-meta-label">Local</span>
+                      <span className="standard-card-meta-value">{m.type === 'consultorio' ? 'Hospital' : 'Casa'}</span>
+                    </div>
+                    {m.duration && (
+                      <div className="standard-card-meta-item">
+                        <span className="standard-card-meta-label">Duração</span>
+                        <span className="standard-card-meta-value">{m.duration}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {m.instructions && (
+                    <div className="standard-card-content" style={{ fontSize: '0.8rem' }}>
+                      <strong>Orientações:</strong> {m.instructions}
+                    </div>
+                  )}
+
+                  <div className="standard-card-actions">
+                    <button className="btn btn-secondary btn-sm" onClick={() => handleOpenEdit(m)}>
+                      ✏️ Editar
+                    </button>
+                    <button className="btn btn-danger btn-sm" onClick={() => handleDeleteMedication(m.id, m.name)} disabled={saving}>
+                      🗑️ Excluir
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -2408,6 +3126,8 @@ function TabDocumentos({ pregnancy, documents }: { pregnancy: Pregnancy; documen
   const [saving, setSaving] = useState(false);
   const [content, setContent] = useState('');
   const [pdfData, setPdfData] = useState<PDFData | null>(null);
+  const [editingDocument, setEditingDocument] = useState<MedDocument | null>(null);
+  const [editForm, setEditForm] = useState<any>(null);
 
   const docTypes: { type: DocumentType; label: string; icon: string }[] = [
     { type: 'atestado', label: 'Atestado Médico', icon: '📋' },
@@ -2494,6 +3214,62 @@ function TabDocumentos({ pregnancy, documents }: { pregnancy: Pregnancy; documen
     setSaving(false);
   };
 
+  const handleOpenEdit = (d: MedDocument) => {
+    setEditForm({
+      title: d.title,
+      content: d.content,
+      type: d.type,
+    });
+    setEditingDocument(d);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingDocument || !editForm) return;
+    setSaving(true);
+    try {
+      await updateDoc(doc(db, 'documents', editingDocument.id), {
+        title: editForm.title,
+        content: editForm.content,
+        type: editForm.type,
+        version: increment(1),
+      });
+
+      await addAuditLog({
+        pregnancyId: pregnancy.id,
+        userId: userData?.uid || '',
+        userName: userData?.name || '',
+        action: 'Edição de Documento',
+        newValue: editForm.title,
+      });
+
+      setEditingDocument(null);
+      setEditForm(null);
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao salvar documento.');
+    }
+    setSaving(false);
+  };
+
+  const handleDeleteDocument = async (docId: string, title: string) => {
+    if (!window.confirm(`Tem certeza de que deseja excluir o documento "${title}"?`)) return;
+    setSaving(true);
+    try {
+      await deleteDoc(doc(db, 'documents', docId));
+      await addAuditLog({
+        pregnancyId: pregnancy.id,
+        userId: userData?.uid || '',
+        userName: userData?.name || '',
+        action: 'Exclusão de Documento',
+        newValue: title,
+      });
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao excluir documento.');
+    }
+    setSaving(false);
+  };
+
   return (
     <div>
       {/* PAINEL DE SUGESTÕES INTELIGENTES (RPG) */}
@@ -2539,53 +3315,115 @@ function TabDocumentos({ pregnancy, documents }: { pregnancy: Pregnancy; documen
         </div>
       </div>
 
+      {/* Modal de Edição de Documento */}
+      {editingDocument && editForm && (
+        <div className="mr-modal-overlay">
+          <div className="mr-modal-content" style={{ maxWidth: 600 }}>
+            <div className="mr-modal-header">
+              <h3 className="mr-modal-title">✏️ Editar Documento ({editingDocument.title})</h3>
+              <button className="btn btn-icon btn-secondary" onClick={() => { setEditingDocument(null); setEditForm(null); }}>✕</button>
+            </div>
+            <div className="mr-modal-body">
+              <div className="form-group">
+                <label className="form-label">Título do Documento</label>
+                <input className="form-input" value={editForm.title} onChange={e => setEditForm((p: any) => ({ ...p, title: e.target.value }))} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Tipo de Documento</label>
+                <select className="form-select" value={editForm.type} onChange={e => setEditForm((p: any) => ({ ...p, type: e.target.value }))}>
+                  {docTypes.map(d => <option key={d.type} value={d.type}>{d.label}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Conteúdo</label>
+                <textarea className="form-textarea" style={{ minHeight: 200 }} value={editForm.content} onChange={e => setEditForm((p: any) => ({ ...p, content: e.target.value }))} />
+              </div>
+            </div>
+            <div className="mr-modal-footer">
+              <button className="btn btn-secondary btn-sm" onClick={() => { setEditingDocument(null); setEditForm(null); }}>Cancelar</button>
+              <button className="btn btn-primary btn-sm" disabled={saving} onClick={handleSaveEdit}>
+                {saving ? 'Salvando...' : '💾 Salvar Alterações'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {documents.length > 0 && (
         <div className="mr-card">
           <div className="mr-card-header">
             <h3 className="mr-card-title">📁 Documentos Emitidos ({documents.length})</h3>
           </div>
           <div className="mr-card-body">
-            <div className="document-list">
+            <div className="standard-card-grid">
               {[...documents].sort((a,b) => toDate(b.issuedAt).getTime() - toDate(a.issuedAt).getTime()).map(d => (
-                <div key={d.id} className="document-item">
-                  <div className="doc-icon">{docTypes.find(t => t.type === d.type)?.icon || '📄'}</div>
-                  <div className="doc-info">
-                    <div className="doc-title">{d.title}</div>
-                    <div className="doc-meta">Emitido por {d.issuedBy} · {safeFormat(d.issuedAt, "dd/MM/yyyy 'às' HH:mm")}</div>
-                    {d.verificationCode && <div style={{ fontSize: '0.72rem', fontFamily: 'monospace', color: 'var(--txt-muted)', marginTop: 2 }}>#{d.verificationCode}</div>}
-                  </div>
-                    <div className="doc-actions">
-                      <span className="badge badge-green">v{d.version}</span>
-                      <button
-                        className="btn btn-sm btn-primary"
-                        onClick={() => setPdfData({
-                          type: d.type,
-                          title: d.title,
-                          content: d.content,
-                          patientName: pregnancy.motherName,
-                          doctorName: d.issuedBy,
-                          doctorCrm: d.doctorCrm || '',
-                          doctorSpecialty: d.doctorSpecialty || 'Médico Obstetra',
-                          hospitalName: pregnancy.hospitalName,
-                          date: toDate(d.issuedAt),
-                          verificationCode: d.verificationCode,
-                          pregnancyData: {
-                            bloodType:         pregnancy.bloodType,
-                            riskLevel:         pregnancy.riskLevel,
-                            dpp:               pregnancy.expectedBirthDate
-                              ? safeFormat(pregnancy.expectedBirthDate, 'dd/MM/yyyy')
-                              : undefined,
-                            dum:               pregnancy.dum
-                              ? safeFormat(pregnancy.dum, 'dd/MM/yyyy')
-                              : undefined,
-                            baby:              pregnancy.baby,
-                          },
-                        })}
-                      >
-                        📄 Visualizar
-                      </button>
+                <div key={d.id} className="standard-card">
+                  <div className="standard-card-header">
+                    <div className="standard-card-title-wrap">
+                      <div className="standard-card-icon" style={{ background: 'rgba(212, 175, 55, 0.08)', color: 'var(--accent-gold)' }}>
+                        {docTypes.find(t => t.type === d.type)?.icon || '📄'}
+                      </div>
+                      <div>
+                        <h4 className="standard-card-title">{d.title}</h4>
+                        <p className="standard-card-subtitle">Emitido por {d.issuedBy}</p>
+                      </div>
                     </div>
+                    <span className="badge badge-gold" style={{ background: 'rgba(212,175,55,0.1)', color: '#d4af37' }}>v{d.version}</span>
+                  </div>
 
+                  <div className="standard-card-meta-grid">
+                    <div className="standard-card-meta-item">
+                      <span className="standard-card-meta-label">Data</span>
+                      <span className="standard-card-meta-value">{safeFormat(d.issuedAt, "dd/MM/yyyy 'às' HH:mm")}</span>
+                    </div>
+                    {d.verificationCode && (
+                      <div className="standard-card-meta-item">
+                        <span className="standard-card-meta-label">Código</span>
+                        <span className="standard-card-meta-value" style={{ fontFamily: 'monospace' }}>#{d.verificationCode}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="standard-card-content" style={{ fontSize: '0.8rem', whiteSpace: 'pre-wrap', maxHeight: 120, overflowY: 'auto' }}>
+                    {d.content}
+                  </div>
+
+                  <div className="standard-card-actions">
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={() => setPdfData({
+                        type: d.type,
+                        title: d.title,
+                        content: d.content,
+                        patientName: pregnancy.motherName,
+                        doctorName: d.issuedBy,
+                        doctorCrm: d.doctorCrm || '',
+                        doctorSpecialty: d.doctorSpecialty || 'Médico Obstetra',
+                        hospitalName: pregnancy.hospitalName,
+                        date: toDate(d.issuedAt),
+                        verificationCode: d.verificationCode,
+                        pregnancyData: {
+                          bloodType:         pregnancy.bloodType,
+                          riskLevel:         pregnancy.riskLevel,
+                          dpp:               pregnancy.expectedBirthDate
+                            ? safeFormat(pregnancy.expectedBirthDate, 'dd/MM/yyyy')
+                            : undefined,
+                          dum:               pregnancy.dum
+                            ? safeFormat(pregnancy.dum, 'dd/MM/yyyy')
+                            : undefined,
+                          baby:              pregnancy.baby,
+                        },
+                      })}
+                    >
+                      📄 Visualizar
+                    </button>
+                    <button className="btn btn-secondary btn-sm" onClick={() => handleOpenEdit(d)}>
+                      ✏️ Editar
+                    </button>
+                    <button className="btn btn-danger btn-sm" onClick={() => handleDeleteDocument(d.id, d.title)} disabled={saving}>
+                      🗑️ Excluir
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -2599,7 +3437,6 @@ function TabDocumentos({ pregnancy, documents }: { pregnancy: Pregnancy; documen
     </div>
   );
 }
-
 
 // =================== ABA 7: TIMELINE ===================
 function TabTimeline({ timelineEvents }: { timelineEvents: any[] }) {

@@ -11,10 +11,11 @@ import {
   CalendarDays,
   Lock,
   Image,
+  ArrowRight,
 } from 'lucide-react';
 import { collection, query, where, onSnapshot, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePregnancy, toDate } from '../../hooks/usePregnancy';
 import { currentGestationMonth, EXAM_LABELS, VACCINE_LABELS, MONTHLY_PROTOCOL, getAutoLabResult } from '../../lib/gestationUtils';
@@ -520,7 +521,12 @@ export default function BookletPage() {
                             </div>
                             <div className="bklt-entry-body">
                               <div className="bklt-entry-row1">
-                                <div className="bklt-entry-title">{label}</div>
+                                <div className="bklt-entry-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  {label}
+                                  <Link to={`/documentos?id=${item.id}`} className="bklt-view-doc-link" title="Ver documento nos arquivos" style={{ color: 'var(--clr-primary, #be185d)', display: 'inline-flex', alignItems: 'center' }}>
+                                    <ArrowRight size={13} />
+                                  </Link>
+                                </div>
                                 <span className={`nm-badge ${badgeCls}`} style={{ flexShrink: 0 }}>
                                   {badgeTxt}
                                 </span>
@@ -615,7 +621,12 @@ export default function BookletPage() {
                             </div>
                             <div className="bklt-entry-body">
                               <div className="bklt-entry-row1">
-                                <div className="bklt-entry-title">{label}</div>
+                                <div className="bklt-entry-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  {label}
+                                  <Link to={`/documentos?id=${item.id}`} className="bklt-view-doc-link" title="Ver documento nos arquivos" style={{ color: 'var(--clr-primary, #be185d)', display: 'inline-flex', alignItems: 'center' }}>
+                                    <ArrowRight size={13} />
+                                  </Link>
+                                </div>
                                 <span className={`nm-badge ${badgeCls}`} style={{ flexShrink: 0 }}>
                                   {badgeTxt}
                                 </span>

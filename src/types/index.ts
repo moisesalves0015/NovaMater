@@ -55,7 +55,7 @@ export interface Consultation {
   id: string;
   pregnancyId: string;
   consultationNumber: number;
-  gestationMonth: number;
+  gestationMonth: number | string;
   scheduledDate: any;
   actualDate?: any;
   doctorNotes?: string;
@@ -82,7 +82,7 @@ export interface Exam {
   pregnancyId: string;
   type: ExamType;
   category?: ExamCategory;
-  gestationMonth: number;
+  gestationMonth: number | string;
   scheduledDate: any;
   actualDate?: any;
   result?: string;
@@ -132,6 +132,7 @@ export interface Ultrasound {
   date: any;
   gestationalWeek?: number;
   gestationalDay?: number;
+  gestationMonth?: number | string;
   type: string;
   result?: string;
   imageUrl?: string;
