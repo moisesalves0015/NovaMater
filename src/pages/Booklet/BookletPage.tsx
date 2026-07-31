@@ -19,7 +19,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { usePregnancy, toDate } from '../../hooks/usePregnancy';
 import { currentGestationMonth, EXAM_LABELS, VACCINE_LABELS, MONTHLY_PROTOCOL, getAutoLabResult } from '../../lib/gestationUtils';
 import type { Consultation, Exam, ExamType, Vaccine } from '../../types';
-import { Syringe } from 'lucide-react';
+import { Syringe, BookOpen } from 'lucide-react';
 import './BookletPage.css';
 
 // ---- Accordion wrapper ------------------------------------------------
@@ -133,6 +133,14 @@ export default function BookletPage() {
   const initialMonth = paramMonth && pregnancy ? parseInt(paramMonth, 10) : currentMonth;
   const [selectedMonth, setSelectedMonth] = useState(initialMonth);
 
+  // Sync selectedMonth with currentMonth or URL query parameter when they load or change
+  useEffect(() => {
+    if (pregnancy) {
+      const monthToSet = paramMonth ? parseInt(paramMonth, 10) : currentMonth;
+      setSelectedMonth(monthToSet);
+    }
+  }, [pregnancy, paramMonth, currentMonth]);
+
   const [vaccines, setVaccines] = useState<Vaccine[]>([]);
   useEffect(() => {
     if (!pregnancy?.id) return;
@@ -163,12 +171,48 @@ export default function BookletPage() {
 
   if (!pregnancy) {
     return (
-      <div
-        className="bklt-page"
-        style={{ alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '0 32px' }}
-      >
-        <h2>Caderneta Indisponível</h2>
-        <p style={{ color: 'var(--clr-txt-faint)' }}>Você precisa ter um prontuário ativo.</p>
+      <div className="bklt-page" style={{ alignItems: 'center', justifyContent: 'center' }}>
+        <div className="state-unavailable-container" style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+          padding: '80px 24px',
+          fontFamily: 'var(--font-body)'
+        }}>
+          <div style={{
+            width: 80,
+            height: 80,
+            borderRadius: 24,
+            background: 'linear-gradient(135deg, rgba(201, 81, 144, 0.1) 0%, rgba(247, 165, 196, 0.2) 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 24,
+            border: '1px solid rgba(217, 75, 136, 0.2)',
+            color: 'var(--accent-pink)'
+          }}>
+            <BookOpen size={40} />
+          </div>
+          <h2 style={{
+            fontFamily: 'var(--font-heading)',
+            fontSize: '1.6rem',
+            fontWeight: 800,
+            color: 'var(--txt-dark)',
+            marginBottom: 8
+          }}>
+            Caderneta Indisponível
+          </h2>
+          <p style={{
+            fontSize: '0.95rem',
+            color: 'var(--txt-medium)',
+            maxWidth: 320,
+            lineHeight: 1.5
+          }}>
+            Você precisa ter um prontuário ativo.
+          </p>
+        </div>
       </div>
     );
   }

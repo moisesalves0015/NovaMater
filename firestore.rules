@@ -40,14 +40,18 @@ service cloud.firestore {
 
     // Coleção de usuários
     match /users/{userId} {
-      allow read, write: if isAuth() && request.auth.uid == userId;
-      allow read, write: if isDoctor();
+      allow read: if isAuth();
+      allow write: if (isAuth() && request.auth.uid == userId) || isDoctor();
     }
 
-    // Gestações — médico tem acesso total, mãe lê a própria
+    // Gestações — médico tem acesso total, mãe lê/atualiza a própria (pelo UID ou Email)
     match /pregnancies/{pregnancyId} {
       allow read, write: if isDoctor();
-      allow read: if isAuth() && resource.data.motherId == request.auth.uid;
+      allow read: if isAuth() && (resource.data.motherId == request.auth.uid || resource.data.motherEmail == request.auth.token.email);
+      allow create: if isAuth() && request.resource.data.motherId == request.auth.uid;
+      allow update: if isAuth() && 
+        (resource.data.motherId == request.auth.uid || resource.data.motherEmail == request.auth.token.email) &&
+        request.resource.data.motherId == request.auth.uid;
     }
 
     // Consultas — médico escreve, autenticado lê
@@ -88,9 +92,8 @@ service cloud.firestore {
 
     // Notificações — usuário lê/atualiza as próprias; médico cria para qualquer um
     match /notifications/{id} {
-      allow read, update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isAuth() && resource.data.userId == request.auth.uid;
       allow create: if isDoctor() || (isAuth() && request.resource.data.userId == request.auth.uid);
-      allow delete: if isDoctor();
     }
 
     // Eventos da timeline — médico escreve, autenticado lê

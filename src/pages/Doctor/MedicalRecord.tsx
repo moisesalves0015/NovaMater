@@ -1615,6 +1615,15 @@ function TabConsultas({ pregnancy, consultations }: { pregnancy: Pregnancy; cons
         action: 'Agendamento Manual de Consulta',
         newValue: `${nextNumber}ª Consulta (Mês ${parsedMonth})`,
       });
+      await createNotification(
+        pregnancy.motherId,
+        pregnancy.id,
+        'consulta-agendada',
+        'Nova consulta agendada',
+        `Sua ${nextNumber}ª consulta foi agendada para o dia ${format(new Date(manualForm.scheduledDate + 'T12:00:00'), 'dd/MM/yyyy')} com ${userData?.name || pregnancy.doctorName}.`,
+        'Calendar',
+        '/calendario'
+      );
       setShowManualModal(false);
       setManualForm({
         gestationMonth: '1',

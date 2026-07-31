@@ -208,11 +208,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       name,
       email,
       role,
-      avatarName,
       createdAt: new Date(),
     };
+    if (avatarName) {
+      newUser.avatarName = avatarName;
+    }
     await setDoc(doc(db, 'users', cred.user.uid), newUser);
-    setUserData({ uid: cred.user.uid, ...newUser });
+    setUserData({ uid: cred.user.uid, ...newUser } as User);
     await ensurePregnancyExists(cred.user.uid, role, name, email);
   };
 

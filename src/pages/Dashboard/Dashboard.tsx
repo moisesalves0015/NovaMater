@@ -457,6 +457,40 @@ export default function Dashboard() {
     usePregnancy(currentUser?.email || null, currentUser?.uid || null);
   const [pdfData, setPdfData] = useState<PDFData | null>(null);
 
+  useEffect(() => {
+    if (pregnancy && pregnancy.currentStatus === 'ativa') {
+      const startDate = toDate(pregnancy.startDate);
+      const currentMonth = currentGestationMonth(startDate, pregnancy.gestationPlan);
+      const notified = pregnancy.notifiedMonths || [];
+      
+      if (!notified.includes(currentMonth)) {
+        const triggerNotification = async () => {
+          try {
+            const { createNotification } = await import('../../lib/audit');
+            const { arrayUnion, updateDoc, doc } = await import('firebase/firestore');
+            
+            await createNotification(
+              pregnancy.motherId,
+              pregnancy.id,
+              'gestational_month',
+              'Novo Mês Gestacional! 🎉',
+              `Parabéns! Você acaba de entrar no ${currentMonth}º mês da sua gestação. Confira as novas recomendações na sua Caderneta!`,
+              '👶',
+              `/caderneta?month=${currentMonth}`
+            );
+            
+            await updateDoc(doc(db, 'pregnancies', pregnancy.id), {
+              notifiedMonths: arrayUnion(currentMonth)
+            });
+          } catch (error) {
+            console.error('Error triggering month milestone notification:', error);
+          }
+        };
+        triggerNotification();
+      }
+    }
+  }, [pregnancy]);
+
   /* Loading */
   if (loading) {
     return (

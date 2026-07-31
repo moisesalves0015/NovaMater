@@ -1,0 +1,205 @@
+/* src/pages/Onboarding/OnboardingPage.css */
+
+.onboarding-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  background-color: var(--bg-main);
+  padding: 40px 24px;
+  font-family: var(--font-body);
+}
+
+/* Background glows for a premium feel */
+.onboarding-bg-glow-1 {
+  position: absolute;
+  top: -10%;
+  left: -10%;
+  width: 50%;
+  height: 50%;
+  background: radial-gradient(circle, rgba(247, 165, 196, 0.25) 0%, rgba(255, 255, 255, 0) 70%);
+  z-index: 0;
+  pointer-events: none;
+  filter: blur(80px);
+}
+
+.onboarding-bg-glow-2 {
+  position: absolute;
+  bottom: -10%;
+  right: -10%;
+  width: 60%;
+  height: 60%;
+  background: radial-gradient(circle, rgba(201, 81, 144, 0.15) 0%, rgba(255, 255, 255, 0) 70%);
+  z-index: 0;
+  pointer-events: none;
+  filter: blur(100px);
+}
+
+.onboarding-container {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+  position: relative;
+  z-index: 1;
+}
+
+.onboarding-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-heading);
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--txt-dark);
+}
+
+.onboarding-logo .logo-sparkle {
+  color: var(--accent-pink);
+  width: 28px;
+  height: 28px;
+}
+
+.onboarding-logo .logo-accent {
+  background: var(--grad-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.onboarding-card {
+  width: 100%;
+  padding: 40px 32px 32px;
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+}
+
+.onboarding-content-wrapper {
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.onboarding-slide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.slide-icon-container {
+  width: 90px;
+  height: 90px;
+  border-radius: 30px;
+  background: linear-gradient(135deg, rgba(201, 81, 144, 0.1) 0%, rgba(247, 165, 196, 0.2) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 28px;
+  border: 1px solid rgba(217, 75, 136, 0.2);
+  box-shadow: 0 10px 25px rgba(217, 75, 136, 0.05);
+}
+
+.slide-icon-container .slide-icon {
+  width: 44px;
+  height: 44px;
+  color: var(--accent-pink);
+}
+
+.slide-title {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--txt-dark);
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+
+.slide-description {
+  font-size: 0.95rem;
+  color: var(--txt-medium);
+  line-height: 1.6;
+}
+
+.onboarding-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  border-top: 1px solid var(--border-light);
+  padding-top: 24px;
+}
+
+.onboarding-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.onboarding-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-full);
+  background-color: var(--border-light);
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.onboarding-dot.active {
+  width: 24px;
+  background: var(--grad-primary);
+}
+
+.onboarding-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 48px;
+}
+
+.btn-onboarding-back {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: var(--txt-muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: color 0.2s;
+  padding: 8px 16px 8px 10px;
+  margin-left: -10px;
+}
+
+.btn-onboarding-back:hover {
+  color: var(--txt-dark);
+}
+
+.btn-onboarding-next {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto; /* Push to the right if Back is not rendered */
+}
+
+.onboarding-skip-btn {
+  background: none;
+  border: none;
+  color: var(--txt-muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+  transition: color 0.2s;
+}
+
+.onboarding-skip-btn:hover {
+  color: var(--accent-pink);
+  text-decoration: underline;
+}

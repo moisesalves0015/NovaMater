@@ -19,6 +19,7 @@ const CalendarPage = lazy(() => import('./pages/Calendar/CalendarPage'));
 const BookletPage = lazy(() => import('./pages/Booklet/BookletPage'));
 const DocumentsPage = lazy(() => import('./pages/Documents/DocumentsPage'));
 const ProfilePage = lazy(() => import('./pages/Profile/ProfilePage'));
+const OnboardingPage = lazy(() => import('./pages/Onboarding/OnboardingPage'));
 
 function LoadingScreen() {
   return (
@@ -90,6 +91,12 @@ function AppRoutes() {
           <Route path="/dashboard" element={
             <ProtectedRoute allowedRoles={['mother', 'father', 'guest', 'doctor']}>
               <Dashboard />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/onboarding" element={
+            <ProtectedRoute allowedRoles={['mother', 'father', 'guest', 'doctor']}>
+              <OnboardingPage />
             </ProtectedRoute>
           } />
 

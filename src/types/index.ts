@@ -281,6 +281,7 @@ export interface Pregnancy {
   familyAlbum?: string[];
   guestEmails?: string[];
   notes?: string;
+  notifiedMonths?: number[];
   createdAt: any;
 }
 

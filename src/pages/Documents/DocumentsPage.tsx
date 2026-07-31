@@ -424,12 +424,48 @@ export default function DocumentsPage() {
 
   if (!pregnancy) {
     return (
-      <div className="docs-page page-enter" style={{ padding: '80px 20px', textAlign: 'center' }}>
-        <div style={{ color: '#cbd5e1', marginBottom: 16, display: 'flex', justifyContent: 'center' }}>
-          <FileBox size={64} strokeWidth={1.5} />
+      <div className="docs-page page-enter" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="state-unavailable-container" style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+          padding: '80px 24px',
+          fontFamily: 'var(--font-body)'
+        }}>
+          <div style={{
+            width: 80,
+            height: 80,
+            borderRadius: 24,
+            background: 'linear-gradient(135deg, rgba(201, 81, 144, 0.1) 0%, rgba(247, 165, 196, 0.2) 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 24,
+            border: '1px solid rgba(217, 75, 136, 0.2)',
+            color: 'var(--accent-pink)'
+          }}>
+            <FileBox size={40} />
+          </div>
+          <h2 style={{
+            fontFamily: 'var(--font-heading)',
+            fontSize: '1.6rem',
+            fontWeight: 800,
+            color: 'var(--txt-dark)',
+            marginBottom: 8
+          }}>
+            Arquivo Indisponível
+          </h2>
+          <p style={{
+            fontSize: '0.95rem',
+            color: 'var(--txt-medium)',
+            maxWidth: 320,
+            lineHeight: 1.5
+          }}>
+            Você precisa ter um prontuário ativo.
+          </p>
         </div>
-        <h2 style={{ color: '#475569' }}>Arquivos Indisponíveis</h2>
-        <p style={{ color: '#94a3b8' }}>Você precisa ter um prontuário ativo para acessar os documentos.</p>
       </div>
     );
   }

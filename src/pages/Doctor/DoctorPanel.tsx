@@ -963,6 +963,22 @@ function AppointmentsTab() {
         action: 'Confirmação de Agendamento Pós-Parto (Admin)',
         newValue: `${consultationNumber}ª Consulta agendada para ${editDate} às ${editTime} com ${selectedProfessionalName}`,
       });
+      
+      // Notify patient
+      const pregSnap = await getDoc(doc(db, 'pregnancies', pregnancyId));
+      if (pregSnap.exists()) {
+        const pregData = pregSnap.data();
+        await createNotification(
+          pregData.motherId,
+          pregnancyId,
+          'consulta-agendada',
+          'Consulta agendada',
+          `Sua ${consultationNumber}ª consulta foi confirmada para o dia ${editDate.split('-').reverse().join('/')} às ${editTime} com ${selectedProfessionalName}.`,
+          'Calendar',
+          '/calendario'
+        );
+      }
+
       // Registrar também no painel geral de appointments do hospital para histórico
       await addDoc(collection(db, 'appointments'), {
         patientNick: pregnancyNicks[pregnancyId] || 'Gestante',

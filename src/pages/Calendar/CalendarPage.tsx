@@ -202,6 +202,54 @@ export default function CalendarPage() {
 
   const selectedEvents = getEventsForDay(selectedDate);
 
+  if (userData?.role !== 'doctor' && userData?.role !== 'admin' && !pregnancy) {
+    return (
+      <div className="calendar-page page-enter" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="state-unavailable-container" style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+          padding: '80px 24px',
+          fontFamily: 'var(--font-body)'
+        }}>
+          <div style={{
+            width: 80,
+            height: 80,
+            borderRadius: 24,
+            background: 'linear-gradient(135deg, rgba(201, 81, 144, 0.1) 0%, rgba(247, 165, 196, 0.2) 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 24,
+            border: '1px solid rgba(217, 75, 136, 0.2)',
+            color: 'var(--accent-pink)'
+          }}>
+            <CalendarDays size={40} />
+          </div>
+          <h2 style={{
+            fontFamily: 'var(--font-heading)',
+            fontSize: '1.6rem',
+            fontWeight: 800,
+            color: 'var(--txt-dark)',
+            marginBottom: 8
+          }}>
+            Agenda Indisponível
+          </h2>
+          <p style={{
+            fontSize: '0.95rem',
+            color: 'var(--txt-medium)',
+            maxWidth: 320,
+            lineHeight: 1.5
+          }}>
+            Você precisa ter um prontuário ativo.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="calendar-page page-enter">
       {/* ===== HERO ===== */}

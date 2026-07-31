@@ -6,19 +6,19 @@ export default function Landing() {
   return (
     <div className="landing-page">
       {/* HERO (Dashboard Style) */}
-      <div className="dash-hero">
+      <div className="landing-hero">
         <div className="nm-container">
-          <div className="dash-hero-content">
-            <div className="dash-hero-top">
-              <div className="dash-welcome">
+          <div className="landing-hero-content">
+            <div className="landing-hero-top">
+              <div className="landing-welcome">
                 <h1>🏥 Bem-vindo ao Nova Mater!</h1>
                 <p>O maior centro médico e hospitalar do IMVU.</p>
               </div>
-              <div className="dash-hero-badges">
-                <span className="dash-risk-badge">
+              <div className="landing-hero-badges">
+                <span className="landing-risk-badge">
                   ● Sistema Online
                 </span>
-                <span className="dash-risk-badge" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                <span className="landing-risk-badge" style={{ background: 'rgba(255,255,255,0.1)' }}>
                   🟢 Atendimento 24h
                 </span>
               </div>
@@ -52,7 +52,7 @@ export default function Landing() {
       </div>
 
       {/* BODY */}
-      <div className="dash-body">
+      <div className="landing-body">
         <div className="nm-container" style={{ paddingTop: 32 }}>
           
           {/* STATS ROW COMPACTO */}
