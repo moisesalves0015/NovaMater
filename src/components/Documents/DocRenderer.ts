@@ -596,9 +596,9 @@ function buildSignature(data: PDFData): string {
     <div class="doc-signature" style="position: relative;">
       ${labStamp}
       <div class="doc-signature-inner">
-        <div class="doc-signature-line"></div>
         <div class="doc-signature-name">${esc(data.doctorName)}</div>
         ${crm ? `<div class="doc-signature-crm">CRM: ${esc(crm)} · ${esc(spec)}</div>` : `<div class="doc-signature-crm">${esc(spec)}</div>`}
+        <div class="doc-signature-line"></div>
         <div class="doc-signature-note">Assinatura eletrônica — Documento digital</div>
       </div>
     </div>

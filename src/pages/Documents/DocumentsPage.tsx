@@ -32,7 +32,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { usePregnancy, toDate } from '../../hooks/usePregnancy';
 import DocViewerModal from '../../components/Documents/DocViewerModal';
 import type { PDFData } from '../../components/Documents/DocViewerModal';
-import type { MedDocument, Medication, Exam, Ultrasound, TimelineEvent, ExamType } from '../../types';
+import type { MedDocument, Exam, Ultrasound, TimelineEvent, ExamType } from '../../types';
 import { EXAM_LABELS } from '../../lib/gestationUtils';
 import './DocumentsPage.css';
 
@@ -428,20 +428,7 @@ export default function DocumentsPage() {
       });
     });
 
-    // 4. Medications → prescricoes
-    medications.forEach((m: Medication) => {
-      result.push({
-        id:          m.id,
-        icon:        Pill,
-        title:       m.name + (m.dose ? ` — ${m.dose}` : ''),
-        date:        toDate(m.prescribedAt || m.startDate),
-        doctor:      m.prescribedBy || pregnancy.doctorName,
-        status:      m.active ? 'Ativo' : 'Suspenso',
-        statusClass: m.active ? 'doc-status-ativo' : 'doc-status-suspenso',
-        category:    'prescricoes',
-      });
-    });
-
+    // 4. Medications - Removed to prevent duplication with MedDocuments (receitas)
     // Sort newest-first
     result.sort((a, b) => b.date.getTime() - a.date.getTime());
     return result;
