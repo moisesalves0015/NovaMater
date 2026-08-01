@@ -23,6 +23,8 @@ const DOC_ICONS: Record<string, string> = {
   'encaminhamento':            '📨',
   'alta-hospitalar':           '🏥',
   'registro-parto':            '🍼',
+  'comprovante-vacina':        '🛡️',
+  'ficha-atendimento':         '🩺',
 };
 
 const DOC_LABELS: Record<string, string> = {
@@ -36,6 +38,8 @@ const DOC_LABELS: Record<string, string> = {
   'encaminhamento':            'Encaminhamento',
   'alta-hospitalar':           'Alta Hospitalar',
   'registro-parto':            'Registro de Parto',
+  'comprovante-vacina':        'Comprovante de Vacinação',
+  'ficha-atendimento':         'Ficha de Atendimento',
 };
 
 interface DocViewerModalProps {
@@ -47,8 +51,6 @@ export default function DocViewerModal({ data, onClose }: DocViewerModalProps) {
   const iframeRef    = useRef<HTMLIFrameElement>(null);
   const [html, setHtml]       = useState<string>('');
   const [printing, setPrinting] = useState(false);
-  const [iframeHeight, setIframeHeight] = useState(1123);
-
   const icon  = DOC_ICONS[data.type]  || '📄';
   const label = DOC_LABELS[data.type] || data.title;
 
@@ -57,23 +59,6 @@ export default function DocViewerModal({ data, onClose }: DocViewerModalProps) {
     const generated = buildDocumentHtml(data);
     setHtml(generated);
   }, [data]);
-
-  // Auto-resize iframe to content height
-  useEffect(() => {
-    if (!html || !iframeRef.current) return;
-    const iframe = iframeRef.current;
-    const onLoad = () => {
-      try {
-        const body = iframe.contentDocument?.body;
-        if (body) {
-          const h = body.scrollHeight;
-          setIframeHeight(Math.max(h, 1123));
-        }
-      } catch {}
-    };
-    iframe.addEventListener('load', onLoad);
-    return () => iframe.removeEventListener('load', onLoad);
-  }, [html]);
 
   // Close on Escape
   useEffect(() => {
@@ -125,6 +110,23 @@ export default function DocViewerModal({ data, onClose }: DocViewerModalProps) {
     } catch { return ''; }
   })();
 
+  // Measure container width and set scale
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+
+  useEffect(() => {
+    const measure = () => {
+      if (containerRef.current) {
+        const cw = containerRef.current.clientWidth;
+        if (cw > 0) setScale(cw / 794);
+      }
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    if (containerRef.current) observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [html]);
+
   return (
     <div className="dvm-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="dvm-modal">
@@ -162,15 +164,16 @@ export default function DocViewerModal({ data, onClose }: DocViewerModalProps) {
               <p>Renderizando documento...</p>
             </div>
           ) : (
-            <div className="dvm-iframe-wrapper">
-              <iframe
-                ref={iframeRef}
-                className="dvm-iframe"
-                srcDoc={html}
-                title={`Documento: ${label}`}
-                sandbox="allow-same-origin"
-                style={{ height: iframeHeight }}
-              />
+            <div className="dvm-iframe-container" ref={containerRef}>
+              <div className="dvm-iframe-scaler" style={{ transform: `scale(${scale})` }}>
+                <iframe
+                  ref={iframeRef}
+                  className="dvm-iframe"
+                  srcDoc={html}
+                  title={`Documento: ${label}`}
+                  sandbox="allow-same-origin"
+                />
+              </div>
             </div>
           )}
         </div>

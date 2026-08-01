@@ -133,28 +133,39 @@
 /* ===================== A4 PREVIEW AREA ===================== */
 .dvm-preview-area {
   background: #27272a;
-  padding: 24px;
-  overflow-y: auto;
-  max-height: calc(90vh - 80px);
+  padding: 16px;
+  overflow: auto; /* Allow pinch zoom to scroll */
+  height: calc(100vh - 80px);
   display: flex;
   justify-content: center;
+  align-items: center;
 }
 
-.dvm-iframe-wrapper {
-  width: 100%;
-  max-width: 794px; /* A4 @ 96dpi */
-  background: #fff;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+.dvm-iframe-container {
+  width: 794px;
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: 794 / 1123;
+  position: relative;
   border-radius: 4px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+  background: #fff;
   overflow: hidden;
-  flex-shrink: 0;
+}
+
+.dvm-iframe-scaler {
+  position: absolute;
+  top: 0; left: 0;
+  width: 794px; 
+  height: 1123px;
+  transform-origin: top left;
 }
 
 .dvm-iframe {
   width: 100%;
+  height: 100%;
   border: none;
   display: block;
-  min-height: 1123px; /* A4 height @ 96dpi */
 }
 
 /* ===================== STATUS BAR ===================== */

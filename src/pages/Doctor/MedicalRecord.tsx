@@ -121,6 +121,23 @@ function SmartAssistant({
         appliedBy: userData?.name || 'Profissional de Saúde'
       });
 
+      // GENERATE DOCUMENT
+      const verificationCode = `NM-${Date.now().toString(36).toUpperCase()}`;
+      const docContent = `COMPROVANTE DE VACINAÇÃO OFICIAL\n\nPaciente: ${pregnancy.motherName}\nImunizante Aplicado: ${name}\nData da Aplicação: ${safeFormat(new Date(), "dd/MM/yyyy")}\n\nDeclaramos para os devidos fins que a vacina descrita acima foi administrada na paciente no âmbito do acompanhamento pré-natal.\n\nAssinatura Eletrônica:\nProfissional: ${userData?.name || 'Sistema'}\n${userData?.stampText || userData?.specialty || 'Enfermagem/Maternidade'}`;
+      await addDoc(collection(db, 'documents'), {
+        pregnancyId: pregnancy.id,
+        type: 'comprovante-vacina',
+        title: `Comprovante de Vacina: ${name}`,
+        content: docContent,
+        version: 1,
+        issuedBy: userData?.name || 'Maternidade',
+        issuedById: userData?.uid || 'unknown',
+        issuedAt: serverTimestamp(),
+        verificationCode,
+        doctorCrm: userData?.crm || '',
+        doctorSpecialty: userData?.stampText || userData?.specialty || '',
+      });
+
       await createTimelineEvent(
         pregnancy.id!,
         'sistema',
@@ -163,7 +180,7 @@ function SmartAssistant({
       
       const docRef = await addDoc(collection(db, 'documents'), {
         pregnancyId: pregnancy.id,
-        type: 'receita',
+        type: 'sos-receita',
         title: `Prescricao SOS: ${shortSymptom}`,
         content,
         version: 1,
@@ -229,7 +246,7 @@ function SmartAssistant({
 
       await addDoc(collection(db, 'documents'), {
         pregnancyId: pregnancy.id,
-        type: 'laudo',
+        type: 'sos-laudo',
         title: `Avaliacao SOS: ${shortSymptom}`,
         content,
         version: 1,
@@ -402,10 +419,10 @@ function SmartAssistant({
 
       // GENERATE DOCUMENT
       const verificationCode = `NM-${Date.now().toString(36).toUpperCase()}`;
-      const docContent = `SOLICITAÇÃO DE EXAME DIAGNÓSTICO\n\nPaciente: ${pregnancy.motherName}\nTipo de Exame: ${examName}\nMês de Gestação: ${selectedMonth === 0 ? 'Pré-Gravidez' : selectedMonth === 10 ? 'Pós-Parto' : `${selectedMonth}º Mês`}\n\nSolicitamos a realização do exame especificado acima para acompanhamento pré-natal regular.\n${isLab ? 'ATENÇÃO: Este exame laboratorial requer agendamento de coleta de sangue/material biológico com a enfermagem.' : 'ATENÇÃO: Agendar a realização deste exame de imagem na recepção.'}`;
+      const docContent = `SOLICITAÇÃO DE EXAME DIAGNÓSTICO\n\nPaciente: ${pregnancy.motherName}\nTipo de Exame: ${examName}\nMês de Gestação: ${selectedMonth === 0 ? 'Pré-Gravidez' : selectedMonth === 10 ? 'Pós-Parto' : `${selectedMonth}º Mês`}\n\nSolicitamos a realização do exame especificado acima para acompanhamento pré-natal regular.\n${isLab ? 'ATENÇÃO: Este exame laboratorial requer agendamento de coleta de sangue/material biológico com a enfermagem.' : 'ATENÇÃO: Agendar a realização deste exame de imagem na recepção.'}\n\nAssinatura Eletrônica:\nDr(a). ${userData?.name || pregnancy.doctorName}\nCRM: ${userData?.crm || 'Não informado'}\n${userData?.stampText || userData?.specialty || ''}`;
       const docRef = await addDoc(collection(db, 'documents'), {
         pregnancyId: pregnancy.id,
-        type: 'receita',
+        type: 'solicitacao-exame',
         title: `Solicitação de Exame: ${examName}`,
         content: docContent,
         version: 1,
@@ -454,7 +471,7 @@ function SmartAssistant({
 
       // GENERATE DOCUMENT
       const verificationCode = `NM-${Date.now().toString(36).toUpperCase()}`;
-      const docContent = `RECEITUÁRIO GERAL DE GESTANTE\n\nPaciente: ${pregnancy.motherName}\n\nPrescrição:\n- ${med.name} ${med.dose}\n  Tomar: ${med.frequency}\n  Instruções: ${med.instructions}\n\nFinalidade: Suplementação / Uso Terapêutico`;
+      const docContent = `RECEITUÁRIO GERAL DE GESTANTE\n\nPaciente: ${pregnancy.motherName}\n\nPrescrição:\n- ${med.name} ${med.dose}\n  Tomar: ${med.frequency}\n  Instruções: ${med.instructions}\n\nFinalidade: Suplementação / Uso Terapêutico\n\nAssinatura Eletrônica:\nDr(a). ${userData?.name || pregnancy.doctorName}\nCRM: ${userData?.crm || 'Não informado'}\n${userData?.stampText || userData?.specialty || ''}`;
       const docRef = await addDoc(collection(db, 'documents'), {
         pregnancyId: pregnancy.id,
         type: 'receita',
@@ -563,14 +580,14 @@ function SmartAssistant({
                       const alertLower = alert.toLowerCase();
                       
                       let actionButton = null;
-                      if (alertLower.includes('confirmar data e local') || alertLower.includes('confirmar data da última')) {
+                      if (alertLower.includes('confirmar data e local')) {
                         actionButton = (
                           <button
                             className="sa-add-btn"
                             onClick={() => {
                               // Seleciona a aba documentos e inicia um documento de confirmação do local de parto
                               setTab('documentos');
-                              const targetContent = `Declaração de Confirmação do Local de Parto\n\nPaciente: ${pregnancy.motherName}\nHospital de Referência: ${pregnancy.hospitalName}\nData Provável do Parto (DPP): ${safeFormat(pregnancy.expectedBirthDate, 'dd/MM/yyyy')}\nMédico Responsável: Dr(a). ${pregnancy.doctorName}\n\nDeclaramos que o plano de parto está acordado para a data especificada acima.`;
+                              const targetContent = `Declaração de Confirmação do Local de Parto\n\nPaciente: ${pregnancy.motherName}\nHospital de Referência: ${pregnancy.hospitalName}\nData Provável do Parto (DPP): ${safeFormat(pregnancy.expectedBirthDate, 'dd/MM/yyyy')}\nMédico Responsável: Dr(a). ${pregnancy.doctorName}\n\nDeclaramos que o plano de parto está acordado para a data especificada acima.\n\nAssinatura Eletrônica:\nDr(a). ${userData?.name || pregnancy.doctorName}\nCRM: ${userData?.crm || 'Não informado'}\n${userData?.stampText || userData?.specialty || ''}`;
                               // Salva no banco de dados
                               const verificationCode = `NM-${Date.now().toString(36).toUpperCase()}`;
                               addDoc(collection(db, 'documents'), {
@@ -580,10 +597,11 @@ function SmartAssistant({
                                 content: targetContent,
                                 version: 1,
                                 issuedBy: userData?.name || pregnancy.doctorName,
-                                // fallback values if user context isn't fully loaded
                                 issuedById: userData?.uid || pregnancy.doctorId || 'unknown',
                                 issuedAt: serverTimestamp(),
                                 verificationCode,
+                                doctorCrm: userData?.crm || '',
+                                doctorSpecialty: userData?.stampText || userData?.specialty || '',
                               }).then((docRef) => {
                                 addAuditLog({
                                   pregnancyId: pregnancy.id,
@@ -599,17 +617,53 @@ function SmartAssistant({
                             <FileText size={12} /> Confirmar Parto
                           </button>
                         );
+                      } else if (alertLower.includes('confirmar data da última')) {
+                        actionButton = (
+                          <button
+                            className="sa-add-btn"
+                            onClick={() => {
+                              setTab('documentos');
+                              const targetContent = `Declaração de Confirmação de Gravidez\n\nPaciente: ${pregnancy.motherName}\nData da Última Menstruação (DUM): ${safeFormat(pregnancy.dum, 'dd/MM/yyyy')}\nData Provável do Parto (DPP): ${safeFormat(pregnancy.expectedBirthDate, 'dd/MM/yyyy')}\n\nDeclaramos para os devidos fins que a paciente encontra-se gestante, com idade gestacional calculada a partir da DUM acima especificada.\n\nAssinatura Eletrônica:\nDr(a). ${userData?.name || pregnancy.doctorName}\nCRM: ${userData?.crm || 'Não informado'}\n${userData?.stampText || userData?.specialty || ''}`;
+                              
+                              const verificationCode = `NM-${Date.now().toString(36).toUpperCase()}`;
+                              addDoc(collection(db, 'documents'), {
+                                pregnancyId: pregnancy.id,
+                                type: 'declaracao-gestacional',
+                                title: 'Confirmação de Gravidez',
+                                content: targetContent,
+                                version: 1,
+                                issuedBy: userData?.name || pregnancy.doctorName,
+                                issuedById: userData?.uid || pregnancy.doctorId || 'unknown',
+                                issuedAt: serverTimestamp(),
+                                verificationCode,
+                                doctorCrm: userData?.crm || '',
+                                doctorSpecialty: userData?.stampText || userData?.specialty || '',
+                              }).then((docRef) => {
+                                addAuditLog({
+                                  pregnancyId: pregnancy.id,
+                                  userId: userData?.uid || '',
+                                  userName: userData?.name || '',
+                                  action: 'Emissão de Documento (Assistente)',
+                                  newValue: 'Confirmação de Gravidez',
+                                });
+                                createNotification(pregnancy.motherId, pregnancy.id!, 'documento-disponivel', 'Novo documento emitido', 'O documento "Confirmação de Gravidez" foi emitido.', '📄', `/documentos?id=${docRef.id}`);
+                              }).catch(e => console.error(e));
+                            }}
+                          >
+                            <FileText size={12} /> Confirmar Gravidez
+                          </button>
+                        );
                       } else if (alertLower.includes('amamentação')) {
                         actionButton = (
                           <button
                             className="sa-add-btn"
                             onClick={() => {
                               setTab('documentos');
-                              const targetContent = `Orientações de Amamentação Exclusiva\n\nPaciente: ${pregnancy.motherName}\nData: ${safeFormat(new Date(), "dd/MM/yyyy")}\n\nOrientações:\n1. Amamentação livre demanda.\n2. Pega correta: boca bem aberta, lábios virados para fora, abocanhando a maior parte da aréola.\n3. Evitar bicos artificiais (chupetas/mamadeiras).\n4. Hidratação materna abundante.`;
+                              const targetContent = `Orientações de Amamentação Exclusiva\n\nPaciente: ${pregnancy.motherName}\nData: ${safeFormat(new Date(), "dd/MM/yyyy")}\n\nOrientações:\n1. Amamentação livre demanda.\n2. Pega correta: boca bem aberta, lábios virados para fora, abocanhando a maior parte da aréola.\n3. Evitar bicos artificiais (chupetas/mamadeiras).\n4. Hidratação materna abundante.\n\nAssinatura Eletrônica:\nDr(a). ${userData?.name || pregnancy.doctorName}\nCRM: ${userData?.crm || 'Não informado'}\n${userData?.stampText || userData?.specialty || ''}`;
                               const verificationCode = `NM-${Date.now().toString(36).toUpperCase()}`;
                               addDoc(collection(db, 'documents'), {
                                 pregnancyId: pregnancy.id,
-                                type: 'receita',
+                                type: 'orientacao',
                                 title: 'Orientações de Amamentação',
                                 content: targetContent,
                                 version: 1,
@@ -638,11 +692,11 @@ function SmartAssistant({
                             className="sa-add-btn"
                             onClick={() => {
                               setTab('documentos');
-                              const targetContent = `Guia de Sinais de Alerta na Gestação\n\nPaciente: ${pregnancy.motherName}\nData: ${safeFormat(new Date(), "dd/MM/yyyy")}\n\nProcure imediatamente a Maternidade se apresentar:\n- Sangramento vaginal de qualquer intensidade.\n- Perda de líquido amniótico (bolsa rota).\n- Contrações uterinas rítmicas e dolorosas antes da hora.\n- Dor de cabeça forte, visão embaçada ou dor na nuca (sinais de alerta para pré-eclâmpsia).`;
+                              const targetContent = `Guia de Sinais de Alerta na Gestação\n\nPaciente: ${pregnancy.motherName}\nData: ${safeFormat(new Date(), "dd/MM/yyyy")}\n\nProcure imediatamente a Maternidade se apresentar:\n- Sangramento vaginal de qualquer intensidade.\n- Perda de líquido amniótico (bolsa rota).\n- Contrações uterinas rítmicas e dolorosas antes da hora.\n- Dor de cabeça forte, visão embaçada ou dor na nuca (sinais de alerta para pré-eclâmpsia).\n\nAssinatura Eletrônica:\nDr(a). ${userData?.name || pregnancy.doctorName}\nCRM: ${userData?.crm || 'Não informado'}\n${userData?.stampText || userData?.specialty || ''}`;
                               const verificationCode = `NM-${Date.now().toString(36).toUpperCase()}`;
                               addDoc(collection(db, 'documents'), {
                                 pregnancyId: pregnancy.id,
-                                type: 'receita',
+                                type: 'alerta',
                                 title: 'Guia de Sinais de Alerta',
                                 content: targetContent,
                                 version: 1,
@@ -671,11 +725,11 @@ function SmartAssistant({
                             className="sa-add-btn"
                             onClick={() => {
                               setTab('documentos');
-                              const targetContent = `Guia de Preparação e Documentação para Internação\n\nPaciente: ${pregnancy.motherName}\nData: ${safeFormat(new Date(), "dd/MM/yyyy")}\n\nDocumentos e Itens necessários:\n- Cartão de Pré-natal atualizado.\n- Documento de Identidade com foto e Cartão SUS.\n- Exames realizados na gestação (especialmente do 3º trimestre).\n- Mala da gestante e do bebê organizada.`;
+                              const targetContent = `Guia de Preparação e Documentação para Internação\n\nPaciente: ${pregnancy.motherName}\nData: ${safeFormat(new Date(), "dd/MM/yyyy")}\n\nDocumentos e Itens necessários:\n- Cartão de Pré-natal atualizado.\n- Documento de Identidade com foto e Cartão SUS.\n- Exames realizados na gestação (especialmente do 3º trimestre).\n- Mala da gestante e do bebê organizada.\n\nAssinatura Eletrônica:\nDr(a). ${userData?.name || pregnancy.doctorName}\nCRM: ${userData?.crm || 'Não informado'}\n${userData?.stampText || userData?.specialty || ''}`;
                               const verificationCode = `NM-${Date.now().toString(36).toUpperCase()}`;
                               addDoc(collection(db, 'documents'), {
                                 pregnancyId: pregnancy.id,
-                                type: 'declaracao-gestacional',
+                                type: 'internacao',
                                 title: 'Documentação para Internação',
                                 content: targetContent,
                                 version: 1,
@@ -1547,6 +1601,26 @@ function TabConsultas({ pregnancy, consultations }: { pregnancy: Pregnancy; cons
 
       await updateDoc(doc(db, 'consultations', editingConsultation.id), updatedFields);
 
+      // Gerar documento Ficha de Atendimento se a consulta acabou de ser realizada
+      if (editingConsultation.status !== editForm.status && editForm.status === 'realizada') {
+        const verificationCode = `NM-${Date.now().toString(36).toUpperCase()}`;
+        const docContent = `EVOLUÇÃO MÉDICA / FICHA DE ATENDIMENTO\n\nPaciente: ${pregnancy.motherName}\nConsulta Nº: ${updatedFields.consultationNumber}\nData: ${safeFormat(new Date(), "dd/MM/yyyy")}\n\nSinais Vitais:\n- PA: ${updatedFields.bloodPressure || 'Não auferida'}\n- Peso: ${updatedFields.weight ? updatedFields.weight + ' kg' : 'Não auferido'}\n- BCF: ${updatedFields.fetalHeartRate ? updatedFields.fetalHeartRate + ' bpm' : 'Não auferido'}\n- AU: ${updatedFields.uterineHeight ? updatedFields.uterineHeight + ' cm' : 'Não auferida'}\n\nEvolução / Queixas:\n${updatedFields.complaints || 'Sem queixas.'}\n\nConduta:\n${updatedFields.conducts || 'Orientação de rotina.'}\n\nAssinatura Eletrônica:\nDr(a). ${userData?.name || pregnancy.doctorName}\nCRM: ${userData?.crm || 'Não informado'}\n${userData?.stampText || userData?.specialty || ''}`;
+        
+        await addDoc(collection(db, 'documents'), {
+          pregnancyId: pregnancy.id,
+          type: 'ficha-atendimento',
+          title: `Ficha de Atendimento (Consulta ${updatedFields.consultationNumber})`,
+          content: docContent,
+          version: 1,
+          issuedBy: userData?.name || pregnancy.doctorName,
+          issuedById: userData?.uid || pregnancy.doctorId || 'unknown',
+          issuedAt: serverTimestamp(),
+          verificationCode,
+          doctorCrm: userData?.crm || '',
+          doctorSpecialty: userData?.stampText || userData?.specialty || '',
+        });
+      }
+
       // Audit log
       await addAuditLog({
         pregnancyId: pregnancy.id,
@@ -1944,6 +2018,56 @@ function TabExames({ pregnancy, exams }: { pregnancy: Pregnancy; exams: Exam[] }
   const [form, setForm] = useState({ type: 'hemograma', gestationMonth: String(currentMonth), result: '', status: 'agendado', notes: '' });
   const [editingExam, setEditingExam] = useState<Exam | null>(null);
   const [editForm, setEditForm] = useState<any>(null);
+  const [pdfData, setPdfData] = useState<PDFData | null>(null);
+
+  const elapsedDays = (Date.now() - toDate(pregnancy.startDate).getTime()) / (1000 * 60 * 60 * 24);
+  const currentWeeks = Math.max(0, Math.floor(elapsedDays / 7));
+
+  const handleViewPedido = (item: any, isUltrasound: boolean) => {
+    const examName = isUltrasound ? (item.type || 'Ultrassonografia') : (EXAM_LABELS[item.type as ExamType] || item.type);
+    setPdfData({
+      type: 'solicitacao-exame',
+      title: `Solicitação de Exame — ${examName}`,
+      content: `Solicito a realização do seguinte exame:\n\n1. ${examName}\n\nJustificativa: Acompanhamento pré-natal de rotina.`,
+      patientName: pregnancy.motherName || '',
+      doctorName: item.requestedBy || pregnancy.doctorName || 'Médico Responsável',
+      doctorCrm: '',
+      doctorSpecialty: 'Médico Obstetra',
+      hospitalName: pregnancy.hospitalName || 'Hospital Nova Mater',
+      date: item.requestedAt ? item.requestedAt.toDate() : item.date ? item.date.toDate() : new Date(),
+      verificationCode: item.verificationCode || `NM-REQ-${item.id.slice(0, 5).toUpperCase()}`,
+      pregnancyData: {
+        gestationalWeeks: currentWeeks,
+        dum: pregnancy.dum ? format(toDate(pregnancy.dum), 'dd/MM/yyyy') : '',
+        dpp: pregnancy.expectedBirthDate ? format(toDate(pregnancy.expectedBirthDate), 'dd/MM/yyyy') : '',
+        bloodType: pregnancy.bloodType || '',
+        riskLevel: pregnancy.riskLevel || 'baixo',
+      }
+    });
+  };
+
+  const handleViewResultado = (item: any, isUltrasound: boolean) => {
+    const examName = isUltrasound ? (item.type || 'Ultrassonografia') : (EXAM_LABELS[item.type as ExamType] || item.type);
+    setPdfData({
+      type: 'laudo',
+      title: `Laudo — ${examName}`,
+      content: `Laudo de Exame Clínico\n\nPaciente: ${pregnancy.motherName || ''}\nExame: ${examName}\n\nResultado / Laudo:\n${item.result || 'Sem alterações clínicas dignas de nota.'}\n\n${item.conduct ? `Conduta Recomendada:\n${item.conduct}\n\n` : ''}Documento assinado digitalmente pelo sistema hospitalar.`,
+      patientName: pregnancy.motherName || '',
+      doctorName: item.requestedBy || item.performedBy || pregnancy.doctorName || 'Médico Responsável',
+      doctorCrm: '',
+      doctorSpecialty: 'Médico Obstetra',
+      hospitalName: pregnancy.hospitalName || 'Hospital Nova Mater',
+      date: item.actualDate ? item.actualDate.toDate() : item.date ? item.date.toDate() : new Date(),
+      verificationCode: item.verificationCode || `NM-RES-${item.id.slice(0, 5).toUpperCase()}`,
+      pregnancyData: {
+        gestationalWeeks: currentWeeks,
+        dum: pregnancy.dum ? format(toDate(pregnancy.dum), 'dd/MM/yyyy') : '',
+        dpp: pregnancy.expectedBirthDate ? format(toDate(pregnancy.expectedBirthDate), 'dd/MM/yyyy') : '',
+        bloodType: pregnancy.bloodType || '',
+        riskLevel: pregnancy.riskLevel || 'baixo',
+      }
+    });
+  };
 
   const handleAdd = async () => {
     setSaving(true);
@@ -2333,7 +2457,7 @@ function TabExames({ pregnancy, exams }: { pregnancy: Pregnancy; exams: Exam[] }
                             pregnancyId: pregnancy.id,
                             type: 'laudo',
                             title: `Laudo — ${examName}`,
-                            content: `Laudo de Exame Laboratorial\n\nPaciente: ${pregnancy.motherName}\nExame Realizado: ${examName}\nData da Realização: ${safeFormat(new Date(), "dd/MM/yyyy")}\n\nResultado:\n${resText}\n\nDocumento assinado digitalmente pelo sistema hospitalar.`,
+                            content: `Laudo de Exame Laboratorial\n\nPaciente: ${pregnancy.motherName}\nExame Realizado: ${examName}\nData da Realização: ${safeFormat(new Date(), "dd/MM/yyyy")}\n\nResultado:\n${resText}\n\nAssinatura Eletrônica:\nDr(a). ${userData?.name || pregnancy.doctorName}\nCRM: ${userData?.crm || 'Não informado'}\n${userData?.stampText || userData?.specialty || ''}`,
                             version: 1,
                             issuedBy: userData?.name || pregnancy.doctorName,
                             issuedById: userData?.uid || pregnancy.doctorId,
@@ -2369,19 +2493,47 @@ function TabExames({ pregnancy, exams }: { pregnancy: Pregnancy; exams: Exam[] }
                         🔓 Liberar Resultado
                       </button>
                     )}
-                    <button className="btn btn-secondary btn-sm" onClick={() => handleOpenEdit(ex)}>
-                      ✏️ Editar / Remarcar
-                    </button>
-                    <button className="btn btn-danger btn-sm" onClick={() => handleDeleteExam(ex.id, EXAM_LABELS[ex.type] || ex.type)} disabled={saving}>
-                      🗑️ Excluir
-                    </button>
+                      <button className="btn btn-secondary btn-sm" onClick={() => handleOpenEdit(ex)}>
+                        ✏️ Editar / Remarcar
+                      </button>
+                      <button className="btn btn-danger btn-sm" onClick={() => handleDeleteExam(ex.id, EXAM_LABELS[ex.type] || ex.type)} disabled={saving}>
+                        🗑️ Excluir
+                      </button>
+                    </div>
+                    {/* View Document Actions */}
+                    <div className="doc-card-actions" style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                      <button
+                        className="doc-action-btn doc-action-btn-primary"
+                        onClick={(e) => { e.stopPropagation(); handleViewPedido(ex, false); }}
+                        title="Ver Pedido de Exame"
+                        style={{ flex: 1, padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: '#e2e8f0', color: '#1e293b', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 600 }}
+                      >
+                        📄 Pedido
+                      </button>
+                      <button
+                        className="doc-action-btn doc-action-btn-primary"
+                        disabled={ex.status !== 'realizado'}
+                        onClick={(e) => { e.stopPropagation(); handleViewResultado(ex, false); }}
+                        title={ex.status === 'realizado' ? "Ver Resultado" : "Resultado pendente"}
+                        style={{
+                          flex: 1, padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                          background: ex.status === 'realizado' ? 'var(--clr-primary, #be185d)' : '#f1f5f9',
+                          color: ex.status === 'realizado' ? '#fff' : '#94a3b8',
+                          border: 'none', borderRadius: '4px',
+                          cursor: ex.status === 'realizado' ? 'pointer' : 'not-allowed',
+                          fontWeight: 600
+                        }}
+                      >
+                        🧪 Resultado
+                      </button>
+                    </div>
                   </div>
-                </div>
               ))}
             </div>
           )}
         </div>
       </div>
+      {pdfData && <DocViewerModal data={pdfData} onClose={() => setPdfData(null)} />}
     </div>
   );
 }
@@ -2391,6 +2543,53 @@ function TabUltrassom({ pregnancy, ultrasounds }: { pregnancy: Pregnancy; ultras
   const { userData } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pdfData, setPdfData] = useState<PDFData | null>(null);
+
+  const handleViewPedido = (item: any, isUltrasound: boolean) => {
+    const examName = isUltrasound ? (item.type || 'Ultrassonografia') : (EXAM_LABELS[item.type as ExamType] || item.type);
+    setPdfData({
+      type: 'solicitacao-exame',
+      title: `Solicitação de Exame — ${examName}`,
+      content: `Solicito a realização do seguinte exame:\n\n1. ${examName}\n\nJustificativa: Acompanhamento pré-natal de rotina.`,
+      patientName: pregnancy.motherName || '',
+      doctorName: item.requestedBy || pregnancy.doctorName || 'Médico Responsável',
+      doctorCrm: '',
+      doctorSpecialty: 'Médico Obstetra',
+      hospitalName: pregnancy.hospitalName || 'Hospital Nova Mater',
+      date: item.requestedAt ? item.requestedAt.toDate() : item.date ? item.date.toDate() : new Date(),
+      verificationCode: item.verificationCode || `NM-REQ-${item.id.slice(0, 5).toUpperCase()}`,
+      pregnancyData: {
+        gestationalWeeks: currentWeeks,
+        dum: pregnancy.dum ? format(toDate(pregnancy.dum), 'dd/MM/yyyy') : '',
+        dpp: pregnancy.expectedBirthDate ? format(toDate(pregnancy.expectedBirthDate), 'dd/MM/yyyy') : '',
+        bloodType: pregnancy.bloodType || '',
+        riskLevel: pregnancy.riskLevel || 'baixo',
+      }
+    });
+  };
+
+  const handleViewResultado = (item: any, isUltrasound: boolean) => {
+    const examName = isUltrasound ? (item.type || 'Ultrassonografia') : (EXAM_LABELS[item.type as ExamType] || item.type);
+    setPdfData({
+      type: 'laudo',
+      title: `Laudo — ${examName}`,
+      content: `Laudo de Exame Clínico\n\nPaciente: ${pregnancy.motherName || ''}\nExame: ${examName}\n\nResultado / Laudo:\n${item.result || 'Sem alterações clínicas dignas de nota.'}\n\n${item.conduct ? `Conduta Recomendada:\n${item.conduct}\n\n` : ''}Documento assinado digitalmente pelo sistema hospitalar.`,
+      patientName: pregnancy.motherName || '',
+      doctorName: item.requestedBy || item.performedBy || pregnancy.doctorName || 'Médico Responsável',
+      doctorCrm: '',
+      doctorSpecialty: 'Médico Obstetra',
+      hospitalName: pregnancy.hospitalName || 'Hospital Nova Mater',
+      date: item.actualDate ? item.actualDate.toDate() : item.date ? item.date.toDate() : new Date(),
+      verificationCode: item.verificationCode || `NM-RES-${item.id.slice(0, 5).toUpperCase()}`,
+      pregnancyData: {
+        gestationalWeeks: currentWeeks,
+        dum: pregnancy.dum ? format(toDate(pregnancy.dum), 'dd/MM/yyyy') : '',
+        dpp: pregnancy.expectedBirthDate ? format(toDate(pregnancy.expectedBirthDate), 'dd/MM/yyyy') : '',
+        bloodType: pregnancy.bloodType || '',
+        riskLevel: pregnancy.riskLevel || 'baixo',
+      }
+    });
+  };
   const currentMonth = currentGestationMonth(toDate(pregnancy.startDate), pregnancy.gestationPlan);
   const elapsedDays = (Date.now() - toDate(pregnancy.startDate).getTime()) / (1000 * 60 * 60 * 24);
   const currentWeeks = Math.max(0, Math.floor(elapsedDays / 7));
@@ -2775,7 +2974,7 @@ function TabUltrassom({ pregnancy, ultrasounds }: { pregnancy: Pregnancy; ultras
                             pregnancyId: pregnancy.id,
                             type: 'laudo',
                             title: `Laudo — ${examName}`,
-                            content: `Laudo de Exame de Imagem\n\nPaciente: ${pregnancy.motherName}\nExame Realizado: ${examName}\nData da Realização: ${safeFormat(new Date(), "dd/MM/yyyy")}\n\nResultado / Conclusão:\n${resText}\n\nDocumento assinado digitalmente pelo sistema hospitalar.`,
+                            content: `Laudo de Exame de Imagem\n\nPaciente: ${pregnancy.motherName}\nExame Realizado: ${examName}\nData da Realização: ${safeFormat(new Date(), "dd/MM/yyyy")}\n\nResultado / Conclusão:\n${resText}\n\nAssinatura Eletrônica:\nDr(a). ${userData?.name || pregnancy.doctorName}\nCRM: ${userData?.crm || 'Não informado'}\n${userData?.stampText || userData?.specialty || ''}`,
                             version: 1,
                             issuedBy: userData?.name || pregnancy.doctorName,
                             issuedById: userData?.uid || pregnancy.doctorId,
@@ -2818,12 +3017,40 @@ function TabUltrassom({ pregnancy, ultrasounds }: { pregnancy: Pregnancy; ultras
                       🗑️ Excluir
                     </button>
                   </div>
+                  {/* View Document Actions */}
+                  <div className="doc-card-actions" style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                    <button
+                      className="doc-action-btn doc-action-btn-primary"
+                      onClick={(e) => { e.stopPropagation(); handleViewPedido(us, true); }}
+                      title="Ver Pedido de Exame"
+                      style={{ flex: 1, padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: '#e2e8f0', color: '#1e293b', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      📄 Pedido
+                    </button>
+                    <button
+                      className="doc-action-btn doc-action-btn-primary"
+                      disabled={!(us as any).result}
+                      onClick={(e) => { e.stopPropagation(); handleViewResultado(us, true); }}
+                      title={us.result ? "Ver Resultado" : "Resultado pendente"}
+                      style={{
+                        flex: 1, padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                        background: us.result ? 'var(--clr-primary, #be185d)' : '#f1f5f9',
+                        color: us.result ? '#fff' : '#94a3b8',
+                        border: 'none', borderRadius: '4px',
+                        cursor: us.result ? 'pointer' : 'not-allowed',
+                        fontWeight: 600
+                      }}
+                    >
+                      🧪 Resultado
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </div>
       </div>
+      {pdfData && <DocViewerModal data={pdfData} onClose={() => setPdfData(null)} />}
     </div>
   );
 }
@@ -2853,6 +3080,23 @@ function TabMedicamentos({ pregnancy, medications }: { pregnancy: Pregnancy; med
         prescribedAt: serverTimestamp(),
         startDate: serverTimestamp(),
         active: true,
+      });
+
+      // GENERATE DOCUMENT
+      const verificationCode = `NM-${Date.now().toString(36).toUpperCase()}`;
+      const docContent = `RECEITUÁRIO GERAL DE GESTANTE\n\nPaciente: ${pregnancy.motherName}\n\nPrescrição:\n- ${form.name} ${form.dose}\n  Tomar: ${form.frequency}\n  Duração: ${form.duration || 'Uso contínuo'}\n  Instruções adicionais: ${form.instructions || 'Nenhuma'}\n\nFinalidade: Tratamento médico ${form.type === 'casa' ? 'domiciliar' : 'em consultório/emergência'}.\n\nAssinatura Eletrônica:\nDr(a). ${userData?.name || pregnancy.doctorName}\nCRM: ${userData?.crm || 'Não informado'}\n${userData?.stampText || userData?.specialty || ''}`;
+      await addDoc(collection(db, 'documents'), {
+        pregnancyId: pregnancy.id,
+        type: 'prescricao',
+        title: `Prescrição: ${form.name}`,
+        content: docContent,
+        version: 1,
+        issuedBy: userData?.name || pregnancy.doctorName,
+        issuedById: userData?.uid || pregnancy.doctorId || 'unknown',
+        issuedAt: serverTimestamp(),
+        verificationCode,
+        doctorCrm: userData?.crm || '',
+        doctorSpecialty: userData?.stampText || userData?.specialty || '',
       });
 
       // Audit Log

@@ -137,29 +137,29 @@ function getCatForDoc(type: string, title: string): string {
   const ti = (title || '').toLowerCase();
 
   // Internação e Parto
-  if (t === 'alta-hospitalar' || t === 'registro-parto') return 'internacao';
+  if (t === 'alta-hospitalar' || t === 'registro-parto' || t === 'internacao') return 'internacao';
   if (ti.includes('internação') || ti.includes('internacao')) return 'internacao';
 
   // Acompanhamento Obstétrico
-  if (t === 'declaracao-gestacional') return 'acompanhamento';
+  if (t === 'declaracao-gestacional' || t === 'orientacao' || t === 'alerta') return 'acompanhamento';
   if (
     ti.includes('amamentação') || ti.includes('amamentacao') ||
     ti.includes('sinais de alerta') ||
     ti.includes('confirmação de parto') || ti.includes('confirmacao de parto') ||
     ti.includes('registro obstétrico') || ti.includes('pré-natal') ||
-    ti.includes('sos') && (ti.includes('conduta') || ti.includes('encaminhamento'))
+    (ti.includes('sos') && (ti.includes('conduta') || ti.includes('encaminhamento')))
   ) return 'acompanhamento';
 
   // Declarações
   if (t === 'atestado' || t === 'declaracao-comparecimento') return 'declaracoes';
 
   // Laudos e Relatórios
-  if (t === 'laudo') return 'laudos';
-  if (t === 'encaminhamento') return 'laudos';
+  if (t === 'laudo' || t === 'comprovante-vacina' || t === 'ficha-atendimento' || t === 'sos-laudo') return 'laudos';
+  if (t === 'encaminhamento' || t === 'sos-encaminhamento') return 'laudos';
   if (ti.includes('avaliação sos') || ti.includes('avaliacao sos') || ti.includes('ficha de avaliação')) return 'laudos';
 
-  // Prescrições
-  if (t === 'receita' || t === 'prescricao') return 'prescricoes';
+  // Prescrições e Solicitações
+  if (t === 'receita' || t === 'prescricao' || t === 'sos-receita' || t === 'solicitacao-exame') return 'prescricoes';
 
   // Fallback
   return 'laudos';
@@ -168,12 +168,18 @@ function getCatForDoc(type: string, title: string): string {
 function getIconForDocType(type: string, title: string): React.FC<any> {
   const t = type.toLowerCase();
   const ti = (title || '').toLowerCase();
-  if (t === 'receita' || t === 'prescricao') return Pill;
-  if (t === 'laudo') return Stethoscope;
-  if (t === 'encaminhamento') return ClipboardList;
-  if (t === 'alta-hospitalar') return FileBadge2;
+  
+  if (t === 'receita' || t === 'prescricao' || t === 'sos-receita') return Pill;
+  if (t === 'solicitacao-exame') return FileText;
+  if (t === 'laudo' || t === 'ficha-atendimento' || t === 'sos-laudo') return Stethoscope;
+  if (t === 'comprovante-vacina') return HeartPulse;
+  if (t === 'encaminhamento' || t === 'sos-encaminhamento') return ClipboardList;
+  if (t === 'alta-hospitalar' || t === 'internacao') return FileBadge2;
   if (t === 'registro-parto') return Baby;
   if (t === 'atestado') return FileText;
+  if (t === 'orientacao') return FileText;
+  if (t === 'alerta') return HeartPulse;
+  
   if (ti.includes('sos')) return HeartPulse;
   return FileText;
 }
@@ -355,6 +361,7 @@ export default function DocumentsPage() {
     // 1. MedDocuments — include all, categorise properly
     documents.forEach((d: MedDocument) => {
       if (d.type === 'solicitacao-exame' || d.type === 'laudo') return;
+      if (d.type === 'receita' && d.title.toLowerCase().includes('solicitação de exame')) return; // Fix for legacy data
       result.push({
         id:          d.id,
         icon:        getIconForDocType(d.type, d.title),

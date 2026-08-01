@@ -89,6 +89,14 @@ const DOC_CONFIG: Record<string, { label: string; icon: string; color: string }>
   'encaminhamento':             { label: 'Encaminhamento Médico',        icon: '📨', color: '#0f766e' },
   'alta-hospitalar':            { label: 'Alta Hospitalar',              icon: '🏥', color: '#be185d' },
   'registro-parto':             { label: 'Registro de Parto',            icon: '🍼', color: '#be185d' },
+  'comprovante-vacina':         { label: 'Comprovante de Vacinação',     icon: '🛡️', color: '#0f766e' },
+  'ficha-atendimento':          { label: 'Ficha de Atendimento',         icon: '🩺', color: '#0369a1' },
+  'orientacao':                 { label: 'Guia de Orientação',           icon: '💡', color: '#ea580c' },
+  'alerta':                     { label: 'Sinais de Alerta',             icon: '🚨', color: '#dc2626' },
+  'internacao':                 { label: 'Guia de Internação',           icon: '🛏️', color: '#0284c7' },
+  'sos-receita':                { label: 'Prescrição SOS',               icon: '💊', color: '#dc2626' },
+  'sos-laudo':                  { label: 'Avaliação SOS',                icon: '📋', color: '#dc2626' },
+  'sos-encaminhamento':         { label: 'Conduta/Encaminhamento SOS',   icon: '🚑', color: '#dc2626' },
 };
 
 // ===================== SHARED CSS =====================
@@ -121,61 +129,71 @@ const DOCUMENT_CSS = `
 
   /* ====== HEADER ====== */
   .doc-header {
-    padding: 22px 28px 18px;
-    border-bottom: 3px solid var(--accent, #be185d);
+    padding: 30px 28px 24px;
+    background: linear-gradient(135deg, #be185d 0%, #9d174d 100%);
+    color: #ffffff;
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
     gap: 16px;
+    border-bottom: 5px solid #831843;
   }
 
   .doc-hospital-name {
-    font-size: 16pt;
+    font-size: 19pt;
     font-weight: 800;
-    color: var(--accent, #be185d);
-    letter-spacing: -0.02em;
+    color: #ffffff;
+    letter-spacing: -0.01em;
     line-height: 1.1;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
   }
 
   .doc-hospital-sub {
-    font-size: 8.5pt;
-    color: #6b7280;
-    font-weight: 500;
-    margin-top: 3px;
+    font-size: 9pt;
+    color: #fbcfe8;
+    font-weight: 600;
+    margin-top: 4px;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
   }
 
   .doc-type-block {
     text-align: right;
     flex-shrink: 0;
+    background: rgba(255,255,255,0.15);
+    padding: 12px 16px;
+    border-radius: 8px;
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255,255,255,0.2);
   }
 
   .doc-type-label {
     font-size: 13pt;
     font-weight: 800;
-    color: #111827;
+    color: #ffffff;
     line-height: 1.1;
+    margin-bottom: 6px;
   }
 
   .doc-type-date {
     font-size: 8.5pt;
-    color: #6b7280;
-    margin-top: 4px;
+    color: #fbcfe8;
     font-weight: 500;
   }
+
+
 
   /* ====== IDENTITY BAR ====== */
   .doc-identity {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0;
-    border-bottom: 1px solid #e5e7eb;
-    background: #fafafa;
+    border-bottom: 2px solid #e5e7eb;
+    background: #fdfdfd;
   }
 
   .doc-identity-block {
-    padding: 14px 24px;
+    padding: 16px 28px;
     border-right: 1px solid #e5e7eb;
   }
 
@@ -184,48 +202,50 @@ const DOCUMENT_CSS = `
   }
 
   .doc-identity-label {
-    font-size: 7.5pt;
-    font-weight: 700;
-    color: #9ca3af;
+    font-size: 8pt;
+    font-weight: 800;
+    color: var(--accent, #be185d);
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.12em;
     margin-bottom: 6px;
   }
 
   .doc-identity-name {
-    font-size: 11pt;
-    font-weight: 700;
-    color: #111827;
+    font-size: 12pt;
+    font-weight: 800;
+    color: #000000;
     margin-bottom: 3px;
   }
 
   .doc-identity-detail {
-    font-size: 8.5pt;
-    color: #6b7280;
+    font-size: 9pt;
+    color: #4b5563;
     line-height: 1.5;
+    font-weight: 500;
   }
 
   /* ====== BODY ====== */
   .doc-body {
-    padding: 22px 28px;
+    padding: 32px 28px;
     flex: 1;
   }
 
   .doc-section-title {
-    font-size: 8pt;
-    font-weight: 700;
-    color: #9ca3af;
+    font-size: 9pt;
+    font-weight: 800;
+    color: var(--accent, #be185d);
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    margin-bottom: 10px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid #f3f4f6;
+    letter-spacing: 0.12em;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #f3f4f6;
   }
 
   .doc-body p {
-    margin-bottom: 8px;
+    margin-bottom: 10px;
     line-height: 1.7;
-    color: #1f2937;
+    color: #000000;
+    font-size: 11pt;
   }
 
   .doc-body br { display: block; margin-bottom: 4px; }
@@ -390,6 +410,40 @@ const DOCUMENT_CSS = `
     font-style: italic;
   }
 
+  /* ====== LAB STAMP ====== */
+  .doc-lab-stamp {
+    position: absolute;
+    left: 40px;
+    bottom: -20px;
+    width: 120px;
+    height: 120px;
+    border: 3px solid rgba(3, 105, 161, 0.6);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: rotate(-15deg);
+    opacity: 0.85;
+    pointer-events: none;
+  }
+  .doc-lab-stamp-inner {
+    border: 1px dashed rgba(3, 105, 161, 0.5);
+    width: 108px;
+    height: 108px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-family: 'Courier New', monospace;
+    font-size: 7.5pt;
+    color: #0369a1;
+    font-weight: 700;
+    text-transform: uppercase;
+    line-height: 1.2;
+    padding: 10px;
+  }
+
   /* ====== FOOTER ====== */
   .doc-footer {
     padding: 14px 28px;
@@ -462,11 +516,22 @@ const DOCUMENT_CSS = `
 // ===================== SHARED BLOCKS =====================
 function buildHeader(data: PDFData): string {
   const cfg = DOC_CONFIG[data.type] || { label: esc(data.title), icon: '📄', color: '#be185d' };
+  
+  const logoSvg = `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z" fill="rgba(255,255,255,0.2)" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M12 16V12M12 8H12.01" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+
   return `
-    <div class="doc-header" style="--accent:${cfg.color}">
-      <div>
-        <div class="doc-hospital-name">${esc(data.hospitalName)}</div>
-        <div class="doc-hospital-sub">Centro de Obstetrícia · Sistema Nova Mater</div>
+    <div class="doc-header">
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <div style="background: rgba(255,255,255,0.2); border-radius: 50%; padding: 8px; display:flex; align-items:center; justify-content:center; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+          ${logoSvg}
+        </div>
+        <div>
+          <div class="doc-hospital-name">NOVA MATER</div>
+          <div class="doc-hospital-sub">Maternidade & Centro Obstétrico</div>
+        </div>
       </div>
       <div class="doc-type-block">
         <div class="doc-type-label">${esc(cfg.label)}</div>
@@ -515,8 +580,21 @@ function buildIdentity(data: PDFData): string {
 function buildSignature(data: PDFData): string {
   const crm  = data.pregnancyData?.doctorCrm    || data.doctorCrm    || '';
   const spec = data.pregnancyData?.doctorSpecialty || data.doctorSpecialty || 'Médico Obstetra';
+  
+  let labStamp = '';
+  if (data.type === 'laudo' || data.title.toLowerCase().includes('resultado')) {
+    labStamp = `
+      <div class="doc-lab-stamp">
+        <div class="doc-lab-stamp-inner">
+          LIBERADO POR<br>DR. MÁRCIO SOUZA<br>BIOMÉDICO<br>CRBM 8372
+        </div>
+      </div>
+    `;
+  }
+
   return `
-    <div class="doc-signature">
+    <div class="doc-signature" style="position: relative;">
+      ${labStamp}
       <div class="doc-signature-inner">
         <div class="doc-signature-line"></div>
         <div class="doc-signature-name">${esc(data.doctorName)}</div>
