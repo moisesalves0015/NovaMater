@@ -300,7 +300,7 @@ export default function DocumentsPage() {
   // Re-render tick to keep countdowns updated
   const [tick, setTick] = useState(0);
   useEffect(() => {
-    const interval = setInterval(() => setTick(t => t + 1), 5000);
+    const interval = setInterval(() => setTick(t => t + 1), 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -694,8 +694,13 @@ export default function DocumentsPage() {
                                   const releaseDate = toDate(releaseTime);
                                   const diffMs = releaseDate.getTime() - Date.now();
                                   if (diffMs > 0) {
-                                    const minsLeft = Math.ceil(diffMs / 60000);
-                                    countdownText = `Resultado em liberação: ${minsLeft} min`;
+                                    if (diffMs > 60000) {
+                                      const minsLeft = Math.ceil(diffMs / 60000);
+                                      countdownText = `Resultado em liberação: ${minsLeft} min`;
+                                    } else {
+                                      const secsLeft = Math.ceil(diffMs / 1000);
+                                      countdownText = `Resultado em liberação: ${secsLeft}s`;
+                                    }
                                   } else {
                                     isReleased = true;
                                   }
@@ -766,11 +771,6 @@ export default function DocumentsPage() {
                                         {validityText}
                                       </div>
                                     )}
-                                    {countdownText && (
-                                      <div className="doc-card-meta-item" style={{ color: '#0284c7', fontWeight: 600 }}>
-                                        ⏰ {countdownText}
-                                      </div>
-                                    )}
                                   </div>
 
                                   {/* Standard Doc Actions */}
@@ -802,12 +802,12 @@ export default function DocumentsPage() {
 
                                   {/* Exam request/result combined actions */}
                                   {doc.examRaw && (
-                                    <div className="doc-card-actions" style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                                    <div className="doc-card-actions" style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
                                       <button
                                         className="doc-action-btn doc-action-btn-primary"
                                         onClick={(e) => { e.stopPropagation(); handleViewPedido(doc.examRaw, isUltrasound); }}
                                         title="Ver Pedido de Exame"
-                                        style={{ flex: 1, padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                                        style={{ flex: '1 1 110px', padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
                                       >
                                         📄 Pedido
                                       </button>
@@ -815,22 +815,30 @@ export default function DocumentsPage() {
                                         className="doc-action-btn doc-action-btn-primary"
                                         disabled={!isReleased}
                                         onClick={(e) => { e.stopPropagation(); handleViewResultado(doc.examRaw, isUltrasound); }}
-                                        title={isReleased ? "Ver Resultado" : "Resultado em processamento"}
+                                        title={isReleased ? "Ver Resultado" : (countdownText || "Resultado em processamento")}
                                         style={{
-                                          flex: 1,
+                                          flex: isReleased ? '1 1 110px' : '1.6 1 180px',
                                           padding: '6px 12px',
                                           fontSize: '0.78rem',
                                           display: 'flex',
                                           alignItems: 'center',
                                           justifyContent: 'center',
                                           gap: 6,
-                                          background: isReleased ? 'var(--clr-primary, #be185d)' : '#e2e8f0',
-                                          color: isReleased ? '#fff' : '#94a3b8',
-                                          border: 'none',
-                                          cursor: isReleased ? 'pointer' : 'not-allowed'
+                                          background: isReleased ? 'var(--clr-primary, #be185d)' : '#f1f5f9',
+                                          color: isReleased ? '#fff' : '#475569',
+                                          border: isReleased ? 'none' : '1px solid #cbd5e1',
+                                          cursor: isReleased ? 'pointer' : 'not-allowed',
+                                          fontWeight: isReleased ? 600 : 500,
+                                          transition: 'all 0.2s ease',
                                         }}
                                       >
-                                        🧪 Resultado
+                                        {isReleased ? (
+                                          '🧪 Resultado'
+                                        ) : isRealizado && countdownText ? (
+                                          `⏳ ${countdownText}`
+                                        ) : (
+                                          '🧪 Resultado'
+                                        )}
                                       </button>
                                     </div>
                                   )}
